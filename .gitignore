@@ -1,0 +1,37 @@
+# Virtual environment
+ledgerit/
+
+# Training artifacts
+results/
+dataset/
+logs/
+
+# Scripts not needed for deployment
+cellProcessor.py
+predict_and_clean.py
+train_classifier.py
+
+# Temp / runtime files
+latticePDF/
+cellJSON/
+infoJSON/
+output/
+final_output.json
+info_rows.json
+*.pdf
+*.pt
+*.pth
+*.bin
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.env
+*.egg-info/
+dist/
+build/
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+  <meta charset="UTF-8" />
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  />
+
+  <title>LedgerIT</title>
+
+  <style>
+
+    :root {
+
+      --bg: #f4f7fb;
+      --surface: #ffffff;
+
+      --primary: #2563eb;
+      --primary-dark: #1d4ed8;
+
+      --text: #0f172a;
+      --text-muted: #64748b;
+
+      --border: #dbe3ef;
+
+      --shadow: 0 10px 30px rgba(15,23,42,0.06);
+    }
+
+    [data-theme="dark"] {
+
+      --bg: #0f172a;
+
+      --surface: #111827;
+
+      --primary: #3b82f6;
+      --primary-dark: #2563eb;
+
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+
+      --border: #1e293b;
+
+      --shadow: 0 10px 30px rgba(0,0,0,0.4);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+
+      font-family: Inter, sans-serif;
+
+      background: var(--bg);
+
+      color: var(--text);
+
+      min-height: 100vh;
+
+      transition:
+        background 0.25s ease,
+        color 0.25s ease;
+    }
+
+    header {
+
+      background: var(--surface);
+
+      border-bottom: 1px solid var(--border);
+
+      padding: 20px 40px;
+
+      display: flex;
+
+      justify-content: space-between;
+
+      align-items: center;
+    }
+
+    .logo {
+
+      font-size: 1.2rem;
+
+      font-weight: 700;
+    }
+
+    .theme-toggle {
+
+      border: 1px solid var(--border);
+
+      background: var(--surface);
+
+      color: var(--text);
+
+      padding: 10px 14px;
+
+      border-radius: 12px;
+
+      cursor: pointer;
+
+      font-size: 0.9rem;
+
+      transition: 0.2s ease;
+    }
+
+    .theme-toggle:hover {
+
+      background: rgba(37,99,235,0.08);
+    }
+
+    main {
+
+      width: 100%;
+
+      min-height: calc(100vh - 80px);
+
+      display: flex;
+
+      align-items: center;
+
+      justify-content: center;
+
+      padding: 40px;
+    }
+
+    .upload-card {
+
+      width: 100%;
+
+      max-width: 720px;
+
+      background: var(--surface);
+
+      border-radius: 24px;
+
+      padding: 40px;
+
+      box-shadow: var(--shadow);
+
+      border: 1px solid var(--border);
+
+      transition:
+        background 0.25s ease,
+        border 0.25s ease;
+    }
+
+    .upload-title {
+
+      font-size: 1.8rem;
+
+      font-weight: 700;
+
+      margin-bottom: 10px;
+    }
+
+    .upload-subtitle {
+
+      color: var(--text-muted);
+
+      margin-bottom: 32px;
+
+      line-height: 1.6;
+    }
+
+    .upload-area {
+
+      border: 2px dashed var(--primary);
+
+      border-radius: 18px;
+
+      padding: 60px 30px;
+
+      text-align: center;
+
+      cursor: pointer;
+
+      position: relative;
+
+      transition: 0.25s ease;
+    }
+
+    .upload-area:hover {
+
+      background: rgba(37,99,235,0.06);
+    }
+
+    .upload-area input {
+
+      position: absolute;
+
+      inset: 0;
+
+      opacity: 0;
+
+      width: 100%;
+
+      height: 100%;
+
+      cursor: pointer;
+    }
+
+    .upload-icon {
+
+      font-size: 3rem;
+
+      margin-bottom: 14px;
+    }
+
+    .upload-text {
+
+      font-size: 1rem;
+
+      color: var(--text-muted);
+    }
+
+    .file-name {
+
+      margin-top: 14px;
+
+      color: var(--primary);
+
+      font-weight: 600;
+    }
+
+    .password-row {
+
+      display: none;
+
+      margin-top: 20px;
+    }
+
+    .password-row.visible {
+
+      display: block;
+    }
+
+    .password-row input {
+
+      width: 100%;
+
+      padding: 14px 16px;
+
+      border-radius: 12px;
+
+      border: 1px solid var(--border);
+
+      background: var(--surface);
+
+      color: var(--text);
+
+      font-size: 0.95rem;
+    }
+
+    .actions {
+
+      margin-top: 24px;
+    }
+
+    .btn {
+
+      width: 100%;
+
+      border: none;
+
+      background: var(--primary);
+
+      color: white;
+
+      padding: 16px;
+
+      border-radius: 14px;
+
+      font-size: 1rem;
+
+      font-weight: 600;
+
+      cursor: pointer;
+
+      transition: 0.2s ease;
+    }
+
+    .btn:hover {
+
+      background: var(--primary-dark);
+    }
+
+    .btn:disabled {
+
+      opacity: 0.5;
+
+      cursor: not-allowed;
+    }
+
+    .status {
+
+      margin-top: 18px;
+
+      font-size: 0.95rem;
+
+      color: var(--text-muted);
+    }
+
+    .status.error {
+
+      color: #ef4444;
+    }
+
+    .spinner {
+
+      display: inline-block;
+
+      width: 16px;
+
+      height: 16px;
+
+      border: 2px solid #64748b;
+
+      border-top-color: var(--primary);
+
+      border-radius: 50%;
+
+      animation: spin 0.8s linear infinite;
+
+      vertical-align: middle;
+
+      margin-right: 8px;
+    }
+
+    @keyframes spin {
+
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+  </style>
+
+</head>
+
+<body>
+
+<header>
+
+  <div class="logo">
+    LedgerIT
+  </div>
+
+  <button
+    class="theme-toggle"
+    onclick="toggleTheme()"
+    id="themeBtn"
+  >
+    🌙 Dark
+  </button>
+
+</header>
+
+<main>
+
+  <div class="upload-card">
+
+    <div class="upload-title">
+      Convert Bank Statements
+    </div>
+
+    <div class="upload-subtitle">
+      Upload a bank statement PDF to extract structured transaction data.
+    </div>
+
+    <div class="upload-area">
+
+      <input
+        type="file"
+        id="pdfInput"
+        accept=".pdf"
+        onchange="onFileChange(event)"
+      />
+
+      <div class="upload-icon">
+        📄
+      </div>
+
+      <div class="upload-text">
+        Click or drag & drop your PDF
+      </div>
+
+      <div
+        class="file-name"
+        id="fileName"
+      ></div>
+
+    </div>
+
+    <div
+      class="password-row"
+      id="passwordRow"
+    >
+
+      <input
+        type="password"
+        id="passwordInput"
+        placeholder="Enter PDF password"
+      />
+
+    </div>
+
+    <div class="actions">
+
+      <button
+        class="btn"
+        id="processBtn"
+        onclick="processFile()"
+        disabled
+      >
+        Process PDF
+      </button>
+
+    </div>
+
+    <div
+      class="status"
+      id="status"
+    ></div>
+
+  </div>
+
+</main>
+
+<script>
+
+  initializeTheme();
+
+  function initializeTheme() {
+
+    const savedTheme =
+      localStorage.getItem("theme") || "light";
+
+    document.documentElement.setAttribute(
+      "data-theme",
+      savedTheme
+    );
+
+    updateThemeButton(savedTheme);
+  }
+
+  function toggleTheme() {
+
+    const current =
+      document.documentElement.getAttribute("data-theme");
+
+    const next =
+      current === "dark"
+      ? "light"
+      : "dark";
+
+    document.documentElement.setAttribute(
+      "data-theme",
+      next
+    );
+
+    localStorage.setItem("theme", next);
+
+    updateThemeButton(next);
+  }
+
+  function updateThemeButton(theme) {
+
+    document.getElementById("themeBtn").textContent =
+      theme === "dark"
+      ? "Light"
+      : "Dark";
+  }
+
+  function onFileChange(e) {
+
+    const file = e.target.files[0];
+
+    if (!file) return;
+
+    document.getElementById("fileName").textContent =
+      file.name;
+
+    document.getElementById("processBtn").disabled = false;
+
+    document.getElementById("status").textContent = "";
+
+    document.getElementById("passwordRow")
+      .classList.remove("visible");
+  }
+
+  async function processFile() {
+
+    const fileInput =
+      document.getElementById("pdfInput");
+
+    const file = fileInput.files[0];
+
+    if (!file) return;
+
+    const password =
+      document.getElementById("passwordInput").value;
+
+    const formData = new FormData();
+
+    formData.append("pdf", file);
+
+    if (password) {
+      formData.append("password", password);
+    }
+
+    setStatus(
+      '<span class="spinner"></span>Processing PDF...',
+      false
+    );
+
+    document.getElementById("processBtn").disabled = true;
+
+    try {
+
+      const res = await fetch("/process", {
+        method: "POST",
+        body: formData
+      });
+
+      const result = await res.json();
+
+      if (result.error === "PASSWORD_REQUIRED") {
+
+        document.getElementById("passwordRow")
+          .classList.add("visible");
+
+        setStatus("PDF is password protected.", true);
+
+        document.getElementById("processBtn").disabled = false;
+
+        return;
+      }
+
+      if (result.error === "WRONG_PASSWORD") {
+
+        setStatus("Wrong password.", true);
+
+        document.getElementById("processBtn").disabled = false;
+
+        return;
+      }
+
+      if (result.error) {
+
+        setStatus(result.error, true);
+
+        document.getElementById("processBtn").disabled = false;
+
+        return;
+      }
+
+      sessionStorage.setItem(
+        "transactions",
+        JSON.stringify(result)
+      );
+
+      sessionStorage.setItem(
+        "pdfName",
+        file.name.replace(/\.pdf$/i, "")
+      );
+
+      window.location.href = "/results.html";
+
+    } catch (err) {
+
+      setStatus(err.message, true);
+
+      document.getElementById("processBtn").disabled = false;
+    }
+  }
+
+  function setStatus(msg, isError) {
+
+    const el = document.getElementById("status");
+
+    el.innerHTML = msg;
+
+    el.className =
+      "status" + (isError ? " error" : "");
+  }
+
+</script>
+
+</body>
+</html>

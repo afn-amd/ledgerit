@@ -1,0 +1,1030 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+  <meta charset="UTF-8" />
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  />
+
+  <title>Extracted Transactions</title>
+
+  <style>
+
+    :root {
+
+      --bg: #f4f7fb;
+
+      --surface: #ffffff;
+
+      --primary: #2563eb;
+
+      --primary-dark: #1d4ed8;
+
+      --text: #0f172a;
+
+      --text-muted: #64748b;
+
+      --border: #dbe3ef;
+
+      --shadow: 0 10px 30px rgba(15,23,42,0.06);
+
+      --header-bg: #2563eb;
+    }
+
+    [data-theme="dark"] {
+
+      --bg: #0f172a;
+
+      --surface: #111827;
+
+      --primary: #3b82f6;
+
+      --primary-dark: #2563eb;
+
+      --text: #f1f5f9;
+
+      --text-muted: #94a3b8;
+
+      --border: #1e293b;
+
+      --shadow: 0 10px 30px rgba(0,0,0,0.45);
+
+      --header-bg: #1d4ed8;
+    }
+
+    * {
+
+      margin: 0;
+
+      padding: 0;
+
+      box-sizing: border-box;
+    }
+
+    body {
+
+      font-family: Inter, sans-serif;
+
+      background: var(--bg);
+
+      color: var(--text);
+
+      transition:
+        background 0.25s ease,
+        color 0.25s ease;
+    }
+
+    .container {
+
+      width: 100%;
+
+      min-height: 100vh;
+
+      padding: 24px;
+    }
+
+    .topbar {
+
+      display: flex;
+
+      justify-content: space-between;
+
+      align-items: center;
+
+      gap: 20px;
+
+      flex-wrap: wrap;
+
+      margin-bottom: 24px;
+    }
+
+    .title {
+
+      font-size: 1.5rem;
+
+      font-weight: 700;
+    }
+
+    .actions {
+
+      display: flex;
+
+      gap: 12px;
+
+      flex-wrap: wrap;
+    }
+
+    .btn {
+
+      border: none;
+
+      background: var(--primary);
+
+      color: white;
+
+      padding: 12px 18px;
+
+      border-radius: 12px;
+
+      font-size: 0.92rem;
+
+      font-weight: 600;
+
+      cursor: pointer;
+
+      transition: 0.2s ease;
+    }
+
+    .btn:hover {
+
+      background: var(--primary-dark);
+    }
+
+    .theme-btn {
+
+      background: var(--surface);
+
+      color: var(--text);
+
+      border: 1px solid var(--border);
+    }
+
+    .theme-btn:hover {
+
+      background: rgba(37,99,235,0.08);
+    }
+
+    .table-container {
+
+      background: var(--surface);
+
+      border-radius: 22px;
+
+      overflow: hidden;
+
+      border: 1px solid var(--border);
+
+      box-shadow: var(--shadow);
+
+      transition:
+        background 0.25s ease,
+        border 0.25s ease;
+    }
+
+    table {
+
+      width: 100%;
+
+      border-collapse: collapse;
+
+      table-layout: fixed;
+    }
+
+    thead th {
+
+      position: sticky;
+
+      top: 0;
+
+      z-index: 10;
+
+      background: var(--header-bg);
+
+      color: white;
+
+      padding: 16px;
+
+      text-align: left;
+
+      font-size: 0.88rem;
+
+      font-weight: 600;
+
+      letter-spacing: 0.02em;
+    }
+
+    tbody td {
+
+      padding: 15px 16px;
+
+      border-bottom: 1px solid var(--border);
+
+      font-size: 0.88rem;
+
+      line-height: 1.55;
+
+      vertical-align: top;
+
+      word-break: break-word;
+
+      white-space: normal;
+    }
+
+    tbody tr:nth-child(even) {
+
+      background: rgba(37,99,235,0.03);
+    }
+
+    tbody tr:hover {
+
+      background: rgba(37,99,235,0.08);
+    }
+
+    tbody tr:last-child td {
+
+      border-bottom: none;
+    }
+
+    .empty-state {
+
+      padding: 80px 20px;
+
+      text-align: center;
+
+      color: var(--text-muted);
+    }
+
+    @media (max-width: 900px) {
+
+      .container {
+
+        padding: 16px;
+      }
+
+      thead th,
+      tbody td {
+
+        padding: 12px;
+      }
+
+      .title {
+
+        font-size: 1.2rem;
+      }
+
+      .actions {
+
+        width: 100%;
+      }
+
+      .btn {
+
+        flex: 1;
+      }
+    }
+
+  </style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+  <div class="topbar">
+
+    <div
+      class="title"
+      id="title"
+    >
+      Extracted Transactions
+    </div>
+
+    <div class="actions">
+
+      <button
+        class="btn"
+        onclick="downloadXML()"
+      >
+        Download XML
+      </button>
+
+      <button
+        class="btn"
+        onclick="downloadCSV()"
+      >
+        Download CSV
+      </button>
+
+      <button
+        class="btn theme-btn"
+        onclick="toggleTheme()"
+        id="themeBtn"
+      >
+        🌙 Dark
+      </button>
+
+    </div>
+
+  </div>
+
+  <div class="table-container">
+
+    <table id="dataTable">
+
+      <thead id="tableHead"></thead>
+
+      <tbody id="tableBody"></tbody>
+
+    </table>
+
+    <div
+      class="empty-state"
+      id="emptyState"
+      style="display:none"
+    >
+      No transaction data found.
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+
+  initializeTheme();
+
+  // Convert a filename-style string into a Tally-style camelCase ledger
+  // identifier. "Axis_Bank" -> "axisBank", "Yes Bank 2" -> "yesBank2".
+  // Hoisted to module scope so both the input pre-fill below and the
+  // downloadXML fallback can share the same rule.
+  function toCamel(name) {
+
+    const parts = String(name || "")
+      .replace(/\.pdf$/i, "")
+      .split(/[_\s\-\.]+/)
+      .filter(Boolean);
+
+    if (parts.length === 0) return "bankAccount";
+
+    return parts[0].toLowerCase() + parts.slice(1)
+      .map(p => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase())
+      .join("");
+  }
+
+  const stored =
+    JSON.parse(
+      sessionStorage.getItem("transactions")
+    );
+
+  const pdfName =
+    sessionStorage.getItem("pdfName") || "transactions";
+
+  // Shared helper used by both Download XML and Download CSV. Pops up a
+  // browser prompt asking the user for the bank name; pre-fills it with
+  // a camelCase suggestion derived from the PDF filename, which the user
+  // can accept (just press OK) or overwrite. Returns the trimmed bank
+  // name, or null if the user cancelled or left it blank — callers must
+  // abort their download when null is returned.
+  function askBankName() {
+
+    const suggestion = toCamel(pdfName);
+
+    const input = prompt("Bank Name", suggestion);
+
+    if (input === null) return null;   // user clicked Cancel
+
+    const trimmed = input.trim();
+
+    if (!trimmed) {
+
+      alert("Bank name is required.");
+
+      return null;
+    }
+
+    return trimmed;
+  }
+
+  if (
+    !stored ||
+    !stored.data ||
+    stored.data.length === 0
+  ) {
+
+    document.getElementById("dataTable")
+      .style.display = "none";
+
+    document.getElementById("emptyState")
+      .style.display = "block";
+
+  } else {
+
+    const headers = stored.headers;
+
+    const data = stored.data;
+
+    document.getElementById("title").textContent =
+      `Extracted Transactions (${data.length} rows)`;
+
+    document.getElementById("tableHead").innerHTML =
+
+      "<tr>" +
+
+      headers.map(
+        h => `<th>${h}</th>`
+      ).join("") +
+
+      "</tr>";
+
+    document.getElementById("tableBody").innerHTML =
+
+      data.map(row =>
+
+        "<tr>" +
+
+        headers.map(h =>
+
+          `<td>${row[h] ?? ""}</td>`
+
+        ).join("") +
+
+        "</tr>"
+
+      ).join("");
+  }
+
+  function initializeTheme() {
+
+    const savedTheme =
+      localStorage.getItem("theme") || "light";
+
+    document.documentElement.setAttribute(
+      "data-theme",
+      savedTheme
+    );
+
+    updateThemeButton(savedTheme);
+  }
+
+  function toggleTheme() {
+
+    const current =
+      document.documentElement.getAttribute("data-theme");
+
+    const next =
+      current === "dark"
+      ? "light"
+      : "dark";
+
+    document.documentElement.setAttribute(
+      "data-theme",
+      next
+    );
+
+    localStorage.setItem("theme", next);
+
+    updateThemeButton(next);
+  }
+
+  function updateThemeButton(theme) {
+
+    document.getElementById("themeBtn").textContent =
+
+      theme === "dark"
+      ? "Light"
+      : "Dark";
+  }
+
+  function downloadXML() {
+
+    if (!stored || !stored.data) return;
+
+    const headers = stored.headers;
+    const data = stored.data;
+
+    // Ask the user for the bank name via a popup. If they cancel or
+    // leave it blank, abort the download — every voucher needs a real
+    // ledger identifier in <PARTYLEDGERNAME>.
+    const bankName = askBankName();
+    if (!bankName) return;
+
+    const esc = v => String(v ?? "")
+      // strip ASCII control chars (Tally rejects most of these in text nodes)
+      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, "")
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+    // Walk patterns in priority order; first pattern that matches any
+    // header wins. Earlier behaviour (headers.find -> names.some) walked
+    // headers first, which meant a "Value Date" column would shadow
+    // "Transaction Date" even when the latter was preferred.
+    const findCol = (...patterns) => {
+      for (const p of patterns) {
+        const hit = headers.find(h =>
+          String(h).toLowerCase().includes(p.toLowerCase()));
+        if (hit) return hit;
+      }
+      return null;
+    };
+
+    const dateCol    = findCol("tran date", "transaction date", "txn date", "post date", "value date", "date");
+    const narCol     = findCol("narration", "particulars", "description", "details", "remarks");
+
+    // Two possible layouts. Try the dual-column model first
+    // ("Withdrawals/Deposits" or "Debit/Credit" — Yes Bank, HDFC, SBI…).
+    let debitCol   = findCol("withdrawal", "debit", "dr amount", "dr amt");
+    let creditCol  = findCol("deposit",    "credit", "cr amount", "cr amt");
+
+    // If dual-column failed, try the single-amount + direction-flag model
+    // ("Amount (INR)" + "DR/CR" — Axis Bank, some ICICI exports).
+    let amountCol = null;
+    let flagCol   = null;
+    if (!debitCol || !creditCol) {
+      amountCol = findCol("amount", "amt", "transaction amount");
+      flagCol   = findCol("dr/cr", "cr/dr", "type", "txn type", "transaction type");
+      if (amountCol && flagCol) {
+        // Single-amount mode wins — null out the half-detected dual cols
+        // so the voucher loop picks the right branch.
+        debitCol = null;
+        creditCol = null;
+      } else {
+        amountCol = null;
+        flagCol = null;
+      }
+    }
+
+    const toTallyDate = raw => {
+      if (!raw) return "";
+      const s = String(raw).trim();
+      const parts = s.split(/[\-\/\.]/);
+      if (parts.length === 3) {
+        const [a, b, c] = parts;
+        if (a.length === 4) return `${a}${b.padStart(2,"0")}${c.padStart(2,"0")}`;
+        if (c.length === 4) return `${c}${b.padStart(2,"0")}${a.padStart(2,"0")}`;
+      }
+      return s.replace(/\D/g, "");
+    };
+
+    const parseAmt = raw => {
+      const n = parseFloat(String(raw ?? "").replace(/[^0-9.\-]/g, ""));
+      return isNaN(n) ? 0 : n;
+    };
+
+    const emptyLists = `
+                                        <SERVICETAXDETAILS.LIST></SERVICETAXDETAILS.LIST>
+                                        <BANKALLOCATIONS.LIST></BANKALLOCATIONS.LIST>
+                                        <BILLALLOCATIONS.LIST></BILLALLOCATIONS.LIST>
+                                        <INTERESTCOLLECTION.LIST></INTERESTCOLLECTION.LIST>
+                                        <OLDAUDITENTRIES.LIST></OLDAUDITENTRIES.LIST>
+                                        <ACCOUNTAUDITENTRIES.LIST></ACCOUNTAUDITENTRIES.LIST>
+                                        <AUDITENTRIES.LIST></AUDITENTRIES.LIST>
+                                        <INPUTCRALLOCS.LIST></INPUTCRALLOCS.LIST>
+                                        <DUTYHEADDETAILS.LIST></DUTYHEADDETAILS.LIST>
+                                        <EXCISEDUTYHEADDETAILS.LIST></EXCISEDUTYHEADDETAILS.LIST>
+                                        <RATEDETAILS.LIST></RATEDETAILS.LIST>
+                                        <SUMMARYALLOCS.LIST></SUMMARYALLOCS.LIST>
+                                        <STPYMTDETAILS.LIST></STPYMTDETAILS.LIST>
+                                        <EXCISEPAYMENTALLOCATIONS.LIST></EXCISEPAYMENTALLOCATIONS.LIST>
+                                        <TAXBILLALLOCATIONS.LIST></TAXBILLALLOCATIONS.LIST>
+                                        <TAXOBJECTALLOCATIONS.LIST></TAXOBJECTALLOCATIONS.LIST>
+                                        <TDSEXPENSEALLOCATIONS.LIST></TDSEXPENSEALLOCATIONS.LIST>
+                                        <VATSTATUTORYDETAILS.LIST></VATSTATUTORYDETAILS.LIST>
+                                        <COSTTRACKALLOCATIONS.LIST></COSTTRACKALLOCATIONS.LIST>
+                                        <REFVOUCHERDETAILS.LIST></REFVOUCHERDETAILS.LIST>
+                                        <INVOICEWISEDETAILS.LIST></INVOICEWISEDETAILS.LIST>
+                                        <VATITCDETAILS.LIST></VATITCDETAILS.LIST>
+                                        <ADVANCETAXDETAILS.LIST></ADVANCETAXDETAILS.LIST>`;
+
+    const voucherLists = `
+                                    <EWAYBILLDETAILS.LIST></EWAYBILLDETAILS.LIST>
+                                    <EXCLUDEDTAXATIONS.LIST></EXCLUDEDTAXATIONS.LIST>
+                                    <OLDAUDITENTRIES.LIST></OLDAUDITENTRIES.LIST>
+                                    <ACCOUNTAUDITENTRIES.LIST></ACCOUNTAUDITENTRIES.LIST>
+                                    <AUDITENTRIES.LIST></AUDITENTRIES.LIST>
+                                    <DUTYHEADDETAILS.LIST></DUTYHEADDETAILS.LIST>
+                                    <SUPPLEMENTARYDUTYHEADDETAILS.LIST></SUPPLEMENTARYDUTYHEADDETAILS.LIST>
+                                    <EWAYBILLERRORLIST.LIST></EWAYBILLERRORLIST.LIST>
+                                    <IRNERRORLIST.LIST></IRNERRORLIST.LIST>
+                                    <INVOICEDELNOTES.LIST></INVOICEDELNOTES.LIST>
+                                    <INVOICEORDERLIST.LIST></INVOICEORDERLIST.LIST>
+                                    <INVOICEINDENTLIST.LIST></INVOICEINDENTLIST.LIST>
+                                    <ATTENDANCEENTRIES.LIST></ATTENDANCEENTRIES.LIST>
+                                    <ORIGINVOICEDETAILS.LIST></ORIGINVOICEDETAILS.LIST>
+                                    <INVOICEEXPORTLIST.LIST></INVOICEEXPORTLIST.LIST>`;
+
+    const voucherFooter = `
+                                    <PAYROLLMODEOFPAYMENT.LIST></PAYROLLMODEOFPAYMENT.LIST>
+                                    <ATTDRECORDS.LIST></ATTDRECORDS.LIST>
+                                    <GSTEWAYCONSIGNORADDRESS.LIST></GSTEWAYCONSIGNORADDRESS.LIST>
+                                    <GSTEWAYCONSIGNEEADDRESS.LIST></GSTEWAYCONSIGNEEADDRESS.LIST>
+                                    <TEMPGSTRATEDETAILS.LIST></TEMPGSTRATEDETAILS.LIST>`;
+
+    const makeLedgerEntry = (ledgerName, amount, isParty, isDeemedPositive, date, bankName, withBankAlloc) => {
+      const amtStr = amount.toFixed(2);
+      const deemedPos = isDeemedPositive ? "Yes" : "No";
+      const lastDeemed = isDeemedPositive ? "Yes" : "No";
+      const isPartyStr = isParty ? "Yes" : "No";
+
+      let bankAlloc = `<BANKALLOCATIONS.LIST></BANKALLOCATIONS.LIST>`;
+      if (withBankAlloc) {
+        bankAlloc = `<BANKALLOCATIONS.LIST>
+                                            <DATE>${date}</DATE>
+                                            <INSTRUMENTDATE>${date}</INSTRUMENTDATE>
+                                            <PAYMENTFAVOURING>Suspense</PAYMENTFAVOURING>
+                                            <TRANSACTIONTYPE>Cheque</TRANSACTIONTYPE>
+                                            <STATUS>No</STATUS>
+                                            <PAYMENTMODE>Transacted</PAYMENTMODE>
+                                            <BANKPARTYNAME>Suspense</BANKPARTYNAME>
+                                            <ISCONNECTEDPAYMENT>No</ISCONNECTEDPAYMENT>
+                                            <ISSPLIT>No</ISSPLIT>
+                                            <ISCONTRACTUSED>No</ISCONTRACTUSED>
+                                            <ISACCEPTEDWITHWARNING>No</ISACCEPTEDWITHWARNING>
+                                            <ISTRANSFORCED>No</ISTRANSFORCED>
+                                            <AMOUNT>${amtStr}</AMOUNT>
+                                            <CONTRACTDETAILS.LIST></CONTRACTDETAILS.LIST>
+                                            <BANKSTATUSINFO.LIST></BANKSTATUSINFO.LIST>
+                                        </BANKALLOCATIONS.LIST>`;
+      }
+
+      return `
+                                    <ALLLEDGERENTRIES.LIST>
+                                        <LEDGERNAME>${esc(ledgerName)}</LEDGERNAME>
+                                        <GSTCLASS />
+                                        <ISDEEMEDPOSITIVE>${deemedPos}</ISDEEMEDPOSITIVE>
+                                        <LEDGERFROMITEM>No</LEDGERFROMITEM>
+                                        <REMOVEZEROENTRIES>No</REMOVEZEROENTRIES>
+                                        <ISPARTYLEDGER>${isPartyStr}</ISPARTYLEDGER>
+                                        <ISLASTDEEMEDPOSITIVE>${lastDeemed}</ISLASTDEEMEDPOSITIVE>
+                                        <ISCAPVATTAXALTERED>No</ISCAPVATTAXALTERED>
+                                        <ISCAPVATNOTCLAIMED>No</ISCAPVATNOTCLAIMED>
+                                        <AMOUNT>${amtStr}</AMOUNT>
+                                        <SERVICETAXDETAILS.LIST></SERVICETAXDETAILS.LIST>
+                                        ${bankAlloc}
+                                        <BILLALLOCATIONS.LIST></BILLALLOCATIONS.LIST>
+                                        <INTERESTCOLLECTION.LIST></INTERESTCOLLECTION.LIST>
+                                        <OLDAUDITENTRIES.LIST></OLDAUDITENTRIES.LIST>
+                                        <ACCOUNTAUDITENTRIES.LIST></ACCOUNTAUDITENTRIES.LIST>
+                                        <AUDITENTRIES.LIST></AUDITENTRIES.LIST>
+                                        <INPUTCRALLOCS.LIST></INPUTCRALLOCS.LIST>
+                                        <DUTYHEADDETAILS.LIST></DUTYHEADDETAILS.LIST>
+                                        <EXCISEDUTYHEADDETAILS.LIST></EXCISEDUTYHEADDETAILS.LIST>
+                                        <RATEDETAILS.LIST></RATEDETAILS.LIST>
+                                        <SUMMARYALLOCS.LIST></SUMMARYALLOCS.LIST>
+                                        <STPYMTDETAILS.LIST></STPYMTDETAILS.LIST>
+                                        <EXCISEPAYMENTALLOCATIONS.LIST></EXCISEPAYMENTALLOCATIONS.LIST>
+                                        <TAXBILLALLOCATIONS.LIST></TAXBILLALLOCATIONS.LIST>
+                                        <TAXOBJECTALLOCATIONS.LIST></TAXOBJECTALLOCATIONS.LIST>
+                                        <TDSEXPENSEALLOCATIONS.LIST></TDSEXPENSEALLOCATIONS.LIST>
+                                        <VATSTATUTORYDETAILS.LIST></VATSTATUTORYDETAILS.LIST>
+                                        <COSTTRACKALLOCATIONS.LIST></COSTTRACKALLOCATIONS.LIST>
+                                        <REFVOUCHERDETAILS.LIST></REFVOUCHERDETAILS.LIST>
+                                        <INVOICEWISEDETAILS.LIST></INVOICEWISEDETAILS.LIST>
+                                        <VATITCDETAILS.LIST></VATITCDETAILS.LIST>
+                                        <ADVANCETAXDETAILS.LIST></ADVANCETAXDETAILS.LIST>
+                                    </ALLLEDGERENTRIES.LIST>`;
+    };
+
+    const makeVoucher = (vchType, date, narration, suspenseAmt, bankAmt, bankName) => {
+      // Reference rule: ISDEEMEDPOSITIVE = "Yes" iff AMOUNT < 0.
+      // (Negative AMOUNT is Tally's internal storage for a debit posting;
+      // the deemed-positive flag tells Tally "treat this leg as a debit".)
+      // Earlier code used `amount > 0`, which inverted both legs.
+      const suspenseLedger = makeLedgerEntry(
+        "Suspense", suspenseAmt,
+        false, suspenseAmt < 0,
+        date, bankName, false
+      );
+      const bankLedger = makeLedgerEntry(
+        bankName, bankAmt,
+        true, bankAmt < 0,
+        date, bankName, true
+      );
+
+      return `
+            <TALLYMESSAGE xmlns:UDF="TallyUDF">
+                <VOUCHER VCHTYPE="${vchType}" ACTION="Create" OBJVIEW="Accounting Voucher View">
+                    <DATE>${date}</DATE>
+                    <VOUCHERTYPENAME>${vchType}</VOUCHERTYPENAME>
+                    <NARRATION>${esc(narration)}</NARRATION>
+                    <PARTYLEDGERNAME>${esc(bankName)}</PARTYLEDGERNAME>
+                    <CSTFORMISSUETYPE />
+                    <CSTFORMRECVTYPE />
+                    <FBTPAYMENTTYPE>Default</FBTPAYMENTTYPE>
+                    <PERSISTEDVIEW>Accounting Voucher View</PERSISTEDVIEW>
+                    <VCHGSTCLASS />
+                    <DIFFACTUALQTY>No</DIFFACTUALQTY>
+                    <ISMSTFROMSYNC>No</ISMSTFROMSYNC>
+                    <ISDELETED>No</ISDELETED>
+                    <ISSECURITYONWHENENTERED>No</ISSECURITYONWHENENTERED>
+                    <ASORIGINAL>No</ASORIGINAL>
+                    <AUDITED>No</AUDITED>
+                    <FORJOBCOSTING>No</FORJOBCOSTING>
+                    <ISOPTIONAL>No</ISOPTIONAL>
+                    <EFFECTIVEDATE>${date}</EFFECTIVEDATE>
+                    <USEFOREXCISE>No</USEFOREXCISE>
+                    <ISFORJOBWORKIN>No</ISFORJOBWORKIN>
+                    <ALLOWCONSUMPTION>No</ALLOWCONSUMPTION>
+                    <USEFORINTEREST>No</USEFORINTEREST>
+                    <USEFORGAINLOSS>No</USEFORGAINLOSS>
+                    <USEFORGODOWNTRANSFER>No</USEFORGODOWNTRANSFER>
+                    <USEFORCOMPOUND>No</USEFORCOMPOUND>
+                    <USEFORSERVICETAX>No</USEFORSERVICETAX>
+                    <ISONHOLD>No</ISONHOLD>
+                    <ISBOENOTAPPLICABLE>No</ISBOENOTAPPLICABLE>
+                    <ISGSTSECSEVENAPPLICABLE>No</ISGSTSECSEVENAPPLICABLE>
+                    <ISEXCISEVOUCHER>No</ISEXCISEVOUCHER>
+                    <EXCISETAXOVERRIDE>No</EXCISETAXOVERRIDE>
+                    <USEFORTAXUNITTRANSFER>No</USEFORTAXUNITTRANSFER>
+                    <IGNOREPOSVALIDATION>No</IGNOREPOSVALIDATION>
+                    <EXCISEOPENING>No</EXCISEOPENING>
+                    <USEFORFINALPRODUCTION>No</USEFORFINALPRODUCTION>
+                    <ISTDSOVERRIDDEN>No</ISTDSOVERRIDDEN>
+                    <ISTCSOVERRIDDEN>No</ISTCSOVERRIDDEN>
+                    <ISTDSTCSCASHVCH>No</ISTDSTCSCASHVCH>
+                    <INCLUDEADVPYMTVCH>No</INCLUDEADVPYMTVCH>
+                    <ISSUBWORKSCONTRACT>No</ISSUBWORKSCONTRACT>
+                    <ISVATOVERRIDDEN>No</ISVATOVERRIDDEN>
+                    <IGNOREORIGVCHDATE>No</IGNOREORIGVCHDATE>
+                    <ISVATPAIDATCUSTOMS>No</ISVATPAIDATCUSTOMS>
+                    <ISDECLAREDTOCUSTOMS>No</ISDECLAREDTOCUSTOMS>
+                    <ISSERVICETAXOVERRIDDEN>No</ISSERVICETAXOVERRIDDEN>
+                    <ISISDVOUCHER>No</ISISDVOUCHER>
+                    <ISEXCISEOVERRIDDEN>No</ISEXCISEOVERRIDDEN>
+                    <ISEXCISESUPPLYVCH>No</ISEXCISESUPPLYVCH>
+                    <ISGSTOVERRIDDEN>No</ISGSTOVERRIDDEN>
+                    <GSTNOTEXPORTED>No</GSTNOTEXPORTED>
+                    <IGNOREGSTINVALIDATION>No</IGNOREGSTINVALIDATION>
+                    <ISGSTREFUND>No</ISGSTREFUND>
+                    <OVRDNEWAYBILLAPPLICABILITY>No</OVRDNEWAYBILLAPPLICABILITY>
+                    <ISVATPRINCIPALACCOUNT>No</ISVATPRINCIPALACCOUNT>
+                    <IGNOREEINVVALIDATION>No</IGNOREEINVVALIDATION>
+                    <IRNJSONEXPORTED>No</IRNJSONEXPORTED>
+                    <IRNCANCELLED>No</IRNCANCELLED>
+                    <ISSHIPPINGWITHINSTATE>No</ISSHIPPINGWITHINSTATE>
+                    <ISOVERSEASTOURISTTRANS>No</ISOVERSEASTOURISTTRANS>
+                    <ISDESIGNATEDZONEPARTY>No</ISDESIGNATEDZONEPARTY>
+                    <ISCANCELLED>No</ISCANCELLED>
+                    <HASCASHFLOW>Yes</HASCASHFLOW>
+                    <ISPOSTDATED>No</ISPOSTDATED>
+                    <USETRACKINGNUMBER>No</USETRACKINGNUMBER>
+                    <ISINVOICE>No</ISINVOICE>
+                    <MFGJOURNAL>No</MFGJOURNAL>
+                    <HASDISCOUNTS>No</HASDISCOUNTS>
+                    <ASPAYSLIP>No</ASPAYSLIP>
+                    <ISCOSTCENTRE>No</ISCOSTCENTRE>
+                    <ISSTXNONREALIZEDVCH>No</ISSTXNONREALIZEDVCH>
+                    <ISEXCISEMANUFACTURERON>No</ISEXCISEMANUFACTURERON>
+                    <ISBLANKCHEQUE>No</ISBLANKCHEQUE>
+                    <ISVOID>No</ISVOID>
+                    <ORDERLINESTATUS>No</ORDERLINESTATUS>
+                    <VATISAGNSTCANCSALES>No</VATISAGNSTCANCSALES>
+                    <VATISPURCEXEMPTED>No</VATISPURCEXEMPTED>
+                    <ISVATRESTAXINVOICE>No</ISVATRESTAXINVOICE>
+                    <VATISASSESABLECALCVCH>No</VATISASSESABLECALCVCH>
+                    <ISVATDUTYPAID>Yes</ISVATDUTYPAID>
+                    <ISDELIVERYSAMEASCONSIGNEE>No</ISDELIVERYSAMEASCONSIGNEE>
+                    <ISDISPATCHSAMEASCONSIGNOR>No</ISDISPATCHSAMEASCONSIGNOR>
+                    <ISDELETEDVCHRETAINED>No</ISDELETEDVCHRETAINED>
+                    <CHANGEVCHMODE>No</CHANGEVCHMODE>
+                    <RESETIRNQRCODE>No</RESETIRNQRCODE>${voucherLists}${suspenseLedger}${bankLedger}${voucherFooter}
+                </VOUCHER>
+            </TALLYMESSAGE>`;
+    };
+
+    // Full Suspense LEDGER master block, mirroring the reference Axis/Yes
+    // Bank XMLs field-for-field. Most flags are defaulted to "No" — Tally
+    // will fall back to its own defaults if omitted, but keeping the full
+    // set means the import behaves identically across Tally versions.
+    const suspenseLedgerBlock = `
+            <TALLYMESSAGE xmlns:UDF="TallyUDF">
+                <LEDGER NAME="Suspense" RESERVEDNAME="">
+                    <CURRENCYNAME>&#8377;</CURRENCYNAME>
+                    <PARENT>Suspense A/c</PARENT>
+                    <TAXCLASSIFICATIONNAME/>
+                    <TAXTYPE>Others</TAXTYPE>
+                    <LEDADDLALLOCTYPE/>
+                    <GSTTYPE/>
+                    <APPROPRIATEFOR/>
+                    <SERVICECATEGORY>&#4; Not Applicable</SERVICECATEGORY>
+                    <EXCISELEDGERCLASSIFICATION/>
+                    <EXCISEDUTYTYPE/>
+                    <EXCISENATUREOFPURCHASE/>
+                    <LEDGERFBTCATEGORY/>
+                    <BANKACCHOLDERNAME>${esc(bankName)}</BANKACCHOLDERNAME>
+                    <ISBILLWISEON>No</ISBILLWISEON>
+                    <ISCOSTCENTRESON>No</ISCOSTCENTRESON>
+                    <ISINTERESTON>No</ISINTERESTON>
+                    <ALLOWINMOBILE>No</ALLOWINMOBILE>
+                    <ISCOSTTRACKINGON>No</ISCOSTTRACKINGON>
+                    <ISBENEFICIARYCODEON>No</ISBENEFICIARYCODEON>
+                    <ISEXPORTONVCHCREATE>No</ISEXPORTONVCHCREATE>
+                    <PLASINCOMEEXPENSE>No</PLASINCOMEEXPENSE>
+                    <ISUPDATINGTARGETID>No</ISUPDATINGTARGETID>
+                    <ISDELETED>No</ISDELETED>
+                    <ISSECURITYONWHENENTERED>No</ISSECURITYONWHENENTERED>
+                    <ASORIGINAL>Yes</ASORIGINAL>
+                    <ISCONDENSED>No</ISCONDENSED>
+                    <AFFECTSSTOCK>No</AFFECTSSTOCK>
+                    <ISRATEINCLUSIVEVAT>No</ISRATEINCLUSIVEVAT>
+                    <FORPAYROLL>No</FORPAYROLL>
+                    <ISABCENABLED>No</ISABCENABLED>
+                    <ISCREDITDAYSCHKON>No</ISCREDITDAYSCHKON>
+                    <INTERESTONBILLWISE>No</INTERESTONBILLWISE>
+                    <OVERRIDEINTEREST>No</OVERRIDEINTEREST>
+                    <OVERRIDEADVINTEREST>No</OVERRIDEADVINTEREST>
+                    <USEFORVAT>No</USEFORVAT>
+                    <IGNORETDSEXEMPT>No</IGNORETDSEXEMPT>
+                    <ISTCSAPPLICABLE>No</ISTCSAPPLICABLE>
+                    <ISTDSAPPLICABLE>No</ISTDSAPPLICABLE>
+                    <ISFBTAPPLICABLE>No</ISFBTAPPLICABLE>
+                    <ISGSTAPPLICABLE>No</ISGSTAPPLICABLE>
+                    <ISEXCISEAPPLICABLE>No</ISEXCISEAPPLICABLE>
+                    <ISTDSEXPENSE>No</ISTDSEXPENSE>
+                    <ISEDLIAPPLICABLE>No</ISEDLIAPPLICABLE>
+                    <ISRELATEDPARTY>No</ISRELATEDPARTY>
+                    <USEFORESIELIGIBILITY>No</USEFORESIELIGIBILITY>
+                    <ISINTERESTINCLLASTDAY>No</ISINTERESTINCLLASTDAY>
+                    <APPROPRIATETAXVALUE>No</APPROPRIATETAXVALUE>
+                    <ISBEHAVEASDUTY>No</ISBEHAVEASDUTY>
+                    <INTERESTINCLDAYOFADDITION>No</INTERESTINCLDAYOFADDITION>
+                    <INTERESTINCLDAYOFDEDUCTION>No</INTERESTINCLDAYOFDEDUCTION>
+                    <ISOTHTERRITORYASSESSEE>No</ISOTHTERRITORYASSESSEE>
+                    <IGNOREMISMATCHWITHWARNING>No</IGNOREMISMATCHWITHWARNING>
+                    <USEASNOTIONALBANK>No</USEASNOTIONALBANK>
+                    <OVERRIDECREDITLIMIT>No</OVERRIDECREDITLIMIT>
+                    <ISAGAINSTFORMC>No</ISAGAINSTFORMC>
+                    <ISCHEQUEPRINTINGENABLED>Yes</ISCHEQUEPRINTINGENABLED>
+                    <ISPAYUPLOAD>No</ISPAYUPLOAD>
+                    <ISPAYBATCHONLYSAL>No</ISPAYBATCHONLYSAL>
+                    <ISBNFCODESUPPORTED>No</ISBNFCODESUPPORTED>
+                    <ALLOWEXPORTWITHERRORS>No</ALLOWEXPORTWITHERRORS>
+                    <CONSIDERPURCHASEFOREXPORT>No</CONSIDERPURCHASEFOREXPORT>
+                    <ISTRANSPORTER>No</ISTRANSPORTER>
+                    <USEFORNOTIONALITC>No</USEFORNOTIONALITC>
+                    <ISECOMMOPERATOR>No</ISECOMMOPERATOR>
+                    <OVERRIDEBASEDONREALIZATION>No</OVERRIDEBASEDONREALIZATION>
+                    <SHOWINPAYSLIP>No</SHOWINPAYSLIP>
+                    <USEFORGRATUITY>No</USEFORGRATUITY>
+                    <ISTDSPROJECTED>No</ISTDSPROJECTED>
+                    <FORSERVICETAX>No</FORSERVICETAX>
+                    <ISINPUTCREDIT>No</ISINPUTCREDIT>
+                    <ISEXEMPTED>No</ISEXEMPTED>
+                    <ISABATEMENTAPPLICABLE>No</ISABATEMENTAPPLICABLE>
+                    <ISSTXPARTY>No</ISSTXPARTY>
+                    <ISSTXNONREALIZEDTYPE>No</ISSTXNONREALIZEDTYPE>
+                    <ISUSEDFORCVD>No</ISUSEDFORCVD>
+                    <LEDBELONGSTONONTAXABLE>No</LEDBELONGSTONONTAXABLE>
+                    <ISEXCISEMERCHANTEXPORTER>No</ISEXCISEMERCHANTEXPORTER>
+                    <ISPARTYEXEMPTED>No</ISPARTYEXEMPTED>
+                    <ISSEZPARTY>No</ISSEZPARTY>
+                    <TDSDEDUCTEEISSPECIALRATE>No</TDSDEDUCTEEISSPECIALRATE>
+                    <ISECHEQUESUPPORTED>No</ISECHEQUESUPPORTED>
+                    <ISEDDSUPPORTED>No</ISEDDSUPPORTED>
+                    <ISEBANKINGENABLED>No</ISEBANKINGENABLED>
+                    <ISEXPORTFILEENCRYPTED>No</ISEXPORTFILEENCRYPTED>
+                    <ISBATCHENABLED>No</ISBATCHENABLED>
+                    <ISPRODUCTCODEBASED>No</ISPRODUCTCODEBASED>
+                    <LANGUAGENAME.LIST>
+                        <NAME.LIST TYPE="String">
+                            <NAME>Suspense</NAME>
+                        </NAME.LIST>
+                        <LANGUAGEID> 1033</LANGUAGEID>
+                    </LANGUAGENAME.LIST>
+                </LEDGER>
+            </TALLYMESSAGE>`;
+
+    // Sort rows oldest-first so Tally's running balance builds correctly
+    // on import. The reference Yes Bank XML deliberately reverses the
+    // PDF (which is newest-first) into ascending order; this mirrors
+    // that behaviour regardless of how the upstream classifier ordered
+    // them. Rows with unparseable dates fall to the bottom.
+    const sortedData = [...data].sort((a, b) => {
+      const da = toTallyDate(dateCol ? a[dateCol] : "") || "99999999";
+      const db = toTallyDate(dateCol ? b[dateCol] : "") || "99999999";
+      return da.localeCompare(db);
+    });
+
+    const vouchers = sortedData.map(row => {
+      const date = toTallyDate(dateCol ? row[dateCol] : "");
+      const narration = (narCol ? String(row[narCol] || "") : "").trim();
+
+      let debit = 0, credit = 0;
+
+      if (debitCol && creditCol) {
+        // Dual-column layout: separate Debit and Credit cells, one is filled
+        debit  = parseAmt(row[debitCol]);
+        credit = parseAmt(row[creditCol]);
+      } else if (amountCol && flagCol) {
+        // Single-amount + flag layout: one Amount cell + a DR/CR flag cell.
+        // Normalise the flag, ignore signs in the amount.
+        const amt = Math.abs(parseAmt(row[amountCol]));
+        const flag = String(row[flagCol] || "").toUpperCase().trim();
+        if (/\bDR\b|DEBIT|WITH/.test(flag))       debit = amt;
+        else if (/\bCR\b|CREDIT|DEP/.test(flag))  credit = amt;
+      }
+
+      // Skip rows with no usable date or no amount on either side.
+      if (!date || (debit <= 0 && credit <= 0)) return "";
+
+      if (credit > 0) {
+        // Money in (CR/Deposit): Receipt voucher.
+        //   Suspense leg  AMOUNT = +X  (credit posting)
+        //   Bank leg      AMOUNT = -X  (debit posting; bank balance up)
+        return makeVoucher("Receipt", date, narration, credit, -credit, bankName);
+      } else {
+        // Money out (DR/Withdrawal): Payment voucher.
+        //   Suspense leg  AMOUNT = -X  (debit posting)
+        //   Bank leg      AMOUNT = +X  (credit posting; bank balance down)
+        return makeVoucher("Payment", date, narration, -debit, debit, bankName);
+      }
+    }).filter(Boolean);
+
+    // Fail loudly if column detection couldn't produce any vouchers.
+    // Silently downloading an empty XML (Suspense master only, no vouchers)
+    // is worse than a clear error — the user can fix or report it.
+    if (vouchers.length === 0) {
+      const diag =
+        "No vouchers could be generated from this statement.\n\n" +
+        "Detected columns:\n" +
+        "  Date:       " + (dateCol   || "(NOT FOUND)") + "\n" +
+        "  Narration:  " + (narCol    || "(NOT FOUND)") + "\n" +
+        "  Debit:      " + (debitCol  || "(NOT FOUND)") + "\n" +
+        "  Credit:     " + (creditCol || "(NOT FOUND)") + "\n" +
+        "  Amount:     " + (amountCol || "(NOT FOUND)") + "\n" +
+        "  DR/CR flag: " + (flagCol   || "(NOT FOUND)") + "\n\n" +
+        "Available headers in your data:\n  " + headers.join(" | ");
+      console.warn("[downloadXML] " + diag);
+      console.warn("[downloadXML] First row:", sortedData[0]);
+      alert(diag);
+      return;
+    }
+
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<ENVELOPE>
+    <HEADER>
+        <TALLYREQUEST>Import Data</TALLYREQUEST>
+    </HEADER>
+    <BODY>
+        <IMPORTDATA>
+            <REQUESTDESC>
+                <REPORTNAME>All Masters</REPORTNAME>
+                <STATICVARIABLES>
+                </STATICVARIABLES>
+            </REQUESTDESC>
+            <REQUESTDATA>${suspenseLedgerBlock}${vouchers.join("")}
+            </REQUESTDATA>
+        </IMPORTDATA>
+    </BODY>
+</ENVELOPE>`;
+
+    const blob = new Blob([xml], { type: "application/xml" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `${pdfName}.xml`;
+    a.click();
+  }
+
+  function downloadCSV() {
+
+    if (!stored || !stored.data) return;
+
+    // Same prompt flow as XML — keeps the two downloads consistent.
+    // The CSV uses the bank name as the filename so the user can tell
+    // which bank's data each downloaded file belongs to.
+    const bankName = askBankName();
+    if (!bankName) return;
+
+    const headers = stored.headers;
+
+    const data = stored.data;
+
+    const csvRows = [];
+
+    csvRows.push(headers.join(","));
+
+    data.forEach(row => {
+
+      const values = headers.map(h =>
+
+        `"${String(row[h] ?? "")
+          .replace(/"/g, '""')}"`
+      );
+
+      csvRows.push(values.join(","));
+    });
+
+    const blob = new Blob(
+
+      [csvRows.join("\n")],
+
+      { type: "text/csv" }
+    );
+
+    const a = document.createElement("a");
+
+    a.href = URL.createObjectURL(blob);
+
+    // Sanitise the bank name for use as a filename — strip characters
+    // that some operating systems disallow in filenames.
+    a.download = `${bankName.replace(/[\\/:*?"<>|]/g, "_")}.csv`;
+
+    a.click();
+  }
+
+</script>
+
+</body>
+</html>
