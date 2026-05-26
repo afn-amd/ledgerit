@@ -1,0 +1,12 @@
+.git
+.gitignore
+.gitattributes
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+env/
+.DS_Store
+*.log
+requirements.txt
