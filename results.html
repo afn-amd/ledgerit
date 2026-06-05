@@ -508,19 +508,22 @@
       .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
     // Walk patterns in priority order; first pattern that matches any
-    // header wins. Earlier behaviour (headers.find -> names.some) walked
-    // headers first, which meant a "Value Date" column would shadow
-    // "Transaction Date" even when the latter was preferred.
+    // header wins. Whitespace is stripped from BOTH the pattern and the
+    // header before comparing, so "dr/cr" matches a "Dr / Cr" header and
+    // spacing/casing quirks across bank layouts no longer break detection.
     const findCol = (...patterns) => {
+      const norm = s => String(s).toLowerCase().replace(/\s+/g, "");
       for (const p of patterns) {
-        const hit = headers.find(h =>
-          String(h).toLowerCase().includes(p.toLowerCase()));
+        const np = norm(p);
+        const hit = headers.find(h => norm(h).includes(np));
         if (hit) return hit;
       }
       return null;
     };
 
-    const dateCol    = findCol("tran date", "transaction date", "txn date", "post date", "value date", "date");
+    // Date patterns include "trans"/"value" as a fallback for statements
+    // whose header got truncated upstream (e.g. "TRANS", "VALUE").
+    const dateCol    = findCol("tran date", "transaction date", "txn date", "post date", "value date", "date", "trans", "value");
     const narCol     = findCol("narration", "particulars", "description", "details", "remarks");
 
     // Two possible layouts. Try the dual-column model first
@@ -534,7 +537,7 @@
     let flagCol   = null;
     if (!debitCol || !creditCol) {
       amountCol = findCol("amount", "amt", "transaction amount");
-      flagCol   = findCol("dr/cr", "cr/dr", "type", "txn type", "transaction type");
+      flagCol   = findCol("dr / cr", "cr / dr", "dr/cr", "cr/dr", "drcr", "crdr", "type", "txn type", "transaction type");
       if (amountCol && flagCol) {
         // Single-amount mode wins — null out the half-detected dual cols
         // so the voucher loop picks the right branch.
@@ -549,12 +552,37 @@
     const toTallyDate = raw => {
       if (!raw) return "";
       const s = String(raw).trim();
+
+      const months = {
+        jan:"01", feb:"02", mar:"03", apr:"04", may:"05", jun:"06",
+        jul:"07", aug:"08", sep:"09", oct:"10", nov:"11", dec:"12"
+      };
+
+      // Branch A — a textual month is present anywhere in the string.
+      // Covers "May03, 2026" (day+month jammed), "01-MAR- 2024" (stray
+      // space), "03 May 2026", "03-May-2026", etc. We strip the month
+      // word first so its letters can't be mistaken for the day/year.
+      const monMatch = s.match(/[A-Za-z]{3,}/);
+      if (monMatch) {
+        const mm = months[monMatch[0].slice(0, 3).toLowerCase()];
+        if (mm) {
+          const rest = s.replace(monMatch[0], " ");
+          const y = rest.match(/\b(\d{4})\b/);   // 4-digit year
+          const d = rest.match(/\b(\d{1,2})\b/); // 1-2 digit day
+          if (y && d) return `${y[1]}${mm}${d[1].padStart(2, "0")}`;
+        }
+        return ""; // looked textual but couldn't be parsed
+      }
+
+      // Branch B — purely numeric / delimiter-separated dates:
+      // DD-MM-YYYY, YYYY/MM/DD, DD.MM.YYYY …
       const parts = s.split(/[\-\/\.]/);
       if (parts.length === 3) {
         const [a, b, c] = parts;
         if (a.length === 4) return `${a}${b.padStart(2,"0")}${c.padStart(2,"0")}`;
         if (c.length === 4) return `${c}${b.padStart(2,"0")}${a.padStart(2,"0")}`;
       }
+
       return s.replace(/\D/g, "");
     };
 
@@ -887,10 +915,7 @@
             </TALLYMESSAGE>`;
 
     // Sort rows oldest-first so Tally's running balance builds correctly
-    // on import. The reference Yes Bank XML deliberately reverses the
-    // PDF (which is newest-first) into ascending order; this mirrors
-    // that behaviour regardless of how the upstream classifier ordered
-    // them. Rows with unparseable dates fall to the bottom.
+    // on import. Rows with unparseable dates fall to the bottom.
     const sortedData = [...data].sort((a, b) => {
       const da = toTallyDate(dateCol ? a[dateCol] : "") || "99999999";
       const db = toTallyDate(dateCol ? b[dateCol] : "") || "99999999";
