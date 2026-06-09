@@ -279,6 +279,35 @@ def results_page():
     return send_from_directory(".", "results.html")
 
 
+@app.route("/register.html")
+def register_page():
+    return send_from_directory(".", "register.html")
+
+
+@app.route("/login.html")
+def login_page():
+    return send_from_directory(".", "login.html")
+
+
+@app.route("/contact.html")
+def contact_page():
+    return send_from_directory(".", "contact.html")
+
+
+@app.route("/contactus.html")
+def contactus_page():
+    return send_from_directory(".", "contactus.html")
+
+
+# Serve front-end assets (logos, favicon, etc.) from the assets/ folder only.
+# Scoping to "assets" means this route physically cannot reach app.py, the
+# model weights, or any other source file. send_from_directory also rejects
+# path-traversal attempts (e.g. ../app.py) on its own.
+@app.route("/assets/<path:filename>")
+def assets(filename):
+    return send_from_directory("assets", filename)
+
+
 @app.route("/process", methods=["POST"])
 def process():
 

@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Create your account — Ledgerit</title>
+
+  <link rel="icon" type="image/png" href="assets/favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    /* Palette shared with index.html / results.html */
+    :root {
+      --bg: #ffffff;
+      --bg-soft: #f6f8fc;
+      --bg-tint: #eef3fb;
+      --surface: #ffffff;
+      --primary: #2563eb;
+      --primary-dark: #1d4ed8;
+      --primary-soft: #e8effd;
+      --ink: #0b1220;
+      --ink-soft: #1e293b;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --green: #16a34a;
+      --danger: #dc2626;
+      --shadow: 0 12px 34px rgba(15,23,42,0.07);
+      --shadow-lg: 0 24px 60px rgba(15,23,42,0.12);
+    }
+
+    :root[data-theme="dark"] {
+      --bg: #090d18;
+      --bg-soft: #0f1424;
+      --bg-tint: #151b30;
+      --surface: #0f1526;
+      --primary: #3b82f6;
+      --primary-dark: #2563eb;
+      --primary-soft: #16213f;
+      --ink: #e9edf6;
+      --ink-soft: #c4cde0;
+      --muted: #8a96ac;
+      --border: #1f2840;
+      --green: #22c55e;
+      --danger: #f87171;
+      --shadow: 0 14px 38px rgba(0,0,0,0.5);
+      --shadow-lg: 0 24px 60px rgba(0,0,0,0.6);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: "Manrope", system-ui, sans-serif;
+      color: var(--ink);
+      min-height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+      padding: 32px 20px;
+      background:
+        radial-gradient(800px 400px at 80% -10%, rgba(37,99,235,0.10), transparent 60%),
+        radial-gradient(620px 340px at 10% 110%, rgba(37,99,235,0.07), transparent 55%),
+        var(--bg-soft);
+      -webkit-font-smoothing: antialiased;
+      transition: background 0.25s ease, color 0.25s ease;
+    }
+
+    .card {
+      width: 100%; max-width: 460px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      box-shadow: var(--shadow-lg);
+      padding: 44px 40px 36px;
+      position: relative;
+    }
+
+    .close-btn {
+      position: absolute; top: 18px; right: 18px;
+      width: 38px; height: 38px; border-radius: 11px;
+      display: grid; place-items: center; cursor: pointer;
+      background: var(--bg-tint); border: 1px solid var(--border);
+      color: var(--muted); text-decoration: none;
+      transition: background 0.16s, color 0.16s, border-color 0.16s;
+    }
+    .close-btn:hover { background: var(--primary-soft); color: var(--primary); border-color: var(--primary); }
+    .close-btn svg { width: 18px; height: 18px; }
+
+    .brand-badge {
+      width: 56px; height: 56px; border-radius: 16px; margin: 0 auto 22px;
+      background: var(--primary);
+      display: grid; place-items: center;
+      box-shadow: 0 10px 22px rgba(37,99,235,0.30);
+    }
+    .brand-badge img { width: 30px; height: 34px; object-fit: contain; }
+
+    h1 {
+      font-family: "Sora", sans-serif;
+      font-size: 1.7rem; font-weight: 800; letter-spacing: -0.02em;
+      text-align: center; color: var(--ink);
+    }
+    .sub {
+      text-align: center; color: var(--muted);
+      font-size: 0.98rem; margin-top: 8px; margin-bottom: 30px;
+    }
+
+    .field { margin-bottom: 18px; }
+    .field label {
+      display: block; font-size: 0.88rem; font-weight: 600;
+      color: var(--ink-soft); margin-bottom: 8px;
+    }
+    .input-wrap { position: relative; }
+    .field input {
+      width: 100%; padding: 14px 16px;
+      font-family: inherit; font-size: 0.97rem; color: var(--ink);
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 13px; transition: border-color 0.16s, box-shadow 0.16s;
+    }
+    .field input::placeholder { color: var(--muted); opacity: 0.8; }
+    .field input:focus {
+      outline: none; border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(37,99,235,0.15);
+    }
+    /* phone field: fixed +91 prefix */
+    .phone-wrap { display: flex; align-items: stretch; }
+    .phone-prefix {
+      display: flex; align-items: center; padding: 0 14px;
+      background: var(--bg-tint); border: 1px solid var(--border);
+      border-right: none; border-radius: 13px 0 0 13px;
+      font-size: 0.97rem; font-weight: 600; color: var(--ink-soft);
+    }
+    .phone-wrap input {
+      border-radius: 0 13px 13px 0; flex: 1;
+    }
+
+    .toggle-pass {
+      position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+      background: none; border: none; cursor: pointer; padding: 6px;
+      color: var(--muted); display: grid; place-items: center;
+    }
+    .toggle-pass:hover { color: var(--ink-soft); }
+
+    .err {
+      color: var(--danger); font-size: 0.82rem; margin-top: 6px;
+      display: none;
+    }
+    .err.show { display: block; }
+
+    .btn-submit {
+      width: 100%; margin-top: 8px; padding: 15px;
+      font-family: "Manrope", sans-serif; font-size: 1rem; font-weight: 700;
+      color: #fff; background: var(--primary); border: none;
+      border-radius: 14px; cursor: pointer;
+      box-shadow: 0 10px 22px rgba(37,99,235,0.26);
+      transition: background 0.18s, transform 0.18s;
+    }
+    .btn-submit:hover { background: var(--primary-dark); transform: translateY(-1px); }
+    .btn-submit:active { transform: translateY(0); }
+
+    .signin-row {
+      text-align: center; margin-top: 22px;
+      font-size: 0.94rem; color: var(--muted);
+    }
+    .signin-row a {
+      color: var(--primary); font-weight: 700; text-decoration: none;
+      cursor: pointer;
+    }
+    .signin-row a:hover { text-decoration: underline; }
+
+    @media (max-width: 480px) {
+      .card { padding: 36px 26px 30px; border-radius: 20px; }
+      h1 { font-size: 1.5rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <a href="/" class="close-btn" aria-label="Close and return to home">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </a>
+    <div class="brand-badge">
+      <img src="assets/logo-mark-white.png" alt="Ledgerit" />
+    </div>
+
+    <h1>Create your account</h1>
+    <p class="sub">Start with 100 free pages — no credit card needed</p>
+
+    <form id="registerForm" novalidate>
+      <div class="field">
+        <label for="fullName">Full name</label>
+        <input type="text" id="fullName" placeholder="Your name" autocomplete="name" />
+        <div class="err" id="errName">Please enter your name.</div>
+      </div>
+
+      <div class="field">
+        <label for="mobile">Mobile number</label>
+        <div class="phone-wrap">
+          <span class="phone-prefix">+91</span>
+          <input type="tel" id="mobile" placeholder="10-digit mobile number"
+                 inputmode="numeric" maxlength="10" autocomplete="tel" />
+        </div>
+        <div class="err" id="errMobile">Enter a valid 10-digit mobile number.</div>
+      </div>
+
+      <div class="field">
+        <label for="password">Password</label>
+        <div class="input-wrap">
+          <input type="password" id="password" placeholder="Min. 8 characters" autocomplete="new-password" />
+          <button type="button" class="toggle-pass" id="togglePass" aria-label="Show password">
+            <svg id="eyeIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+        <div class="err" id="errPass">Password must be at least 8 characters.</div>
+      </div>
+
+      <button type="submit" class="btn-submit">Create account</button>
+    </form>
+
+    <div class="signin-row">
+      Already have an account? <a href="/login.html">Sign in</a>
+    </div>
+  </div>
+
+  <script>
+    // Match the theme chosen on the landing page (shared localStorage key).
+    (function () {
+      try {
+        var t = localStorage.getItem("theme") || "light";
+        document.documentElement.setAttribute("data-theme", t);
+      } catch (e) {
+        document.documentElement.setAttribute("data-theme", "light");
+      }
+    })();
+
+    // Mobile field: digits only.
+    var mobile = document.getElementById("mobile");
+    mobile.addEventListener("input", function () {
+      this.value = this.value.replace(/\D/g, "").slice(0, 10);
+    });
+
+    // Show / hide password.
+    var pass = document.getElementById("password");
+    var toggle = document.getElementById("togglePass");
+    var eye = document.getElementById("eyeIcon");
+    toggle.addEventListener("click", function () {
+      var hidden = pass.type === "password";
+      pass.type = hidden ? "text" : "password";
+      toggle.setAttribute("aria-label", hidden ? "Hide password" : "Show password");
+      eye.innerHTML = hidden
+        ? '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>'
+        : '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+    });
+
+    function showErr(id, show) {
+      document.getElementById(id).classList.toggle("show", show);
+    }
+
+    // On submit: validate, then redirect to the landing page.
+    document.getElementById("registerForm").addEventListener("submit", function (e) {
+      e.preventDefault();
+
+      var name = document.getElementById("fullName").value.trim();
+      var phone = mobile.value.trim();
+      var pwd = pass.value;
+
+      var okName = name.length > 0;
+      var okPhone = /^\d{10}$/.test(phone);
+      var okPwd = pwd.length >= 8;
+
+      showErr("errName", !okName);
+      showErr("errMobile", !okPhone);
+      showErr("errPass", !okPwd);
+
+      if (okName && okPhone && okPwd) {
+        // Account creation backend not wired yet — redirect to landing page.
+        window.location.href = "/";
+      }
+    });
+  </script>
+
+</body>
+</html>

@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Contact Sales — Ledgerit</title>
+
+  <link rel="icon" type="image/png" href="assets/favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    /* Palette shared with index.html / results.html / register.html / login.html */
+    :root {
+      --bg: #ffffff;
+      --bg-soft: #f6f8fc;
+      --bg-tint: #eef3fb;
+      --surface: #ffffff;
+      --primary: #2563eb;
+      --primary-dark: #1d4ed8;
+      --primary-soft: #e8effd;
+      --ink: #0b1220;
+      --ink-soft: #1e293b;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --green: #16a34a;
+      --danger: #dc2626;
+      --shadow: 0 12px 34px rgba(15,23,42,0.07);
+      --shadow-lg: 0 24px 60px rgba(15,23,42,0.12);
+    }
+
+    :root[data-theme="dark"] {
+      --bg: #090d18;
+      --bg-soft: #0f1424;
+      --bg-tint: #151b30;
+      --surface: #0f1526;
+      --primary: #3b82f6;
+      --primary-dark: #2563eb;
+      --primary-soft: #16213f;
+      --ink: #e9edf6;
+      --ink-soft: #c4cde0;
+      --muted: #8a96ac;
+      --border: #1f2840;
+      --green: #22c55e;
+      --danger: #f87171;
+      --shadow: 0 14px 38px rgba(0,0,0,0.5);
+      --shadow-lg: 0 24px 60px rgba(0,0,0,0.6);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: "Manrope", system-ui, sans-serif;
+      color: var(--ink);
+      min-height: 100vh;
+      padding: 48px 24px;
+      display: flex; align-items: center; justify-content: center;
+      background:
+        radial-gradient(900px 460px at 85% -10%, rgba(37,99,235,0.10), transparent 60%),
+        radial-gradient(700px 380px at 5% 110%, rgba(37,99,235,0.07), transparent 55%),
+        var(--bg-soft);
+      -webkit-font-smoothing: antialiased;
+      transition: background 0.25s ease, color 0.25s ease;
+    }
+
+    .shell {
+      width: 100%; max-width: 1140px;
+      display: grid; grid-template-columns: 1fr 1.15fr; gap: 48px;
+      align-items: stretch;
+      position: relative;
+    }
+
+    .close-btn {
+      position: absolute; top: -10px; right: -6px;
+      width: 40px; height: 40px; border-radius: 11px;
+      display: grid; place-items: center; cursor: pointer; z-index: 5;
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--muted); text-decoration: none;
+      transition: background 0.16s, color 0.16s, border-color 0.16s;
+    }
+    .close-btn:hover { background: var(--primary-soft); color: var(--primary); border-color: var(--primary); }
+    .close-btn svg { width: 18px; height: 18px; }
+
+    /* ---- Left column ---- */
+    .intro { padding-top: 8px; display: flex; flex-direction: column; }
+    .intro h1 {
+      font-family: "Sora", sans-serif;
+      font-size: clamp(2.4rem, 4.4vw, 3.6rem); font-weight: 800;
+      letter-spacing: -0.03em; line-height: 1.04; color: var(--ink);
+    }
+    .intro h1 .grad {
+      background: linear-gradient(100deg, var(--primary), #6366f1 60%, var(--primary-dark));
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+    .intro p.lead {
+      margin-top: 20px; color: var(--muted); font-size: 1.12rem; max-width: 440px;
+    }
+
+    .details { margin-top: auto; padding-top: 48px; }
+    .details h2 {
+      font-family: "Sora", sans-serif; font-size: 1.3rem; font-weight: 700;
+      color: var(--ink); margin-bottom: 22px;
+    }
+    .detail-row {
+      display: flex; align-items: center; gap: 14px; margin-bottom: 16px;
+    }
+    .detail-ic {
+      width: 42px; height: 42px; border-radius: 12px; flex-shrink: 0;
+      background: var(--primary-soft); color: var(--primary);
+      display: grid; place-items: center;
+    }
+    .detail-row .lbl { font-size: 0.8rem; color: var(--muted); font-weight: 600; }
+    .detail-row a, .detail-row span.val {
+      display: block; font-size: 1rem; color: var(--ink); font-weight: 600;
+      text-decoration: none;
+    }
+    .detail-row a:hover { color: var(--primary); }
+
+    /* ---- Right column (form card) ---- */
+    .form-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 24px; padding: 40px; box-shadow: var(--shadow-lg);
+    }
+    .form-card .card-head { margin-bottom: 26px; }
+    .form-card .card-head h3 {
+      font-family: "Sora", sans-serif; font-size: 1.4rem; font-weight: 700; color: var(--ink);
+    }
+    .form-card .card-head p { color: var(--muted); font-size: 0.95rem; margin-top: 6px; }
+
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .field { margin-bottom: 18px; }
+    .field label {
+      display: block; font-size: 0.86rem; font-weight: 600;
+      color: var(--ink-soft); margin-bottom: 8px;
+    }
+    .field label .req { color: var(--danger); }
+    .field input, .field select {
+      width: 100%; padding: 13px 15px;
+      font-family: inherit; font-size: 0.95rem; color: var(--ink);
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 12px; transition: border-color 0.16s, box-shadow 0.16s;
+    }
+    .field input::placeholder { color: var(--muted); opacity: 0.8; }
+    .field input:focus, .field select:focus {
+      outline: none; border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(37,99,235,0.15);
+    }
+    .field select { cursor: pointer; appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 14px center; padding-right: 40px;
+    }
+    .phone-wrap { display: flex; align-items: stretch; }
+    .phone-prefix {
+      display: flex; align-items: center; padding: 0 13px;
+      background: var(--bg-tint); border: 1px solid var(--border); border-right: none;
+      border-radius: 12px 0 0 12px; font-size: 0.95rem; font-weight: 600; color: var(--ink-soft);
+    }
+    .phone-wrap input { border-radius: 0 12px 12px 0; flex: 1; }
+
+    .err { color: var(--danger); font-size: 0.8rem; margin-top: 6px; display: none; }
+    .err.show { display: block; }
+
+    .btn-submit {
+      width: 100%; margin-top: 6px; padding: 15px;
+      font-family: "Manrope", sans-serif; font-size: 1rem; font-weight: 700;
+      color: #fff; background: var(--primary); border: none;
+      border-radius: 13px; cursor: pointer;
+      box-shadow: 0 10px 22px rgba(37,99,235,0.26);
+      transition: background 0.18s, transform 0.18s;
+    }
+    .btn-submit:hover { background: var(--primary-dark); transform: translateY(-1px); }
+    .btn-submit:active { transform: translateY(0); }
+
+    .success {
+      display: none; text-align: center; padding: 20px 10px 4px;
+    }
+    .success.show { display: block; }
+    .success .tick {
+      width: 64px; height: 64px; border-radius: 50%; margin: 0 auto 18px;
+      background: rgba(22,163,74,0.12); color: var(--green); display: grid; place-items: center;
+    }
+    .success h3 { font-family: "Sora", sans-serif; font-size: 1.4rem; font-weight: 700; color: var(--ink); }
+    .success p { color: var(--muted); margin-top: 8px; font-size: 0.97rem; }
+
+    @media (max-width: 900px) {
+      .shell { grid-template-columns: 1fr; gap: 32px; }
+      .details { padding-top: 8px; }
+      .close-btn { top: -6px; right: 0; }
+    }
+    @media (max-width: 520px) {
+      .grid-2 { grid-template-columns: 1fr; }
+      .form-card { padding: 28px 22px; border-radius: 20px; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="shell">
+    <a href="/" class="close-btn" aria-label="Close and return to home">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </a>
+
+    <!-- LEFT -->
+    <div class="intro">
+      <h1>Let's Talk <span class="grad">Enterprise</span></h1>
+      <p class="lead">Processing statements at scale? Tell us about your firm and our team will craft a custom plan — volume pricing, custom ledger mapping, an SLA, and onboarding support tailored to how you work.</p>
+
+      <div class="details">
+        <h2>Reach us directly</h2>
+
+        <div class="detail-row">
+          <div class="detail-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div>
+          <div><span class="lbl">Website</span><a href="https://ledgerit.in" target="_blank" rel="noopener">ledgerit.in</a></div>
+        </div>
+
+        <div class="detail-row">
+          <div class="detail-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg></div>
+          <div><span class="lbl">Phone</span><a href="tel:+918731807899">+91 87318 07899</a></div>
+        </div>
+
+        <div class="detail-row">
+          <div class="detail-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></div>
+          <div><span class="lbl">Email</span><a href="mailto:support@ledgerit.in">support@ledgerit.in</a></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT -->
+    <div class="form-card">
+      <div class="card-head" id="formHead">
+        <h3>Talk to our sales team</h3>
+        <p>Fill in your details and we'll get back to you within one business day.</p>
+      </div>
+
+      <form id="salesForm" novalidate>
+        <div class="grid-2">
+          <div class="field">
+            <label for="firstName">First name <span class="req">*</span></label>
+            <input type="text" id="firstName" placeholder="First name" autocomplete="given-name" />
+            <div class="err" id="errFirst">Please enter your first name.</div>
+          </div>
+          <div class="field">
+            <label for="lastName">Last name</label>
+            <input type="text" id="lastName" placeholder="Last name" autocomplete="family-name" />
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="email">Email <span class="req">*</span></label>
+          <input type="email" id="email" placeholder="you@company.com" autocomplete="email" />
+          <div class="err" id="errEmail">Enter a valid email address.</div>
+        </div>
+
+        <div class="field">
+          <label for="phone">Phone <span class="req">*</span></label>
+          <div class="phone-wrap">
+            <span class="phone-prefix">+91</span>
+            <input type="tel" id="phone" placeholder="10-digit mobile number" inputmode="numeric" maxlength="10" autocomplete="tel" />
+          </div>
+          <div class="err" id="errPhone">Enter a valid 10-digit phone number.</div>
+        </div>
+
+        <div class="field">
+          <label for="orgName">Organisation name <span class="req">*</span></label>
+          <input type="text" id="orgName" placeholder="e.g. Sharma &amp; Associates" autocomplete="organization" />
+          <div class="err" id="errOrg">Please enter your organisation name.</div>
+        </div>
+
+        <div class="field">
+          <label for="orgType">Organisation type <span class="req">*</span></label>
+          <select id="orgType">
+            <option value="" disabled selected>Select organisation type</option>
+            <option>Chartered Accountant firm</option>
+            <option>Accounting / Bookkeeping firm</option>
+            <option>Tax consultant</option>
+            <option>Enterprise / Corporate finance team</option>
+            <option>Bank / NBFC</option>
+            <option>Other</option>
+          </select>
+          <div class="err" id="errType">Please select your organisation type.</div>
+        </div>
+
+        <button type="submit" class="btn-submit">Send Details</button>
+      </form>
+
+      <div class="success" id="success">
+        <div class="tick"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+        <h3>Thanks — we've got it!</h3>
+        <p>Our sales team will reach out to you within one business day.</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Match the theme chosen on the landing page (shared localStorage key).
+    (function () {
+      try {
+        var t = localStorage.getItem("theme") || "light";
+        document.documentElement.setAttribute("data-theme", t);
+      } catch (e) {
+        document.documentElement.setAttribute("data-theme", "light");
+      }
+    })();
+
+    // Phone field: digits only.
+    var phone = document.getElementById("phone");
+    phone.addEventListener("input", function () {
+      this.value = this.value.replace(/\D/g, "").slice(0, 10);
+    });
+
+    function showErr(id, show) {
+      document.getElementById(id).classList.toggle("show", show);
+    }
+
+    document.getElementById("salesForm").addEventListener("submit", function (e) {
+      e.preventDefault();
+
+      var first = document.getElementById("firstName").value.trim();
+      var email = document.getElementById("email").value.trim();
+      var ph = phone.value.trim();
+      var org = document.getElementById("orgName").value.trim();
+      var type = document.getElementById("orgType").value;
+
+      var okFirst = first.length > 0;
+      var okEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+      var okPhone = /^\d{10}$/.test(ph);
+      var okOrg = org.length > 0;
+      var okType = type !== "";
+
+      showErr("errFirst", !okFirst);
+      showErr("errEmail", !okEmail);
+      showErr("errPhone", !okPhone);
+      showErr("errOrg", !okOrg);
+      showErr("errType", !okType);
+
+      if (okFirst && okEmail && okPhone && okOrg && okType) {
+        // Backend not wired yet — show a success state in place of the form.
+        document.getElementById("salesForm").style.display = "none";
+        document.getElementById("formHead").style.display = "none";
+        document.getElementById("success").classList.add("show");
+      }
+    });
+  </script>
+
+</body>
+</html>

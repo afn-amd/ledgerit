@@ -1,595 +1,1059 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light dark" />
+  <meta name="theme-color" content="#ffffff" />
+  <script>
+    /* set theme before paint to avoid a flash */
+    (function () {
+      try {
+        var s = localStorage.getItem("theme");
+        var t = s || (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+        document.documentElement.setAttribute("data-theme", t);
+        var m = document.querySelector('meta[name="theme-color"]');
+        if (m) m.setAttribute("content", t === "dark" ? "#090d18" : "#ffffff");
+      } catch (e) { document.documentElement.setAttribute("data-theme", "light"); }
+    })();
+  </script>
+  <title>Ledgerit — AI Bank Statement to Tally Converter</title>
 
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0"
-  />
+  <link rel="icon" type="image/png" href="assets/favicon.png">
 
-  <title>LedgerIT</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700&family=Yellowtail&display=swap" rel="stylesheet">
 
   <style>
-
     :root {
-
-      --bg: #f4f7fb;
+      --bg: #ffffff;
+      --bg-soft: #f6f8fc;
+      --bg-tint: #eef3fb;
       --surface: #ffffff;
-
       --primary: #2563eb;
       --primary-dark: #1d4ed8;
+      --primary-soft: #e8effd;
+      --ink: #0b1220;
+      --ink-soft: #1e293b;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --green: #16a34a;
+      --danger: #dc2626;
+      --shadow-sm: 0 1px 2px rgba(15,23,42,0.04);
+      --shadow: 0 12px 34px rgba(15,23,42,0.07);
+      --shadow-lg: 0 24px 60px rgba(15,23,42,0.12);
+      --radius: 18px;
+      --maxw: 1180px;
 
-      --text: #0f172a;
-      --text-muted: #64748b;
-
-      --border: #dbe3ef;
-
-      --shadow: 0 10px 30px rgba(15,23,42,0.06);
+      /* theme-specific (overridden in dark) */
+      --header-bg: rgba(255,255,255,0.82);
+      --pill-text: var(--primary-dark);
+      --h1-shadow: drop-shadow(0 1px 1px rgba(15,23,42,0.06));
+      --mockup-border: rgba(37,99,235,0.12);
+      --mockup-shadow: 0 0 50px -12px rgba(15,23,42,0.30), 0 30px 70px -28px rgba(15,23,42,0.40);
+      --hover-border: #cbd5e1;
+      --card-hover-border: #d6e0f5;
+      --shield-bg: #e7f6ec;
     }
 
-    [data-theme="dark"] {
-
-      --bg: #0f172a;
-
-      --surface: #111827;
-
+    :root[data-theme="dark"] {
+      --bg: #090d18;
+      --bg-soft: #0f1424;
+      --bg-tint: #151b30;
+      --surface: #0f1526;
       --primary: #3b82f6;
       --primary-dark: #2563eb;
+      --primary-soft: #16213f;
+      --ink: #e9edf6;
+      --ink-soft: #c4cde0;
+      --muted: #8a96ac;
+      --border: #1f2840;
+      --green: #22c55e;
+      --danger: #f87171;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,0.4);
+      --shadow: 0 14px 38px rgba(0,0,0,0.5);
+      --shadow-lg: 0 24px 60px rgba(0,0,0,0.6);
 
-      --text: #f1f5f9;
-      --text-muted: #94a3b8;
-
-      --border: #1e293b;
-
-      --shadow: 0 10px 30px rgba(0,0,0,0.4);
+      --header-bg: rgba(9,13,24,0.72);
+      --pill-text: #93c5fd;
+      --h1-shadow: drop-shadow(0 0 15px rgba(255,255,255,0.10));
+      --mockup-border: rgba(59,130,246,0.18);
+      --mockup-shadow: 0 0 50px -12px rgba(255,255,255,0.08), 0 30px 70px -28px rgba(0,0,0,0.6);
+      --hover-border: #334155;
+      --card-hover-border: rgba(59,130,246,0.35);
+      --shield-bg: rgba(34,197,94,0.14);
     }
 
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
 
     body {
-
-      font-family: Inter, sans-serif;
-
+      font-family: "Manrope", system-ui, sans-serif;
       background: var(--bg);
-
-      color: var(--text);
-
-      min-height: 100vh;
-
-      transition:
-        background 0.25s ease,
-        color 0.25s ease;
-    }
-
-    header {
-
-      background: var(--surface);
-
-      border-bottom: 1px solid var(--border);
-
-      padding: 20px 40px;
-
-      display: flex;
-
-      justify-content: space-between;
-
-      align-items: center;
-    }
-
-    .logo {
-
-      font-size: 1.2rem;
-
-      font-weight: 700;
-    }
-
-    .theme-toggle {
-
-      border: 1px solid var(--border);
-
-      background: var(--surface);
-
-      color: var(--text);
-
-      padding: 10px 14px;
-
-      border-radius: 12px;
-
-      cursor: pointer;
-
-      font-size: 0.9rem;
-
-      transition: 0.2s ease;
-    }
-
-    .theme-toggle:hover {
-
-      background: rgba(37,99,235,0.08);
-    }
-
-    main {
-
-      width: 100%;
-
-      min-height: calc(100vh - 80px);
-
-      display: flex;
-
-      align-items: center;
-
-      justify-content: center;
-
-      padding: 40px;
-    }
-
-    .upload-card {
-
-      width: 100%;
-
-      max-width: 720px;
-
-      background: var(--surface);
-
-      border-radius: 24px;
-
-      padding: 40px;
-
-      box-shadow: var(--shadow);
-
-      border: 1px solid var(--border);
-
-      transition:
-        background 0.25s ease,
-        border 0.25s ease;
-    }
-
-    .upload-title {
-
-      font-size: 1.8rem;
-
-      font-weight: 700;
-
-      margin-bottom: 10px;
-    }
-
-    .upload-subtitle {
-
-      color: var(--text-muted);
-
-      margin-bottom: 32px;
-
+      color: var(--ink);
       line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      transition: background-color 0.25s ease, color 0.25s ease;
     }
 
-    .upload-area {
+    h1, h2, h3, .brand-word { font-family: "Sora", sans-serif; }
 
-      border: 2px dashed var(--primary);
+    a { text-decoration: none; color: inherit; }
 
-      border-radius: 18px;
+    .wrap { width: 100%; max-width: var(--maxw); margin: 0 auto; padding: 0 24px; }
 
-      padding: 60px 30px;
-
-      text-align: center;
-
-      cursor: pointer;
-
-      position: relative;
-
-      transition: 0.25s ease;
+    /* ---------------- Brand mark ---------------- */
+    .brand { display: inline-flex; align-items: center; gap: 11px; }
+    .brand-mark {
+      height: 40px; width: auto; flex-shrink: 0;
+    }
+    .brand-word {
+      font-size: 1.45rem; font-weight: 800; letter-spacing: -0.02em;
+      color: var(--ink);
+    }
+    /* full logo lockup image (mark + wordmark) */
+    .brand-logo { height: 38px; width: auto; display: block; }
+    .foot-brand .brand-logo { height: 36px; }
+    /* header logo swaps with theme (black wordmark needs white version on dark) */
+    .logo-dark { display: none; }
+    [data-theme="dark"] .logo-light { display: none; }
+    [data-theme="dark"] .logo-dark { display: block; }
+    /* theme switch — segmented sun / moon toggle (both always visible) */
+    .theme-switch {
+      display: inline-flex; align-items: center; gap: 2px;
+      padding: 4px; border-radius: 999px;
+      background: var(--bg-soft); border: 1px solid var(--border);
+      cursor: pointer; transition: border-color 0.18s ease;
+    }
+    .theme-switch:hover { border-color: var(--hover-border); }
+    .theme-switch .seg {
+      width: 30px; height: 30px; border-radius: 999px;
+      display: grid; place-items: center; color: var(--muted);
+      transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+    }
+    .theme-switch .seg svg { width: 16px; height: 16px; display: block; }
+    /* highlight the active mode */
+    [data-theme="light"] .theme-switch .seg-sun {
+      background: var(--surface); color: #f59e0b; box-shadow: var(--shadow-sm);
+    }
+    [data-theme="dark"] .theme-switch .seg-moon {
+      background: var(--surface); color: #93c5fd; box-shadow: var(--shadow-sm);
     }
 
-    .upload-area:hover {
-
-      background: rgba(37,99,235,0.06);
+    /* ---------------- Header ---------------- */
+    header {
+      position: sticky; top: 0; z-index: 100;
+      background: var(--header-bg);
+      backdrop-filter: saturate(160%) blur(12px);
+      border-bottom: 1px solid var(--border);
     }
-
-    .upload-area input {
-
-      position: absolute;
-
-      inset: 0;
-
-      opacity: 0;
-
-      width: 100%;
-
-      height: 100%;
-
-      cursor: pointer;
+    .nav {
+      display: flex; align-items: center; justify-content: space-between;
+      height: 72px;
     }
-
-    .upload-icon {
-
-      font-size: 3rem;
-
-      margin-bottom: 14px;
-    }
-
-    .upload-text {
-
-      font-size: 1rem;
-
-      color: var(--text-muted);
-    }
-
-    .file-name {
-
-      margin-top: 14px;
-
-      color: var(--primary);
-
-      font-weight: 600;
-    }
-
-    .password-row {
-
-      display: none;
-
-      margin-top: 20px;
-    }
-
-    .password-row.visible {
-
-      display: block;
-    }
-
-    .password-row input {
-
-      width: 100%;
-
-      padding: 14px 16px;
-
-      border-radius: 12px;
-
-      border: 1px solid var(--border);
-
-      background: var(--surface);
-
-      color: var(--text);
-
-      font-size: 0.95rem;
-    }
-
-    .actions {
-
-      margin-top: 24px;
-    }
+    .nav-actions { display: flex; align-items: center; gap: 12px; }
 
     .btn {
+      font-family: "Manrope", sans-serif;
+      font-weight: 600; font-size: 0.95rem;
+      border: none; cursor: pointer; border-radius: 12px;
+      padding: 11px 20px; transition: all 0.18s ease;
+      display: inline-flex; align-items: center; gap: 8px;
+      line-height: 1;
+    }
+    .btn-ghost {
+      background: transparent; color: var(--ink-soft);
+      border: 1px solid var(--border);
+    }
+    .btn-ghost:hover { background: var(--bg-soft); border-color: var(--hover-border); }
+    .btn-primary {
+      background: var(--primary); color: #fff;
+      box-shadow: 0 8px 20px rgba(37,99,235,0.24);
+    }
+    .btn-primary:hover { background: var(--primary-dark); transform: translateY(-1px); }
+    .btn-lg { padding: 15px 26px; font-size: 1rem; border-radius: 14px; }
 
-      width: 100%;
-
-      border: none;
-
-      background: var(--primary);
-
-      color: white;
-
-      padding: 16px;
-
-      border-radius: 14px;
-
-      font-size: 1rem;
-
-      font-weight: 600;
-
-      cursor: pointer;
-
-      transition: 0.2s ease;
+    /* ---------------- Hero ---------------- */
+    .hero {
+      position: relative; overflow: hidden;
+      padding: 72px 0 100px;
+      background:
+        radial-gradient(900px 420px at 80% -10%, rgba(37,99,235,0.10), transparent 60%),
+        radial-gradient(700px 380px at 10% 10%, rgba(37,99,235,0.06), transparent 55%);
+    }
+    .hero-grid {
+      position: absolute; inset: 0;
+      background-image:
+        linear-gradient(rgba(37,99,235,0.045) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(37,99,235,0.045) 1px, transparent 1px);
+      background-size: 46px 46px;
+      mask-image: radial-gradient(900px 500px at 50% 0%, #000, transparent 75%);
+      pointer-events: none;
     }
 
-    .btn:hover {
+    /* animated dotted surface (three.js) — fixed full-page background from the top */
+    .hero-dots {
+      position: fixed; inset: 0; z-index: -1;
+      pointer-events: none; overflow: hidden;
+      mask-image: linear-gradient(to bottom, #000 55%, transparent 92%);
+      -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent 92%);
+    }
+    .hero-dots canvas { display: block; }
 
-      background: var(--primary-dark);
+    /* glow behind the hero (variant="above") */
+    .hero-glow {
+      position: absolute; left: 50%; top: -160px;
+      width: min(1000px, 120vw); height: 560px;
+      transform: translateX(-50%);
+      background:
+        radial-gradient(circle at 50% 42%, rgba(37,99,235,0.30), transparent 55%),
+        radial-gradient(circle at 50% 42%, rgba(99,102,241,0.22), transparent 70%);
+      filter: blur(38px);
+      pointer-events: none; z-index: 0; opacity: 0;
     }
 
-    .btn:disabled {
+    .hero-inner {
+      position: relative; z-index: 1; max-width: 880px; margin: 0 auto;
+      display: flex; flex-direction: column; align-items: center;
+      text-align: center; gap: 24px;
+    }
+    .pill {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--primary-soft); color: var(--pill-text);
+      font-weight: 700; font-size: 0.8rem; letter-spacing: 0.04em;
+      text-transform: uppercase;
+      padding: 8px 14px; border-radius: 999px;
+      border: 1px solid rgba(37,99,235,0.18);
+    }
+    .pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--primary); box-shadow: 0 0 0 4px rgba(37,99,235,0.18); }
+    .hero h1 {
+      font-size: clamp(2rem, 4.6vw, 3.6rem);
+      font-weight: 800; letter-spacing: -0.03em; line-height: 1.1;
+      max-width: 18ch;
+      background: linear-gradient(180deg, var(--ink) 0%, var(--ink-soft) 55%, var(--muted) 120%);
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+      filter: var(--h1-shadow);
+    }
+    .hero h1 .grad {
+      font-family: "Yellowtail", cursive;
+      font-weight: 400; font-size: 1.32em; letter-spacing: 0;
+      line-height: 1; padding: 0 0.06em;
+      background: linear-gradient(100deg, var(--primary), #6366f1 60%, var(--primary-dark));
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+    /* hand-drawn underline accent under the highlighted word */
+    .hero h1 .underline-word { position: relative; display: inline-block; }
+    .hero-underline {
+      position: absolute; left: 0; top: 100%; width: 100%;
+      height: 0.3em; margin-top: -0.06em;
+      color: var(--primary); pointer-events: none; overflow: visible;
+    }
+    .hero p.sub {
+      font-size: clamp(1.02rem, 1.4vw, 1.2rem); color: var(--muted);
+      max-width: 560px; font-weight: 500;
+    }
+    .hero-cta { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; }
+    .hero-trust {
+      display: flex; flex-wrap: wrap; justify-content: center; gap: 22px;
+      color: var(--muted); font-size: 0.92rem; font-weight: 500;
+    }
+    .hero-trust span { display: inline-flex; align-items: center; gap: 7px; }
+    .hero-trust svg { color: var(--green); }
 
-      opacity: 0.5;
-
-      cursor: not-allowed;
+    /* ---------------- Hero mockup (app screenshot) ---------------- */
+    .mockup {
+      width: 100%; max-width: 900px; margin-top: 22px;
+      border-radius: 16px; overflow: hidden;
+      background: var(--surface);
+      border: 1px solid var(--mockup-border);
+      box-shadow: var(--mockup-shadow);
+      text-align: left;
+    }
+    .mockup-bar {
+      display: flex; align-items: center; gap: 7px;
+      padding: 12px 16px; border-bottom: 1px solid var(--border);
+      background: var(--bg-soft);
+    }
+    /* real website screenshot inside the browser frame */
+    .mock-shot { display: block; width: 100%; height: auto; }
+    .mockup-bar .md-dot { width: 11px; height: 11px; border-radius: 50%; background: #d3dceb; }
+    .mockup-bar .md-dot:nth-child(1) { background: #ff5f57; }
+    .mockup-bar .md-dot:nth-child(2) { background: #febc2e; }
+    .mockup-bar .md-dot:nth-child(3) { background: #28c840; }
+    .mockup-url {
+      margin-left: 12px; font-size: 0.8rem; color: var(--muted);
+      background: var(--surface); border: 1px solid var(--border);
+      padding: 5px 14px; border-radius: 8px;
+    }
+    .mockup-body { padding: 22px clamp(16px, 3vw, 28px) 26px; }
+    .mock-head {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 14px; flex-wrap: wrap; margin-bottom: 18px;
+    }
+    .mock-title { font-family: "Sora", sans-serif; font-weight: 700; font-size: 1.15rem; color: var(--ink); }
+    .mock-sub { color: var(--muted); font-size: 0.85rem; margin-top: 3px; }
+    .mock-export {
+      display: inline-flex; align-items: center; gap: 7px;
+      background: var(--primary); color: #fff; font-weight: 600;
+      font-size: 0.85rem; padding: 9px 16px; border-radius: 10px;
+      box-shadow: 0 8px 18px rgba(37,99,235,0.22);
+    }
+    .mock-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    .mock-table th {
+      text-align: left; color: var(--muted); font-weight: 600;
+      font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase;
+      padding: 0 12px 12px; border-bottom: 1px solid var(--border); white-space: nowrap;
+    }
+    .mock-table td {
+      padding: 13px 12px; border-bottom: 1px solid var(--bg-tint);
+      color: var(--ink-soft); white-space: nowrap;
+    }
+    .mock-table tr:last-child td { border-bottom: none; }
+    .mock-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+    .mock-table .cr { color: var(--green); font-weight: 600; }
+    .mock-table .dr { color: var(--danger); font-weight: 600; }
+    .mock-table .muted { color: var(--muted); }
+    @media (max-width: 620px) {
+      .mock-narr { display: none; }
     }
 
-    .status {
-
-      margin-top: 18px;
-
-      font-size: 0.95rem;
-
-      color: var(--text-muted);
+    /* ---------------- Appear animations ---------------- */
+    @keyframes appear {
+      from { opacity: 0; transform: translateY(14px); }
+      to   { opacity: 1; transform: translateY(0); }
     }
-
-    .status.error {
-
-      color: #ef4444;
+    @keyframes appearZoom {
+      from { opacity: 0; transform: translateX(-50%) scale(0.85); }
+      to   { opacity: 1; transform: translateX(-50%) scale(1); }
     }
-
-    .spinner {
-
-      display: inline-block;
-
-      width: 16px;
-
-      height: 16px;
-
-      border: 2px solid #64748b;
-
-      border-top-color: var(--primary);
-
-      border-radius: 50%;
-
-      animation: spin 0.8s linear infinite;
-
-      vertical-align: middle;
-
-      margin-right: 8px;
-    }
-
-    @keyframes spin {
-
-      to {
-        transform: rotate(360deg);
+    .animate-appear { opacity: 0; animation: appear 0.7s cubic-bezier(0.22,1,0.36,1) forwards; }
+    .animate-appear-zoom { animation: appearZoom 1.2s cubic-bezier(0.22,1,0.36,1) forwards; }
+    .d150 { animation-delay: 0.15s; } .d300 { animation-delay: 0.30s; }
+    .d500 { animation-delay: 0.50s; } .d700 { animation-delay: 0.70s; }
+    .d300z { animation-delay: 0.30s; }
+    @media (prefers-reduced-motion: reduce) {
+      .animate-appear, .animate-appear-zoom {
+        animation: none; opacity: 1; transform: none;
       }
+      .hero-glow { transform: translateX(-50%); opacity: 1; }
     }
 
+    /* hidden real uploader */
+    #pdfInput { display: none; }
+    .file-chip {
+      margin-top: 18px; font-weight: 600; color: var(--primary-dark);
+      display: none;
+    }
+    .file-chip.show { display: block; }
+    .hero-status { margin-top: 14px; font-size: 0.95rem; color: var(--muted); display: none; }
+    .hero-status.show { display: block; }
+    .hero-status.error { color: var(--danger); }
+    .spinner {
+      display: inline-block; width: 15px; height: 15px;
+      border: 2px solid var(--hover-border); border-top-color: var(--primary);
+      border-radius: 50%; animation: spin 0.8s linear infinite;
+      vertical-align: -2px; margin-right: 8px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .password-inline { margin-top: 16px; display: none; max-width: 340px; }
+    .password-inline.show { display: block; }
+    .password-inline input {
+      width: 100%; padding: 13px 15px; border-radius: 12px;
+      border: 1px solid var(--border); font-size: 0.95rem; font-family: inherit;
+      background: var(--surface); color: var(--ink);
+    }
+    .password-inline input::placeholder { color: var(--muted); }
+    .password-inline input:focus { outline: none; border-color: var(--primary); }
+
+    /* ---------------- Section scaffolding ---------------- */
+    section.block { padding: 96px 0; }
+    .section-head { text-align: center; max-width: 680px; margin: 0 auto 56px; }
+    .eyebrow {
+      display: inline-block; color: var(--primary); font-weight: 700;
+      font-size: 0.82rem; letter-spacing: 0.12em; text-transform: uppercase;
+      border: 1px solid rgba(37,99,235,0.3); border-radius: 999px;
+      padding: 7px 18px; margin-bottom: 18px;
+    }
+    .section-head h2 {
+      font-size: clamp(1.9rem, 3.6vw, 2.7rem); font-weight: 800;
+      letter-spacing: -0.02em; color: var(--ink);
+    }
+    .section-head p { margin-top: 14px; color: var(--muted); font-size: 1.1rem; }
+
+    /* ---------------- Features ---------------- */
+    .features { background: var(--bg); }
+    .feature-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px;
+    }
+    .feature-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 30px;
+      transition: all 0.2s ease;
+    }
+    .feature-card:hover { box-shadow: var(--shadow); transform: translateY(-3px); border-color: var(--card-hover-border); }
+    .feature-icon {
+      width: 46px; height: 46px; border-radius: 13px;
+      background: var(--primary-soft); color: var(--primary);
+      display: grid; place-items: center; margin-bottom: 20px;
+    }
+    .feature-card h3 { font-size: 1.18rem; font-weight: 700; margin-bottom: 9px; }
+    .feature-card p { color: var(--muted); font-size: 0.97rem; }
+
+    /* ---------------- Security strip ---------------- */
+    .security { background: var(--bg-soft); }
+    .sec-head { text-align: center; max-width: 640px; margin: 0 auto 40px; }
+    .sec-shield {
+      width: 60px; height: 60px; border-radius: 16px; margin: 0 auto 22px;
+      background: var(--shield-bg); color: var(--green); display: grid; place-items: center;
+    }
+    .sec-head h2 { font-size: clamp(1.7rem, 3vw, 2.3rem); font-weight: 800; letter-spacing: -0.02em; }
+    .sec-head p { margin-top: 12px; color: var(--muted); font-size: 1.05rem; }
+    .sec-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; max-width: 920px; margin: 0 auto; }
+    .sec-card { background: var(--bg-tint); border-radius: 14px; padding: 22px 24px; }
+    .sec-card strong { display: block; font-family: "Sora", sans-serif; font-size: 1.25rem; font-weight: 700; color: var(--ink); }
+    .sec-card span { color: var(--muted); font-size: 0.92rem; }
+
+    /* ---------------- Testimonials ---------------- */
+    .testimonials { background: var(--bg); }
+    .t-title { text-align: center; }
+    .t-title .l1 { font-size: clamp(1.8rem, 3.4vw, 2.6rem); font-weight: 800; color: var(--ink); letter-spacing: -0.02em; }
+    .t-title .l2 { font-size: clamp(1.8rem, 3.4vw, 2.6rem); font-weight: 800; color: var(--primary); letter-spacing: -0.02em; display: block; }
+    .t-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-top: 52px; }
+    .t-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 30px; display: flex; flex-direction: column; justify-content: space-between;
+      box-shadow: var(--shadow-sm);
+    }
+    .t-quote { color: var(--ink-soft); font-size: 0.98rem; }
+    .t-person { display: flex; align-items: center; gap: 13px; margin-top: 26px; }
+    .t-avatar {
+      width: 46px; height: 46px; border-radius: 50%; flex-shrink: 0;
+      background: linear-gradient(135deg, var(--primary), #6366f1);
+      color: #fff; display: grid; place-items: center; font-weight: 700; font-family: "Sora", sans-serif;
+    }
+    .t-person .nm { font-weight: 700; color: var(--ink); }
+    .t-person .org { color: var(--muted); font-size: 0.88rem; }
+
+    /* ---------------- Pricing ---------------- */
+    .pricing { background: var(--bg-soft); }
+    .price-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; align-items: stretch; max-width: 1040px; margin: 0 auto; }
+    .price-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 22px; padding: 34px 30px; position: relative;
+      display: flex; flex-direction: column;
+    }
+    .price-card.popular {
+      border: 2px solid var(--primary);
+      box-shadow: var(--shadow-lg);
+    }
+    .badge {
+      position: absolute; top: -14px; left: 50%; transform: translateX(-50%);
+      background: var(--primary); color: #fff; font-weight: 700; font-size: 0.78rem;
+      padding: 7px 18px; border-radius: 999px; letter-spacing: 0.02em;
+      box-shadow: 0 8px 18px rgba(37,99,235,0.3);
+    }
+    .price-name { font-family: "Sora", sans-serif; font-size: 1.4rem; font-weight: 700; }
+    .price-for { color: var(--muted); font-size: 0.95rem; margin-top: 4px; }
+    .price-amt { font-family: "Sora", sans-serif; font-size: 2.5rem; font-weight: 800; margin-top: 22px; color: var(--ink); }
+    .price-amt small { font-size: 1rem; font-weight: 500; color: var(--muted); }
+    .price-feats { list-style: none; margin: 24px 0 28px; display: grid; gap: 13px; }
+    .price-feats li { display: flex; align-items: center; gap: 11px; color: var(--ink-soft); font-size: 0.97rem; }
+    .price-feats svg { color: var(--green); flex-shrink: 0; }
+    .price-btn { margin-top: auto; width: 100%; justify-content: center; }
+    .btn-dark { background: var(--ink); color: var(--bg); }
+    .btn-dark:hover { background: var(--ink-soft); }
+    .btn-outline { background: transparent; color: var(--ink); border: 1px solid var(--border); }
+    .btn-outline:hover { background: var(--bg-soft); }
+
+    /* ---------------- Footer ---------------- */
+    footer { background: #0b1220; color: #cbd5e1; padding: 70px 0 30px; }
+    .foot-grid {
+      display: grid; grid-template-columns: 1.7fr 1fr 1fr 1fr; gap: 40px;
+    }
+    .foot-brand .brand-word { color: #fff; }
+    .foot-about { margin-top: 18px; color: #94a3b8; font-size: 0.94rem; max-width: 280px; }
+    .foot-addr { margin-top: 14px; color: #94a3b8; font-size: 0.92rem; }
+    .foot-col h4 { color: #fff; font-size: 0.95rem; font-weight: 700; margin-bottom: 18px; font-family: "Sora", sans-serif; }
+    .foot-col ul { list-style: none; display: grid; gap: 11px; }
+    .foot-col a { color: #94a3b8; font-size: 0.92rem; transition: color 0.16s; }
+    .foot-col a:hover { color: #fff; }
+    .socials { display: flex; gap: 12px; margin-top: 22px; }
+    .socials a {
+      width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center;
+      background: rgba(255,255,255,0.06); color: #cbd5e1; transition: all 0.18s;
+    }
+    .socials a:hover { background: var(--primary); color: #fff; transform: translateY(-2px); }
+    .foot-bottom {
+      margin-top: 50px; padding-top: 24px; border-top: 1px solid rgba(255,255,255,0.08);
+      display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+      color: #64748b; font-size: 0.86rem;
+    }
+
+    /* ---------------- Responsive ---------------- */
+    @media (max-width: 980px) {
+      .feature-grid, .sec-grid, .t-grid, .price-grid { grid-template-columns: 1fr; }
+      .price-grid { max-width: 460px; }
+      .foot-grid { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 560px) {
+      .nav { height: 64px; }
+      .brand-word { font-size: 1.25rem; }
+      .btn { padding: 10px 15px; font-size: 0.9rem; }
+      section.block { padding: 64px 0; }
+      .hero { padding: 64px 0 76px; }
+      .foot-grid { grid-template-columns: 1fr; }
+    }
   </style>
-
 </head>
-
 <body>
 
-<header>
+  <!-- animated dotted surface — fixed page background (starts at the very top) -->
+  <div class="hero-dots" id="dottedSurface" aria-hidden="true"></div>
 
-  <div class="logo">
-    LedgerIT
-  </div>
-
-  <button
-    class="theme-toggle"
-    onclick="toggleTheme()"
-    id="themeBtn"
-  >
-    🌙 Dark
-  </button>
-
-</header>
-
-<main>
-
-  <div class="upload-card">
-
-    <div class="upload-title">
-      Convert Bank Statements
+  <!-- ============ HEADER ============ -->
+  <header>
+    <div class="wrap nav">
+      <a class="brand" href="#top">
+        <img src="assets/logo.png" alt="Ledgerit" class="brand-logo logo-light" />
+        <img src="assets/logo-white.png" alt="Ledgerit" class="brand-logo logo-dark" />
+      </a>
+      <div class="nav-actions">
+        <button class="btn btn-ghost" onclick="window.location.href='/login.html'">Login</button>
+        <button class="btn btn-primary" onclick="window.location.href='/register.html'">Register</button>
+        <button class="theme-switch" id="themeToggle" type="button" role="switch" aria-label="Toggle light/dark mode" onclick="toggleTheme()">
+          <span class="seg seg-sun" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          </span>
+          <span class="seg seg-moon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          </span>
+        </button>
+      </div>
     </div>
+  </header>
 
-    <div class="upload-subtitle">
-      Upload a bank statement PDF to extract structured transaction data.
-    </div>
+  <!-- ============ 1. HERO ============ -->
+  <section class="hero" id="top">
+    <div class="hero-glow animate-appear-zoom d300z"></div>
+    <div class="hero-grid"></div>
+    <div class="wrap hero-inner">
+      <span class="pill animate-appear"><span class="dot"></span> AI-Powered Statement Engine</span>
+      <h1 class="animate-appear d150">Turn Any Bank Statement Into <span class="grad">Tally</span>-Ready Data in Seconds</h1>
+      <p class="sub animate-appear d300">Ledgerit reads any digitally-generated bank statement PDF, understands its layout with AI, and exports clean, import-ready Tally XML — no templates, no manual entry.</p>
 
-    <div class="upload-area">
-
-      <input
-        type="file"
-        id="pdfInput"
-        accept=".pdf"
-        onchange="onFileChange(event)"
-      />
-
-      <div class="upload-icon">
-        📄
+      <div class="hero-cta animate-appear d300">
+        <button class="btn btn-primary btn-lg" onclick="document.getElementById('pdfInput').click()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          Start for free — 100 pages
+        </button>
+        <button class="btn btn-ghost btn-lg" onclick="window.location.href='/login.html'">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+          Login
+        </button>
       </div>
 
-      <div class="upload-text">
-        Click or drag & drop your PDF
+      <!-- real hidden uploader -->
+      <input type="file" id="pdfInput" accept=".pdf" onchange="onFileChange(event)" />
+      <div class="file-chip" id="fileChip"></div>
+
+      <div class="password-inline" id="passwordRow">
+        <input type="password" id="passwordInput" placeholder="This PDF is protected — enter password" />
       </div>
 
-      <div
-        class="file-name"
-        id="fileName"
-      ></div>
+      <div class="hero-status" id="status"></div>
 
+      <div class="hero-trust animate-appear d500">
+        <span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Works with any bank layout</span>
+        <span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Tally ERP 9 &amp; Prime XML</span>
+        <span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Files auto-deleted in 24h</span>
+      </div>
+
+      <!-- App mockup -->
+      <div class="mockup animate-appear d700">
+        <div class="mockup-bar">
+          <span class="md-dot"></span><span class="md-dot"></span><span class="md-dot"></span>
+          <span class="mockup-url">https://ledgerit.in/</span>
+        </div>
+        <img src="assets/screenshot.png" alt="Ledgerit app" class="mock-shot" style="display:none"
+             onload="this.style.display='block';document.getElementById('mockFallback').style.display='none'" />
+        <div class="mockup-body" id="mockFallback">
+          <div class="mock-head">
+            <div>
+              <div class="mock-title">Converted Transactions</div>
+              <div class="mock-sub">HDFC Bank · 142 transactions · Mar 2024 · Balanced ✓</div>
+            </div>
+            <span class="mock-export">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Export to Tally XML
+            </span>
+          </div>
+          <table class="mock-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th class="mock-narr">Narration</th>
+                <th class="num">Debit</th>
+                <th class="num">Credit</th>
+                <th class="num">Balance</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="muted">01 Mar</td>
+                <td class="mock-narr">NEFT · Akbari &amp; Associates</td>
+                <td class="num">—</td>
+                <td class="num cr">₹84,500</td>
+                <td class="num">₹3,12,940</td>
+              </tr>
+              <tr>
+                <td class="muted">04 Mar</td>
+                <td class="mock-narr">UPI · Office Rent</td>
+                <td class="num dr">₹45,000</td>
+                <td class="num">—</td>
+                <td class="num">₹2,67,940</td>
+              </tr>
+              <tr>
+                <td class="muted">09 Mar</td>
+                <td class="mock-narr">IMPS · Client Retainer</td>
+                <td class="num">—</td>
+                <td class="num cr">₹1,20,000</td>
+                <td class="num">₹3,87,940</td>
+              </tr>
+              <tr>
+                <td class="muted">15 Mar</td>
+                <td class="mock-narr">Cheque · Vendor Payout</td>
+                <td class="num dr">₹62,300</td>
+                <td class="num">—</td>
+                <td class="num">₹3,25,640</td>
+              </tr>
+              <tr>
+                <td class="muted">22 Mar</td>
+                <td class="mock-narr">NEFT · GST Refund</td>
+                <td class="num">—</td>
+                <td class="num cr">₹18,760</td>
+                <td class="num">₹3,44,400</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
+  </section>
 
-    <div
-      class="password-row"
-      id="passwordRow"
-    >
-
-      <input
-        type="password"
-        id="passwordInput"
-        placeholder="Enter PDF password"
-      />
-
+  <!-- ============ 2. FEATURES ============ -->
+  <section class="block features">
+    <div class="wrap">
+      <div class="section-head">
+        <h2>Everything a CA needs</h2>
+        <p>Designed for accounting professionals who work with bank statements daily.</p>
+      </div>
+      <div class="feature-grid">
+        <div class="feature-card">
+          <div class="feature-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
+          <h3>Smart PDF Parsing</h3>
+          <p>Extracts all transactions from any digitally-generated bank statement PDF automatically.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
+          <h3>Instant Normalisation</h3>
+          <p>Unifies date formats, debit/credit columns, and computes running balances in seconds.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></div>
+          <h3>Tally XML Export</h3>
+          <p>One-click export to Tally ERP 9 / Tally Prime-compatible XML with date range filtering.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+          <h3>Bank-grade Security</h3>
+          <p>AES-256 encryption at rest, TLS 1.3 in transit, and auto-delete after 24 hours.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+          <h3>Built for CAs</h3>
+          <p>Designed for Chartered Accountants who process dozens of statements monthly.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="9 12 11 14 15 10"/></svg></div>
+          <h3>Opening &amp; Closing Balance</h3>
+          <p>Automatically detects or back-calculates opening balance as per accounting norms.</p>
+        </div>
+      </div>
     </div>
+  </section>
 
-    <div class="actions">
-
-      <button
-        class="btn"
-        id="processBtn"
-        onclick="processFile()"
-        disabled
-      >
-        Process PDF
-      </button>
-
+  <!-- ============ SECURITY STRIP ============ -->
+  <section class="block security">
+    <div class="wrap">
+      <div class="sec-head">
+        <div class="sec-shield"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+        <h2>Your data is safe with us</h2>
+        <p>Uploaded PDFs are encrypted at rest (AES-256) and in transit (TLS 1.3). Files are automatically purged after 24 hours.</p>
+      </div>
+      <div class="sec-grid">
+        <div class="sec-card"><strong>AES-256</strong><span>Encryption at rest</span></div>
+        <div class="sec-card"><strong>TLS 1.3</strong><span>Encryption in transit</span></div>
+        <div class="sec-card"><strong>24h TTL</strong><span>Auto-delete uploaded files</span></div>
+      </div>
     </div>
+  </section>
 
-    <div
-      class="status"
-      id="status"
-    ></div>
+  <!-- ============ 3. TESTIMONIALS ============ -->
+  <section class="block testimonials">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">Testimonials</span>
+        <div class="t-title">
+          <span class="l1">Don't Just</span>
+          <span class="l2">Take Our Words For It</span>
+        </div>
+        <p>See what CAs are saying about their experience with Ledgerit.</p>
+      </div>
+      <div class="t-grid">
+        <div class="t-card">
+          <p class="t-quote">"During filing season we used to lose entire evenings just keying in bank entries. With Ledgerit a month's statement is in Tally in under a minute — and the running balances actually tie out. It's paid for itself many times over."</p>
+          <div class="t-person">
+            <div class="t-avatar">PM</div>
+            <div><div class="nm">CA Priya Menon</div><div class="org">Menon &amp; Rao Associates</div></div>
+          </div>
+        </div>
+        <div class="t-card">
+          <p class="t-quote">"We handle clients across a dozen different banks and every statement looks different. Ledgerit reads all of them without me setting up a single template. The AI parsing is genuinely impressive — it just works."</p>
+          <div class="t-person">
+            <div class="t-avatar">AK</div>
+            <div><div class="nm">CA Arjun Khanna</div><div class="org">Khanna Tax Advisory LLP</div></div>
+          </div>
+        </div>
+        <div class="t-card">
+          <p class="t-quote">"My juniors used to spend two days a month on data entry; now it's two clicks. Fewer typing errors, faster reconciliations, and the auto-delete policy gives our clients real peace of mind about their data."</p>
+          <div class="t-person">
+            <div class="t-avatar">SD</div>
+            <div><div class="nm">CA Sneha Desai</div><div class="org">Desai &amp; Co., Chartered Accountants</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
 
-  </div>
+  <!-- ============ 4. PRICING ============ -->
+  <section class="block pricing" id="pricing">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">Pricing</span>
+        <h2>Simple, transparent pricing</h2>
+        <p>Start free, scale as your practice grows. No hidden fees.</p>
+      </div>
+      <div class="price-grid">
+        <!-- Starter -->
+        <div class="price-card">
+          <div class="price-name">Starter</div>
+          <div class="price-for">Great for small businesses</div>
+          <div class="price-amt">₹199 <small>/mo</small></div>
+          <ul class="price-feats">
+            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg> 500 pages / month</li>
+            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg> All Free features</li>
+            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg> Priority support</li>
+            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg> Export history</li>
+          </ul>
+          <button class="btn btn-outline price-btn" onclick="alert('Subscription coming soon.')">Subscribe</button>
+        </div>
 
-</main>
+        <!-- Professional (popular) -->
+        <div class="price-card popular">
+          <span class="badge">Most Popular</span>
+          <div class="price-name">Professional</div>
+          <div class="price-for">For CAs and accounting firms</div>
+          <div class="price-amt">₹499 <small>/mo</small></div>
+          <ul class="price-feats">
+            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg> 2000 pages / month</li>
+            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg> All Starter features</li>
+            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg> Bulk upload</li>
+            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg> API access (beta)</li>
+            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg> Dedicated support</li>
+          </ul>
+          <button class="btn btn-primary price-btn" onclick="alert('Subscription coming soon.')">Subscribe</button>
+        </div>
 
-<script>
+        <!-- Enterprise -->
+        <div class="price-card">
+          <div class="price-name">Enterprise</div>
+          <div class="price-for">Custom plans for large teams</div>
+          <div class="price-amt">Custom</div>
+          <ul class="price-feats">
+            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg> Unlimited pages</li>
+            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg> All Pro features</li>
+            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg> Custom ledger mapping</li>
+            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg> SLA guarantee</li>
+            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg> Onboarding support</li>
+          </ul>
+          <button class="btn btn-dark price-btn" onclick="window.location.href='/contact.html'">Contact sales</button>
+        </div>
+      </div>
+    </div>
+  </section>
 
-  initializeTheme();
+  <!-- ============ 5. FOOTER ============ -->
+  <footer id="about">
+    <div class="wrap">
+      <div class="foot-grid">
+        <div class="foot-brand">
+          <div class="brand">
+            <img src="assets/logo-white.png" alt="Ledgerit" class="brand-logo" />
+          </div>
+          <p class="foot-about">AI-powered bank statement to Tally converter, built for Chartered Accountants and accounting firms.</p>
+          <p class="foot-addr">Ledgerit by Flint De Orient M&amp;T Pvt. Ltd.<br>Unit 320, PS Abacus, New Town, West Bengal.</p>
+          <div class="socials">
+            <a href="#" aria-label="Instagram"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg></a>
+            <a href="#" aria-label="Facebook"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg></a>
+            <a href="#" aria-label="LinkedIn"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/></svg></a>
+            <a href="#" aria-label="YouTube"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.33z"/><polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02"/></svg></a>
+          </div>
+        </div>
 
-  function initializeTheme() {
+        <div class="foot-col">
+          <h4>Quick Links</h4>
+          <ul>
+            <li><a href="#about">About Us</a></li>
+            <li><a href="/contactus.html">Contact Us</a></li>
+            <li><a href="#top">Bank Statement Converter</a></li>
+          </ul>
+        </div>
 
-    const savedTheme =
-      localStorage.getItem("theme") || "light";
+        <div class="foot-col" id="contact">
+          <h4>Contact Us</h4>
+          <ul>
+            <li><a href="tel:8731807899">+91 87318 07899</a></li>
+            <li><a href="mailto:support@ledgerit.in">support@ledgerit.in</a></li>
+          </ul>
+        </div>
 
-    document.documentElement.setAttribute(
-      "data-theme",
-      savedTheme
-    );
+        <div class="foot-col">
+          <h4>Policy</h4>
+          <ul>
+            <li><a href="#">Terms &amp; Conditions</a></li>
+            <li><a href="#">Privacy Policy</a></li>
+            <li><a href="#">Refund Policy</a></li>
+          </ul>
+        </div>
+      </div>
 
-    updateThemeButton(savedTheme);
-  }
+      <div class="foot-bottom">
+        <span>© <span id="year"></span> Flint De Orient M&amp;T Pvt. Ltd. All rights reserved.</span>
+        <span>Made for Indian Chartered Accountants.</span>
+      </div>
+    </div>
+  </footer>
 
-  function toggleTheme() {
+  <script>
+    document.getElementById("year").textContent = new Date().getFullYear();
 
-    const current =
-      document.documentElement.getAttribute("data-theme");
-
-    const next =
-      current === "dark"
-      ? "light"
-      : "dark";
-
-    document.documentElement.setAttribute(
-      "data-theme",
-      next
-    );
-
-    localStorage.setItem("theme", next);
-
-    updateThemeButton(next);
-  }
-
-  function updateThemeButton(theme) {
-
-    document.getElementById("themeBtn").textContent =
-      theme === "dark"
-      ? "Light"
-      : "Dark";
-  }
-
-  function onFileChange(e) {
-
-    const file = e.target.files[0];
-
-    if (!file) return;
-
-    document.getElementById("fileName").textContent =
-      file.name;
-
-    document.getElementById("processBtn").disabled = false;
-
-    document.getElementById("status").textContent = "";
-
-    document.getElementById("passwordRow")
-      .classList.remove("visible");
-  }
-
-  async function processFile() {
-
-    const fileInput =
-      document.getElementById("pdfInput");
-
-    const file = fileInput.files[0];
-
-    if (!file) return;
-
-    const password =
-      document.getElementById("passwordInput").value;
-
-    const formData = new FormData();
-
-    formData.append("pdf", file);
-
-    if (password) {
-      formData.append("password", password);
+    // ---- Theme toggle (light/dark) ----
+    function applyTheme(t) {
+      document.documentElement.setAttribute("data-theme", t);
+      try { localStorage.setItem("theme", t); } catch (e) {}
+      var m = document.querySelector('meta[name="theme-color"]');
+      if (m) m.setAttribute("content", t === "dark" ? "#090d18" : "#ffffff");
+    }
+    function toggleTheme() {
+      var cur = document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
+      applyTheme(cur === "dark" ? "light" : "dark");
     }
 
-    setStatus(
-      '<span class="spinner"></span>Processing PDF...',
-      false
-    );
+    // ---- Real conversion flow, mirrors the original index.html behaviour ----
+    let pendingFile = null;
 
-    document.getElementById("processBtn").disabled = true;
+    function onFileChange(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      pendingFile = file;
 
-    try {
+      const chip = document.getElementById("fileChip");
+      chip.textContent = "📄 " + file.name;
+      chip.classList.add("show");
 
-      const res = await fetch("/process", {
-        method: "POST",
-        body: formData
-      });
+      // reset any prior password / status state
+      document.getElementById("passwordRow").classList.remove("show");
+      document.getElementById("passwordInput").value = "";
+      setStatus("", false);
 
-      const result = await res.json();
-
-      if (result.error === "PASSWORD_REQUIRED") {
-
-        document.getElementById("passwordRow")
-          .classList.add("visible");
-
-        setStatus("PDF is password protected.", true);
-
-        document.getElementById("processBtn").disabled = false;
-
-        return;
-      }
-
-      if (result.error === "WRONG_PASSWORD") {
-
-        setStatus("Wrong password.", true);
-
-        document.getElementById("processBtn").disabled = false;
-
-        return;
-      }
-
-      if (result.error) {
-
-        setStatus(result.error, true);
-
-        document.getElementById("processBtn").disabled = false;
-
-        return;
-      }
-
-      sessionStorage.setItem(
-        "transactions",
-        JSON.stringify(result)
-      );
-
-      sessionStorage.setItem(
-        "pdfName",
-        file.name.replace(/\.pdf$/i, "")
-      );
-
-      window.location.href = "/results.html";
-
-    } catch (err) {
-
-      setStatus(err.message, true);
-
-      document.getElementById("processBtn").disabled = false;
+      // immediately attempt processing
+      processFile();
     }
-  }
 
-  function setStatus(msg, isError) {
+    async function processFile() {
+      if (!pendingFile) return;
 
-    const el = document.getElementById("status");
+      const password = document.getElementById("passwordInput").value;
 
-    el.innerHTML = msg;
+      const formData = new FormData();
+      formData.append("pdf", pendingFile);
+      if (password) formData.append("password", password);
 
-    el.className =
-      "status" + (isError ? " error" : "");
-  }
+      setStatus('<span class="spinner"></span>Processing your statement...', false);
 
-</script>
+      try {
+        const res = await fetch("/process", { method: "POST", body: formData });
+        const result = await res.json();
+
+        if (result.error === "PASSWORD_REQUIRED") {
+          document.getElementById("passwordRow").classList.add("show");
+          setStatus("This PDF is password protected. Enter the password and click Convert again.", true);
+          showRetryButton();
+          return;
+        }
+        if (result.error === "WRONG_PASSWORD") {
+          setStatus("Wrong password. Please try again.", true);
+          showRetryButton();
+          return;
+        }
+        if (result.error) {
+          setStatus(result.error, true);
+          return;
+        }
+
+        sessionStorage.setItem("transactions", JSON.stringify(result));
+        sessionStorage.setItem("pdfName", pendingFile.name.replace(/\.pdf$/i, ""));
+        window.location.href = "/results.html";
+
+      } catch (err) {
+        setStatus(err.message, true);
+      }
+    }
+
+    // When a password is needed, pressing Enter in the field retries.
+    document.getElementById("passwordInput").addEventListener("keydown", function (e) {
+      if (e.key === "Enter") processFile();
+    });
+
+    let retryShown = false;
+    function showRetryButton() {
+      if (retryShown) return;
+      retryShown = true;
+      const row = document.getElementById("passwordRow");
+      const btn = document.createElement("button");
+      btn.className = "btn btn-primary";
+      btn.style.marginTop = "12px";
+      btn.textContent = "Convert with password";
+      btn.onclick = processFile;
+      row.appendChild(btn);
+    }
+
+    function setStatus(msg, isError) {
+      const el = document.getElementById("status");
+      el.innerHTML = msg;
+      el.className = "hero-status show" + (isError ? " error" : "");
+      if (!msg) el.className = "hero-status";
+    }
+  </script>
+
+  <!-- Animated dotted surface (three.js) for the hero background -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script>
+    (function () {
+      function init() {
+        if (typeof THREE === "undefined") return;          // CDN failed → skip silently
+        var container = document.getElementById("dottedSurface");
+        if (!container) return;
+
+        try {
+          var SEPARATION = 150, AMOUNTX = 40, AMOUNTY = 60;
+          var width = container.clientWidth || window.innerWidth;
+          var height = container.clientHeight || window.innerHeight;
+
+          var scene = new THREE.Scene();
+          var camera = new THREE.PerspectiveCamera(60, width / height, 1, 10000);
+          camera.position.set(0, 355, 1220);
+
+          var renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+          renderer.setPixelRatio(window.devicePixelRatio);
+          renderer.setSize(width, height);
+          renderer.setClearColor(0x000000, 0);
+          container.appendChild(renderer.domElement);
+
+          function dotColor() {
+            return document.documentElement.getAttribute("data-theme") === "dark"
+              ? [200 / 255, 200 / 255, 200 / 255]
+              : [0, 0, 0];
+          }
+
+          var geometry = new THREE.BufferGeometry();
+          var positions = [], colors = [];
+          var c = dotColor();
+          for (var ix = 0; ix < AMOUNTX; ix++) {
+            for (var iy = 0; iy < AMOUNTY; iy++) {
+              positions.push(
+                ix * SEPARATION - (AMOUNTX * SEPARATION) / 2,
+                0,
+                iy * SEPARATION - (AMOUNTY * SEPARATION) / 2
+              );
+              colors.push(c[0], c[1], c[2]);
+            }
+          }
+          geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+          geometry.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
+
+          var material = new THREE.PointsMaterial({
+            size: 13,
+            vertexColors: true,
+            transparent: true,
+            opacity: 0.75,
+            sizeAttenuation: true
+          });
+          var points = new THREE.Points(geometry, material);
+          scene.add(points);
+
+          var count = 0, rafId = null, running = false;
+
+          function frame() {
+            rafId = requestAnimationFrame(frame);
+            var pos = geometry.attributes.position.array;
+            var i = 0;
+            for (var ix = 0; ix < AMOUNTX; ix++) {
+              for (var iy = 0; iy < AMOUNTY; iy++) {
+                pos[i * 3 + 1] =
+                  Math.sin((ix + count) * 0.3) * 50 +
+                  Math.sin((iy + count) * 0.5) * 50;
+                i++;
+              }
+            }
+            geometry.attributes.position.needsUpdate = true;
+            renderer.render(scene, camera);
+            count += 0.1;
+          }
+          function start() { if (!running) { running = true; frame(); } }
+          function stop() { running = false; if (rafId) cancelAnimationFrame(rafId); }
+          start();
+
+          // resize with the hero
+          window.addEventListener("resize", function () {
+            var w = container.clientWidth, h = container.clientHeight;
+            if (!w || !h) return;
+            camera.aspect = w / h;
+            camera.updateProjectionMatrix();
+            renderer.setSize(w, h);
+          });
+
+          // recolor dots when the theme changes
+          new MutationObserver(function () {
+            var nc = dotColor();
+            var arr = geometry.attributes.color.array;
+            for (var k = 0; k < arr.length; k += 3) { arr[k] = nc[0]; arr[k + 1] = nc[1]; arr[k + 2] = nc[2]; }
+            geometry.attributes.color.needsUpdate = true;
+          }).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+          // pause while the tab is hidden (saves CPU/battery)
+          document.addEventListener("visibilitychange", function () {
+            if (document.hidden) stop(); else start();
+          });
+        } catch (e) { /* WebGL unavailable → leave hero as-is */ }
+      }
+
+      if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
+      else init();
+    })();
+  </script>
 
 </body>
 </html>

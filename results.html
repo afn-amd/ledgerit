@@ -13,46 +13,51 @@
 
   <style>
 
+    /* Palette shared with index.html so the two pages match exactly.
+       Legacy names used elsewhere in this file (--text, --text-muted,
+       --header-bg) are kept as aliases of the new tokens. */
     :root {
-
-      --bg: #f4f7fb;
-
+      --bg: #ffffff;
+      --bg-soft: #f6f8fc;
+      --bg-tint: #eef3fb;
       --surface: #ffffff;
-
       --primary: #2563eb;
-
       --primary-dark: #1d4ed8;
+      --primary-soft: #e8effd;
+      --ink: #0b1220;
+      --ink-soft: #1e293b;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --green: #16a34a;
+      --danger: #dc2626;
+      --shadow: 0 12px 34px rgba(15,23,42,0.07);
 
-      --text: #0f172a;
-
-      --text-muted: #64748b;
-
-      --border: #dbe3ef;
-
-      --shadow: 0 10px 30px rgba(15,23,42,0.06);
-
-      --header-bg: #2563eb;
+      /* legacy aliases */
+      --text: var(--ink);
+      --text-muted: var(--muted);
+      --header-bg: var(--primary);
     }
 
-    [data-theme="dark"] {
-
-      --bg: #0f172a;
-
-      --surface: #111827;
-
+    :root[data-theme="dark"] {
+      --bg: #090d18;
+      --bg-soft: #0f1424;
+      --bg-tint: #151b30;
+      --surface: #0f1526;
       --primary: #3b82f6;
-
       --primary-dark: #2563eb;
+      --primary-soft: #16213f;
+      --ink: #e9edf6;
+      --ink-soft: #c4cde0;
+      --muted: #8a96ac;
+      --border: #1f2840;
+      --green: #22c55e;
+      --danger: #f87171;
+      --shadow: 0 14px 38px rgba(0,0,0,0.5);
 
-      --text: #f1f5f9;
-
-      --text-muted: #94a3b8;
-
-      --border: #1e293b;
-
-      --shadow: 0 10px 30px rgba(0,0,0,0.45);
-
-      --header-bg: #1d4ed8;
+      /* legacy aliases */
+      --text: var(--ink);
+      --text-muted: var(--muted);
+      --header-bg: var(--primary-dark);
     }
 
     * {
@@ -68,7 +73,7 @@
 
       font-family: Inter, sans-serif;
 
-      background: var(--bg);
+      background: var(--bg-soft);
 
       color: var(--text);
 
