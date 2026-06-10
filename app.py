@@ -86,6 +86,45 @@ def clean_entry_row(row):
     return cleaned
 
 
+# Keyword groups that almost every bank-statement header contains.
+# A row is considered a header if it matches at least two distinct groups
+# (e.g. a "date" word AND a "balance"/"amount" word). This deterministic
+# check is a safety net for when the ML row-classifier fails to tag the
+# header row (seen with unfamiliar layouts such as ICICI's
+# "Withdrawal (Dr) / Deposit (Cr)" format).
+HEADER_KEYWORD_GROUPS = [
+    ("date",),
+    ("balance",),
+    ("withdrawal", "deposit", "debit", "credit", "dr", "cr"),
+    ("narration", "remarks", "particulars", "details", "description"),
+    ("cheque", "ref no", "reference"),
+    ("amount",),
+]
+
+
+def looks_like_header(row_values):
+    # Join the row's cells into one lowercase string and count how many
+    # distinct keyword groups appear. Two or more -> it's a header.
+    joined = " ".join(str(v) for v in row_values).lower()
+
+    if not joined.strip():
+        return False
+
+    # A header should be mostly words, not transaction data. Reject rows
+    # that are dominated by digits (real entries have amounts/dates/refs).
+    digits = sum(c.isdigit() for c in joined)
+    letters = sum(c.isalpha() for c in joined)
+    if letters == 0 or digits > letters:
+        return False
+
+    groups_matched = 0
+    for group in HEADER_KEYWORD_GROUPS:
+        if any(kw in joined for kw in group):
+            groups_matched += 1
+
+    return groups_matched >= 2
+
+
 def process_pdf(pdf_path, password=None):
 
     reader = PdfReader(pdf_path)
@@ -167,6 +206,27 @@ def process_pdf(pdf_path, password=None):
 
     original_df["predicted_label"] = predicted_labels
 
+    # Fallback header rescue — runs BEFORE the "remove" filter.
+    # The ML classifier sometimes fails to tag the header row on unfamiliar
+    # layouts (e.g. ICICI's "Withdrawal (Dr) / Deposit (Cr)" format), labeling
+    # it "entry", "info", or even "remove". If no row is tagged "header",
+    # scan every row (including ones about to be removed) for a header-like
+    # one and re-tag the first match so it survives downstream.
+    #
+    # Such rescued headers are tagged "header-kw" (keyword-detected) rather
+    # than "header": camelot has already placed each header word in its own
+    # column for these layouts, so they must be cleaned, NOT run through
+    # split_header_row (which redistributes multi-line cells and would
+    # truncate already-separated headers to their first word).
+    rescued_header = False
+    if not (original_df["predicted_label"] == "header").any():
+        for idx in original_df.index:
+            row_values = original_df.loc[idx].drop("predicted_label").tolist()
+            if looks_like_header(row_values):
+                original_df.at[idx, "predicted_label"] = "header-kw"
+                rescued_header = True
+                break
+
     df = original_df[
         original_df["predicted_label"] != "remove"
     ]
@@ -182,6 +242,11 @@ def process_pdf(pdf_path, password=None):
         if label == "header":
             row_values = split_header_row(row_values)
 
+        elif label == "header-kw":
+            # keyword-rescued header: columns already separated by camelot,
+            # so just normalise whitespace.
+            row_values = clean_entry_row(row_values)
+
         elif label in ["entry", "c-entry"]:
             row_values = clean_entry_row(row_values)
 
@@ -195,8 +260,9 @@ def process_pdf(pdf_path, password=None):
         columns={df.columns[-1]: "predicted_label"}
     )
 
+    # Treat a keyword-rescued header the same as a classifier-detected one.
     header_indices = df[
-        df["predicted_label"] == "header"
+        df["predicted_label"].isin(["header", "header-kw"])
     ].index.tolist()
 
     if header_indices:
@@ -300,9 +366,8 @@ def contactus_page():
 
 
 # Serve front-end assets (logos, favicon, etc.) from the assets/ folder only.
-# Scoping to "assets" means this route physically cannot reach app.py, the
-# model weights, or any other source file. send_from_directory also rejects
-# path-traversal attempts (e.g. ../app.py) on its own.
+# Scoping to "assets" means this route cannot reach app.py or the model
+# weights. send_from_directory rejects path-traversal attempts on its own.
 @app.route("/assets/<path:filename>")
 def assets(filename):
     return send_from_directory("assets", filename)
