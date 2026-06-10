@@ -101,13 +101,27 @@ HEADER_KEYWORD_GROUPS = [
     ("amount",),
 ]
 
+# Phrases that mark a SUMMARY / TOTALS row, not a column header. Bank
+# statements often end with a "Statement Summary" block whose cells
+# ("Brought Forward", "Total Debits", "Closing Balance", "Dr Count" ...)
+# would otherwise match the header keywords above and get mis-promoted.
+SUMMARY_ROW_MARKERS = [
+    "brought forward", "total debit", "total credit", "closing balance",
+    "opening balance", "dr count", "cr count", "count", "statement summary",
+    "page total", "carried forward",
+]
+
 
 def looks_like_header(row_values):
-    # Join the row's cells into one lowercase string and count how many
-    # distinct keyword groups appear. Two or more -> it's a header.
+    # Join the row's cells into one lowercase string.
     joined = " ".join(str(v) for v in row_values).lower()
 
     if not joined.strip():
+        return False
+
+    # Reject summary / totals rows outright (e.g. the end-of-statement
+    # "Brought Forward / Total Debits / Closing Balance" block in SBI).
+    if any(marker in joined for marker in SUMMARY_ROW_MARKERS):
         return False
 
     # A header should be mostly words, not transaction data. Reject rows
@@ -122,7 +136,11 @@ def looks_like_header(row_values):
         if any(kw in joined for kw in group):
             groups_matched += 1
 
-    return groups_matched >= 2
+    # Require a date-type column AND at least one more group. A genuine
+    # transaction header always has a date column; this extra requirement
+    # further guards against promoting stray non-header rows.
+    has_date = "date" in joined
+    return has_date and groups_matched >= 2
 
 
 def process_pdf(pdf_path, password=None):
