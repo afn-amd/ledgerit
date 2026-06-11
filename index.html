@@ -357,15 +357,96 @@
       vertical-align: -2px; margin-right: 8px;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
-    .password-inline { margin-top: 16px; display: none; max-width: 340px; }
-    .password-inline.show { display: block; }
-    .password-inline input {
-      width: 100%; padding: 13px 15px; border-radius: 12px;
-      border: 1px solid var(--border); font-size: 0.95rem; font-family: inherit;
-      background: var(--surface); color: var(--ink);
+
+    /* ---------------- Processing pill (replaces upload button while a PDF is processing) ---------------- */
+    .processing-pill {
+      display: none;               /* shown via .show */
+      align-items: center; gap: 18px;
+      background: var(--primary);
+      border-radius: 16px; padding: 16px 26px;
+      box-shadow: 0 12px 26px rgba(37,99,235,0.30);
     }
-    .password-inline input::placeholder { color: var(--muted); }
-    .password-inline input:focus { outline: none; border-color: var(--primary); }
+    .processing-pill.show { display: inline-flex; }
+    .processing-cubes { display: flex; gap: 7px; perspective: 240px; }
+    .pcube {
+      width: 16px; height: 16px; position: relative;
+      transform-style: preserve-3d;
+      animation: pspin 1.6s infinite ease-in-out;
+    }
+    .pcube .pf {
+      position: absolute; inset: 0;
+      display: grid; place-items: center;
+      font-size: 9px; font-weight: 800; color: #fff;
+      background: rgba(255,255,255,0.16);
+      border: 1px solid rgba(255,255,255,0.35);
+    }
+    .pf.front  { transform: translateZ(8px); }
+    .pf.back   { transform: rotateY(180deg) translateZ(8px); }
+    .pf.right  { transform: rotateY(90deg) translateZ(8px); }
+    .pf.left   { transform: rotateY(-90deg) translateZ(8px); }
+    .pf.top    { transform: rotateX(90deg) translateZ(8px); }
+    .pf.bottom { transform: rotateX(-90deg) translateZ(8px); }
+    .pcube:nth-child(1){animation-delay:0s}
+    .pcube:nth-child(2){animation-delay:.12s}
+    .pcube:nth-child(3){animation-delay:.24s}
+    .pcube:nth-child(4){animation-delay:.36s}
+    .pcube:nth-child(5){animation-delay:.48s}
+    .pcube:nth-child(6){animation-delay:.60s}
+    .pcube:nth-child(7){animation-delay:.72s}
+    .pcube:nth-child(8){animation-delay:.84s}
+    .pcube:nth-child(9){animation-delay:.96s}
+    .pcube:nth-child(10){animation-delay:1.08s}
+    @keyframes pspin {
+      0%, 70%, 100% { transform: rotateX(0) rotateY(0); }
+      35% { transform: rotateX(-180deg) rotateY(180deg); }
+    }
+    .processing-text { display: flex; flex-direction: column; line-height: 1.25; text-align: left; }
+    .processing-text .label { color: #fff; font-weight: 700; font-size: 1rem; letter-spacing: .01em; }
+    .processing-text .fname {
+      color: rgba(255,255,255,0.85); font-size: .82rem; font-weight: 600;
+      max-width: 230px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      display: flex; align-items: center; gap: 6px;
+    }
+
+    /* ---------------- Password pill (same look as processing pill, but takes the password inline) ---------------- */
+    .password-pill {
+      display: none;               /* shown via .show */
+      align-items: center; gap: 14px;
+      background: var(--primary);
+      border-radius: 16px; padding: 12px 16px;
+      box-shadow: 0 12px 26px rgba(37,99,235,0.30);
+    }
+    .password-pill.show { display: inline-flex; }
+    .password-pill .pp-fname {
+      color: #fff; font-size: .82rem; font-weight: 700;
+      max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      display: flex; align-items: center; gap: 6px; flex-shrink: 0;
+    }
+    .password-pill .pp-field {
+      display: flex; align-items: center; gap: 6px;
+      background: rgba(255,255,255,0.16);
+      border: 1px solid rgba(255,255,255,0.40);
+      border-radius: 10px; padding: 8px 10px;
+    }
+    .password-pill .pp-field input {
+      background: transparent; border: none; outline: none;
+      color: #fff; font-size: .9rem; font-family: inherit;
+      width: 160px; padding: 0;
+    }
+    .password-pill .pp-field input::placeholder { color: rgba(255,255,255,0.65); }
+    .password-pill .pp-eye {
+      background: transparent; border: none; cursor: pointer;
+      color: rgba(255,255,255,0.85); display: grid; place-items: center;
+      padding: 0; flex-shrink: 0;
+    }
+    .password-pill .pp-eye:hover { color: #fff; }
+    .password-pill .pp-go {
+      background: #fff; color: var(--primary);
+      border: none; border-radius: 10px; cursor: pointer;
+      font-weight: 700; font-size: .85rem; font-family: inherit;
+      padding: 8px 14px; flex-shrink: 0;
+    }
+    .password-pill .pp-go:hover { background: rgba(255,255,255,0.9); }
 
     /* ---------------- Section scaffolding ---------------- */
     section.block { padding: 96px 0; }
@@ -544,10 +625,42 @@
       <p class="sub animate-appear d300">Ledgerit reads any digitally-generated bank statement PDF, understands its layout with AI, and exports clean, import-ready Tally XML — no templates, no manual entry.</p>
 
       <div class="hero-cta animate-appear d300">
-        <button class="btn btn-primary btn-lg" onclick="document.getElementById('pdfInput').click()">
+        <button class="btn btn-primary btn-lg" id="uploadBtn" onclick="document.getElementById('pdfInput').click()">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
           Start for free — 100 pages
         </button>
+
+        <!-- replaces the upload button while a PDF is processing -->
+        <div class="processing-pill" id="processingPill" aria-live="polite">
+          <div class="processing-cubes" aria-hidden="true">
+            <div class="pcube"><div class="pf front">P</div><div class="pf back"></div><div class="pf right"></div><div class="pf left"></div><div class="pf top"></div><div class="pf bottom"></div></div>
+            <div class="pcube"><div class="pf front">R</div><div class="pf back"></div><div class="pf right"></div><div class="pf left"></div><div class="pf top"></div><div class="pf bottom"></div></div>
+            <div class="pcube"><div class="pf front">O</div><div class="pf back"></div><div class="pf right"></div><div class="pf left"></div><div class="pf top"></div><div class="pf bottom"></div></div>
+            <div class="pcube"><div class="pf front">C</div><div class="pf back"></div><div class="pf right"></div><div class="pf left"></div><div class="pf top"></div><div class="pf bottom"></div></div>
+            <div class="pcube"><div class="pf front">E</div><div class="pf back"></div><div class="pf right"></div><div class="pf left"></div><div class="pf top"></div><div class="pf bottom"></div></div>
+            <div class="pcube"><div class="pf front">S</div><div class="pf back"></div><div class="pf right"></div><div class="pf left"></div><div class="pf top"></div><div class="pf bottom"></div></div>
+            <div class="pcube"><div class="pf front">S</div><div class="pf back"></div><div class="pf right"></div><div class="pf left"></div><div class="pf top"></div><div class="pf bottom"></div></div>
+            <div class="pcube"><div class="pf front">I</div><div class="pf back"></div><div class="pf right"></div><div class="pf left"></div><div class="pf top"></div><div class="pf bottom"></div></div>
+            <div class="pcube"><div class="pf front">N</div><div class="pf back"></div><div class="pf right"></div><div class="pf left"></div><div class="pf top"></div><div class="pf bottom"></div></div>
+            <div class="pcube"><div class="pf front">G</div><div class="pf back"></div><div class="pf right"></div><div class="pf left"></div><div class="pf top"></div><div class="pf bottom"></div></div>
+          </div>
+          <div class="processing-text">
+            <span class="fname" id="processingFname"></span>
+          </div>
+        </div>
+
+        <!-- replaces the upload button when the PDF is password-protected -->
+        <div class="password-pill" id="passwordPill">
+          <span class="pp-fname" id="passwordPillFname"></span>
+          <div class="pp-field">
+            <input type="password" id="passwordInput" placeholder="Enter password" autocomplete="off" />
+            <button type="button" class="pp-eye" id="passwordEye" aria-label="Show password" onclick="togglePasswordVisible()">
+              <svg id="eyeIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+          <button type="button" class="pp-go" onclick="processFile()">Convert</button>
+        </div>
+
         <button class="btn btn-ghost btn-lg" onclick="window.location.href='/login.html'">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
           Login
@@ -556,11 +669,6 @@
 
       <!-- real hidden uploader -->
       <input type="file" id="pdfInput" accept=".pdf" onchange="onFileChange(event)" />
-      <div class="file-chip" id="fileChip"></div>
-
-      <div class="password-inline" id="passwordRow">
-        <input type="password" id="passwordInput" placeholder="This PDF is protected — enter password" />
-      </div>
 
       <div class="hero-status" id="status"></div>
 
@@ -861,24 +969,61 @@
       applyTheme(cur === "dark" ? "light" : "dark");
     }
 
-    // ---- Real conversion flow, mirrors the original index.html behaviour ----
+    // ---- Real conversion flow ----
     let pendingFile = null;
+
+    // Show only one of: upload button | processing pill | password pill.
+    function showUploadButton() {
+      document.getElementById("uploadBtn").style.display = "";
+      document.getElementById("processingPill").classList.remove("show");
+      document.getElementById("passwordPill").classList.remove("show");
+    }
+
+    // Animated PROCESSING pill (cubes) with the filename inside.
+    function showProcessing(fileName) {
+      document.getElementById("processingFname").textContent = "📄 " + fileName;
+      document.getElementById("uploadBtn").style.display = "none";
+      document.getElementById("passwordPill").classList.remove("show");
+      document.getElementById("processingPill").classList.add("show");
+    }
+
+    // Password pill — same button slot, shows the filename + a password box
+    // with an eye toggle and a Convert button. No red error line.
+    function showPasswordPill(fileName) {
+      document.getElementById("passwordPillFname").textContent = "📄 " + fileName;
+      document.getElementById("uploadBtn").style.display = "none";
+      document.getElementById("processingPill").classList.remove("show");
+      document.getElementById("passwordPill").classList.add("show");
+      const inp = document.getElementById("passwordInput");
+      inp.focus();
+    }
+
+    function togglePasswordVisible() {
+      const inp = document.getElementById("passwordInput");
+      const eye = document.getElementById("eyeIcon");
+      const showing = inp.type === "text";
+      inp.type = showing ? "password" : "text";
+      // swap icon: open eye <-> eye-off
+      if (showing) {
+        eye.innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+      } else {
+        eye.innerHTML = '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>';
+      }
+      inp.focus();
+    }
 
     function onFileChange(e) {
       const file = e.target.files[0];
       if (!file) return;
       pendingFile = file;
 
-      const chip = document.getElementById("fileChip");
-      chip.textContent = "📄 " + file.name;
-      chip.classList.add("show");
-
-      // reset any prior password / status state
-      document.getElementById("passwordRow").classList.remove("show");
+      // reset any prior state
       document.getElementById("passwordInput").value = "";
       setStatus("", false);
 
-      // immediately attempt processing
+      // swap the button for the processing pill (filename shown inside),
+      // then make the first attempt with no password.
+      showProcessing(file.name);
       processFile();
     }
 
@@ -891,54 +1036,43 @@
       formData.append("pdf", pendingFile);
       if (password) formData.append("password", password);
 
-      setStatus('<span class="spinner"></span>Processing your statement...', false);
+      // entering processing state (covers first attempt + password retry)
+      showProcessing(pendingFile.name);
+      setStatus("", false);
 
       try {
         const res = await fetch("/process", { method: "POST", body: formData });
         const result = await res.json();
 
-        if (result.error === "PASSWORD_REQUIRED") {
-          document.getElementById("passwordRow").classList.add("show");
-          setStatus("This PDF is password protected. Enter the password and click Convert again.", true);
-          showRetryButton();
-          return;
-        }
-        if (result.error === "WRONG_PASSWORD") {
-          setStatus("Wrong password. Please try again.", true);
-          showRetryButton();
+        if (result.error === "PASSWORD_REQUIRED" || result.error === "WRONG_PASSWORD") {
+          // Show the password pill in the same button slot. Keep the
+          // filename visible; no red line. On wrong password, just clear
+          // the field and let the user try again.
+          document.getElementById("passwordInput").value = "";
+          showPasswordPill(pendingFile.name);
           return;
         }
         if (result.error) {
+          showUploadButton();
           setStatus(result.error, true);
           return;
         }
 
+        // success — pill stays visible until the page navigates away
         sessionStorage.setItem("transactions", JSON.stringify(result));
         sessionStorage.setItem("pdfName", pendingFile.name.replace(/\.pdf$/i, ""));
         window.location.href = "/results.html";
 
       } catch (err) {
+        showUploadButton();
         setStatus(err.message, true);
       }
     }
 
-    // When a password is needed, pressing Enter in the field retries.
+    // Pressing Enter in the password field submits.
     document.getElementById("passwordInput").addEventListener("keydown", function (e) {
-      if (e.key === "Enter") processFile();
+      if (e.key === "Enter") { e.preventDefault(); processFile(); }
     });
-
-    let retryShown = false;
-    function showRetryButton() {
-      if (retryShown) return;
-      retryShown = true;
-      const row = document.getElementById("passwordRow");
-      const btn = document.createElement("button");
-      btn.className = "btn btn-primary";
-      btn.style.marginTop = "12px";
-      btn.textContent = "Convert with password";
-      btn.onclick = processFile;
-      row.appendChild(btn);
-    }
 
     function setStatus(msg, isError) {
       const el = document.getElementById("status");
