@@ -411,12 +411,22 @@
     /* ---------------- Password pill (same look as processing pill, but takes the password inline) ---------------- */
     .password-pill {
       display: none;               /* shown via .show */
-      align-items: center; gap: 14px;
+      flex-direction: column; gap: 8px;
       background: var(--primary);
       border-radius: 16px; padding: 12px 16px;
       box-shadow: 0 12px 26px rgba(37,99,235,0.30);
     }
     .password-pill.show { display: inline-flex; }
+    .password-pill .pp-row { display: flex; align-items: center; gap: 14px; }
+    /* error line under the field — white-on-blue to match the pill,
+       small, hidden until a wrong password is submitted */
+    .password-pill .pp-error {
+      display: none; align-items: center; gap: 6px;
+      color: #fff; font-size: 0.76rem; font-weight: 600;
+      padding: 0 2px;
+    }
+    .password-pill .pp-error.show { display: flex; }
+    .password-pill .pp-error svg { width: 14px; height: 14px; flex-shrink: 0; }
     .password-pill .pp-fname {
       color: #fff; font-size: .82rem; font-weight: 700;
       max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -447,6 +457,21 @@
       padding: 8px 14px; flex-shrink: 0;
     }
     .password-pill .pp-go:hover { background: rgba(255,255,255,0.9); }
+
+    /* ---------------- Discard (cross) button — shared by the processing & password pills ---------------- */
+    /* Lets the user drop a wrongly-selected PDF: cancels any in-flight
+       request and reloads the page back to a clean upload state. */
+    .pill-cancel {
+      background: rgba(255,255,255,0.16);
+      border: 1px solid rgba(255,255,255,0.40);
+      color: #fff; flex-shrink: 0;
+      width: 30px; height: 30px; padding: 0;
+      border-radius: 50%; cursor: pointer;
+      display: grid; place-items: center;
+      transition: background 0.16s ease;
+    }
+    .pill-cancel:hover { background: rgba(255,255,255,0.32); }
+    .pill-cancel svg { width: 16px; height: 16px; display: block; }
 
     /* ---------------- Section scaffolding ---------------- */
     section.block { padding: 96px 0; }
@@ -513,7 +538,9 @@
       width: 46px; height: 46px; border-radius: 50%; flex-shrink: 0;
       background: linear-gradient(135deg, var(--primary), #6366f1);
       color: #fff; display: grid; place-items: center; font-weight: 700; font-family: "Sora", sans-serif;
+      overflow: hidden;
     }
+    .t-avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block; }
     .t-person .nm { font-weight: 700; color: var(--ink); }
     .t-person .org { color: var(--muted); font-size: 0.88rem; }
 
@@ -647,18 +674,30 @@
           <div class="processing-text">
             <span class="fname" id="processingFname"></span>
           </div>
+          <button type="button" class="pill-cancel" aria-label="Discard file" title="Discard" onclick="cancelUpload()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
         </div>
 
         <!-- replaces the upload button when the PDF is password-protected -->
         <div class="password-pill" id="passwordPill">
-          <span class="pp-fname" id="passwordPillFname"></span>
-          <div class="pp-field">
-            <input type="password" id="passwordInput" placeholder="Enter password" autocomplete="off" />
-            <button type="button" class="pp-eye" id="passwordEye" aria-label="Show password" onclick="togglePasswordVisible()">
-              <svg id="eyeIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          <div class="pp-row">
+            <span class="pp-fname" id="passwordPillFname"></span>
+            <div class="pp-field">
+              <input type="password" id="passwordInput" placeholder="Enter password" autocomplete="off" />
+              <button type="button" class="pp-eye" id="passwordEye" aria-label="Show password" onclick="togglePasswordVisible()">
+                <svg id="eyeIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+            <button type="button" class="pp-go" onclick="processFile()">Convert</button>
+            <button type="button" class="pill-cancel" aria-label="Discard file" title="Discard" onclick="cancelUpload()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
           </div>
-          <button type="button" class="pp-go" onclick="processFile()">Convert</button>
+          <div class="pp-error" id="passwordError" aria-live="polite">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            Incorrect Password! Try Again.
+          </div>
         </div>
 
         <button class="btn btn-ghost btn-lg" onclick="window.location.href='/login.html'">
@@ -823,22 +862,22 @@
         <div class="t-card">
           <p class="t-quote">"During filing season we used to lose entire evenings just keying in bank entries. With Ledgerit a month's statement is in Tally in under a minute — and the running balances actually tie out. It's paid for itself many times over."</p>
           <div class="t-person">
-            <div class="t-avatar">PM</div>
+            <div class="t-avatar"><img src="assets/Priya%20Menon.png" alt="CA Priya Menon" /></div>
             <div><div class="nm">CA Priya Menon</div><div class="org">Menon &amp; Rao Associates</div></div>
           </div>
         </div>
         <div class="t-card">
           <p class="t-quote">"We handle clients across a dozen different banks and every statement looks different. Ledgerit reads all of them without me setting up a single template. The AI parsing is genuinely impressive — it just works."</p>
           <div class="t-person">
-            <div class="t-avatar">AK</div>
-            <div><div class="nm">CA Arjun Khanna</div><div class="org">Khanna Tax Advisory LLP</div></div>
+            <div class="t-avatar"><img src="assets/Imran%20Ahmed.png" alt="CA Imran Ahmed" /></div>
+            <div><div class="nm">CA Imran Ahmed</div><div class="org">Ahmed Tax Advisory LLP</div></div>
           </div>
         </div>
         <div class="t-card">
           <p class="t-quote">"My juniors used to spend two days a month on data entry; now it's two clicks. Fewer typing errors, faster reconciliations, and the auto-delete policy gives our clients real peace of mind about their data."</p>
           <div class="t-person">
-            <div class="t-avatar">SD</div>
-            <div><div class="nm">CA Sneha Desai</div><div class="org">Desai &amp; Co., Chartered Accountants</div></div>
+            <div class="t-avatar"><img src="assets/Chris%20Rogers.png" alt="CA Chris Rogers" /></div>
+            <div><div class="nm">CA Chris Rogers</div><div class="org">Rogers &amp; Co., Chartered Accountants</div></div>
           </div>
         </div>
       </div>
@@ -969,8 +1008,26 @@
       applyTheme(cur === "dark" ? "light" : "dark");
     }
 
+    // When the user navigates back here from results.html, the browser may
+    // restore this page from its back-forward cache — frozen with the
+    // processing pill still showing. Detect that restore and reload so the
+    // page returns to a clean upload state.
+    window.addEventListener("pageshow", function (e) {
+      if (e.persisted) window.location.reload();
+    });
+
     // ---- Real conversion flow ----
     let pendingFile = null;
+    let activeController = null;   // AbortController for the in-flight /process request
+
+    // Discard the selected/uploaded PDF: abort any in-flight conversion and
+    // reload the page so the UI returns to a clean upload state.
+    function cancelUpload() {
+      if (activeController) {
+        try { activeController.abort(); } catch (e) {}
+      }
+      window.location.reload();
+    }
 
     // Show only one of: upload button | processing pill | password pill.
     function showUploadButton() {
@@ -989,11 +1046,14 @@
 
     // Password pill — same button slot, shows the filename + a password box
     // with an eye toggle and a Convert button. No red error line.
-    function showPasswordPill(fileName) {
+    function showPasswordPill(fileName, isWrong) {
       document.getElementById("passwordPillFname").textContent = "📄 " + fileName;
       document.getElementById("uploadBtn").style.display = "none";
       document.getElementById("processingPill").classList.remove("show");
       document.getElementById("passwordPill").classList.add("show");
+      // Show the "Incorrect Password!" line only on a failed retry,
+      // not on the first prompt for an encrypted PDF.
+      document.getElementById("passwordError").classList.toggle("show", !!isWrong);
       const inp = document.getElementById("passwordInput");
       inp.focus();
     }
@@ -1040,16 +1100,18 @@
       showProcessing(pendingFile.name);
       setStatus("", false);
 
+      activeController = new AbortController();
+
       try {
-        const res = await fetch("/process", { method: "POST", body: formData });
+        const res = await fetch("/process", { method: "POST", body: formData, signal: activeController.signal });
         const result = await res.json();
 
         if (result.error === "PASSWORD_REQUIRED" || result.error === "WRONG_PASSWORD") {
           // Show the password pill in the same button slot. Keep the
-          // filename visible; no red line. On wrong password, just clear
-          // the field and let the user try again.
+          // filename visible. On a wrong password, clear the field and
+          // surface the "Incorrect Password! Try Again." line.
           document.getElementById("passwordInput").value = "";
-          showPasswordPill(pendingFile.name);
+          showPasswordPill(pendingFile.name, result.error === "WRONG_PASSWORD");
           return;
         }
         if (result.error) {
@@ -1064,6 +1126,9 @@
         window.location.href = "/results.html";
 
       } catch (err) {
+        // The user discarded the file mid-request — cancelUpload() is
+        // already reloading the page, so don't flash an error.
+        if (err.name === "AbortError") return;
         showUploadButton();
         setStatus(err.message, true);
       }
