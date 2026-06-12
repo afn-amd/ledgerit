@@ -168,7 +168,10 @@
 
       border-radius: 22px;
 
-      overflow: hidden;
+      /* `clip` (not `hidden`) keeps the rounded corners while still letting
+         the sticky <thead> stick to the viewport — `overflow: hidden` on an
+         ancestor traps sticky elements inside it and breaks the effect. */
+      overflow: clip;
 
       border: 1px solid var(--border);
 

@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import gc
 import tempfile
@@ -141,6 +142,75 @@ def looks_like_header(row_values):
     # further guards against promoting stray non-header rows.
     has_date = "date" in joined
     return has_date and groups_matched >= 2
+
+
+# Matches a date token at the very START of a string, covering the formats
+# seen across Indian bank statements:
+#   04-04-25, 04/04/2025, 04.04.2025   (DD-MM-YY[YY])
+#   2025-04-04                          (YYYY-MM-DD)
+#   01-MAR-2024, 03 May 2026            (textual month)
+# Group 1 captures the date so it can be lifted out of the cell.
+LEADING_DATE_RE = re.compile(
+    r"^\s*("
+    r"\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4}"            # 04-04-25 / 04/04/2025
+    r"|\d{4}[-/.]\d{1,2}[-/.]\d{1,2}"             # 2025-04-04
+    r"|\d{1,2}[-/\s][A-Za-z]{3,9}[-/\s]\d{2,4}"   # 01-MAR-2024 / 03 May 2026
+    r")\b"
+)
+
+# Header keywords used to locate the date column and the description column
+# when re-homing a misplaced date.
+_DATE_HDR_KW = "date"
+_DESC_HDR_KW = ("particular", "narration", "description", "details", "remarks")
+
+
+def relocate_leading_date(records, headers):
+    # On tall, multi-line rows (e.g. Ujjivan Small Finance Bank) Camelot
+    # misaligns the boundary between the date column and the description
+    # column, in BOTH directions:
+    #
+    #   Case A — the date leaks INTO the description and the date cell is
+    #            left blank:  Date="" | Particular="04-04-25 MB/IMPS/..."
+    #   Case B — the first line of the description leaks INTO the date cell:
+    #            Date="12-07-25 MB/NEFT DR/LUCKU" | Particular="PRODUCTS AU..."
+    #
+    # Re-home the date so it sits alone in the date column and the full
+    # description stays intact, so the row displays and exports correctly.
+    date_col = next(
+        (h for h in headers if _DATE_HDR_KW in str(h).lower()),
+        None
+    )
+    desc_col = next(
+        (h for h in headers
+         if any(kw in str(h).lower() for kw in _DESC_HDR_KW)),
+        None
+    )
+
+    if not date_col or not desc_col or date_col == desc_col:
+        return records
+
+    for rec in records:
+        date_val = str(rec.get(date_col, "")).strip()
+        desc_val = str(rec.get(desc_col, "")).strip()
+
+        if not date_val:
+            # Case A: date sitting at the front of the description.
+            match = LEADING_DATE_RE.match(desc_val)
+            if match:
+                rec[date_col] = match.group(1)
+                rec[desc_col] = desc_val[match.end():].lstrip()
+        else:
+            # Case B: description text trailing the date in the date cell.
+            match = LEADING_DATE_RE.match(date_val)
+            if match:
+                trailing = date_val[match.end():].lstrip()
+                # Only move genuine description text (has letters) — never a
+                # stray second date/number, guarding two-date layouts.
+                if trailing and re.search(r"[A-Za-z]", trailing):
+                    rec[date_col] = match.group(1)
+                    rec[desc_col] = (trailing + " " + desc_val).strip()
+
+    return records
 
 
 def process_pdf(pdf_path, password=None):
@@ -347,6 +417,9 @@ def process_pdf(pdf_path, password=None):
 
                 if v:
                     current_record[h] += " " + v
+
+    # Re-home any date that leaked into the description column.
+    relocate_leading_date(records, headers)
 
     gc.collect()
 
