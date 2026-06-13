@@ -10,6 +10,8 @@ logs/
 cellProcessor.py
 predict_and_clean.py
 train_classifier.py
+csvFormatter.py
+pdf2csv.py
 
 # Temp / runtime files
 latticePDF/
