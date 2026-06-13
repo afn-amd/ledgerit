@@ -6,13 +6,6 @@ results/
 dataset/
 logs/
 
-# Scripts not needed for deployment
-cellProcessor.py
-predict_and_clean.py
-train_classifier.py
-csvFormatter.py
-pdf2csv.py
-
 # Temp / runtime files
 latticePDF/
 cellJSON/
