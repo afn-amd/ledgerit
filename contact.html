@@ -142,6 +142,8 @@
       border-radius: 12px; transition: border-color 0.16s, box-shadow 0.16s;
     }
     .field input::placeholder { color: var(--muted); opacity: 0.8; }
+    /* match the select's placeholder text to the input placeholder colour */
+    .field select.placeholder { color: var(--muted); opacity: 0.8; }
     .field input:focus, .field select:focus {
       outline: none; border-color: var(--primary);
       box-shadow: 0 0 0 3px rgba(37,99,235,0.15);
@@ -269,7 +271,7 @@
 
         <div class="field">
           <label for="orgType">Organisation type <span class="req">*</span></label>
-          <select id="orgType">
+          <select id="orgType" class="placeholder">
             <option value="" disabled selected>Select organisation type</option>
             <option>Chartered Accountant firm</option>
             <option>Accounting / Bookkeeping firm</option>
@@ -279,6 +281,13 @@
             <option>Other</option>
           </select>
           <div class="err" id="errType">Please select your organisation type.</div>
+        </div>
+
+        <!-- Shown only when "Other" is selected above. -->
+        <div class="field" id="orgTypeOtherField" style="display:none;">
+          <label for="orgTypeOther">Please specify <span class="req">*</span></label>
+          <input type="text" id="orgTypeOther" placeholder="Your organisation type" />
+          <div class="err" id="errTypeOther">Please specify your organisation type.</div>
         </div>
 
         <button type="submit" class="btn-submit">Send Details</button>
@@ -313,6 +322,24 @@
       document.getElementById(id).classList.toggle("show", show);
     }
 
+    // Reveal the "Please specify" box only when "Other" is the chosen type.
+    var orgType = document.getElementById("orgType");
+    var orgTypeOtherField = document.getElementById("orgTypeOtherField");
+    var orgTypeOther = document.getElementById("orgTypeOther");
+    orgType.addEventListener("change", function () {
+      // muted placeholder colour until a real option is picked
+      this.classList.toggle("placeholder", this.value === "");
+
+      var isOther = this.value === "Other";
+      orgTypeOtherField.style.display = isOther ? "" : "none";
+      if (isOther) {
+        orgTypeOther.focus();
+      } else {
+        orgTypeOther.value = "";
+        showErr("errTypeOther", false);
+      }
+    });
+
     document.getElementById("salesForm").addEventListener("submit", function (e) {
       e.preventDefault();
 
@@ -321,20 +348,25 @@
       var ph = phone.value.trim();
       var org = document.getElementById("orgName").value.trim();
       var type = document.getElementById("orgType").value;
+      var typeOther = orgTypeOther.value.trim();
 
       var okFirst = first.length > 0;
       var okEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
       var okPhone = /^\d{10}$/.test(ph);
       var okOrg = org.length > 0;
       var okType = type !== "";
+      // When "Other" is chosen, the specify box must be filled in.
+      var needOther = type === "Other";
+      var okTypeOther = !needOther || typeOther.length > 0;
 
       showErr("errFirst", !okFirst);
       showErr("errEmail", !okEmail);
       showErr("errPhone", !okPhone);
       showErr("errOrg", !okOrg);
       showErr("errType", !okType);
+      showErr("errTypeOther", needOther && !okTypeOther);
 
-      if (okFirst && okEmail && okPhone && okOrg && okType) {
+      if (okFirst && okEmail && okPhone && okOrg && okType && okTypeOther) {
         // Backend not wired yet — show a success state in place of the form.
         document.getElementById("salesForm").style.display = "none";
         document.getElementById("formHead").style.display = "none";
