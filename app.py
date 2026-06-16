@@ -14,6 +14,10 @@ import torch
 from PyPDF2 import PdfReader
 from transformers import DistilBertTokenizerFast, DistilBertForSequenceClassification
 
+# Lattice-vs-stream classifier and the stream (no-ruled-grid) extractor.
+from pdfType import classify_pdf
+from ledger_extract.pipeline import extract_statement
+
 app = Flask(__name__, static_folder=".")
 
 MODEL_PATH = os.path.join(os.path.dirname(__file__), "models", "row_classifier")
@@ -426,6 +430,44 @@ def process_pdf(pdf_path, password=None):
     return records, headers, None
 
 
+def _stream_cell_to_str(value):
+    # The stream DataFrame holds floats (amounts/balance), None/NaN for missing
+    # cells, and strings (date/description/type). Normalise every cell to the
+    # string form the front-end expects: blanks for missing, 2dp for money.
+    if value is None:
+        return ""
+    if isinstance(value, float):
+        if value != value:        # NaN
+            return ""
+        return f"{value:.2f}"
+    return str(value)
+
+
+def process_pdf_stream(pdf_path, password=None):
+    # Stream path (no ruled grid). Delegates to ledger_extract, then reshapes
+    # its canonical DataFrame (Date, Description, Reference, Debit, Credit,
+    # Balance, Type) into the same {headers, data} contract the lattice path
+    # returns, so results.html / the Tally-XML / CSV exporters work unchanged.
+    pw_map = (
+        {os.path.basename(pdf_path): password} if password else None
+    )
+
+    df, _meta = extract_statement(pdf_path, pw_map)
+
+    headers = list(df.columns)
+    records = [
+        {k: _stream_cell_to_str(v) for k, v in rec.items()}
+        for rec in df.to_dict("records")
+    ]
+
+    gc.collect()
+
+    if not records:
+        return None, None, "TABLE-LESS"
+
+    return records, headers, None
+
+
 @app.route("/")
 def index():
     return send_from_directory(".", "index.html")
@@ -485,10 +527,25 @@ def process():
 
     try:
 
-        records, headers, error = process_pdf(
-            tmp_path,
-            password
-        )
+        # Shared password / encryption gate (covers BOTH the lattice and
+        # stream paths) so the front-end's password pill behaves the same
+        # regardless of which extractor ends up running.
+        reader = PdfReader(tmp_path)
+        if reader.is_encrypted:
+            if not password:
+                return jsonify({"error": "PASSWORD_REQUIRED"}), 200
+            if reader.decrypt(password) == 0:
+                return jsonify({"error": "WRONG_PASSWORD"}), 200
+
+        # Decide how to extract: a ruled tabular grid (lattice) goes through
+        # the DistilBERT row-classifier pipeline as before; a structure-less
+        # statement (stream) goes through ledger_extract.
+        classification = classify_pdf(tmp_path, password=password)
+
+        if classification.category == "stream":
+            records, headers, error = process_pdf_stream(tmp_path, password)
+        else:
+            records, headers, error = process_pdf(tmp_path, password)
 
         if error == "PASSWORD_REQUIRED":
             return jsonify({
