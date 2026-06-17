@@ -47,18 +47,37 @@ def _build_colmap(header_cells):
     return colmap
 
 
-def _reference(cells, balance_idx):
+def _reference(cells, balance_idx, find_ref_tokens=False):
     """Best-effort reference: a long digit cell or a ref-like token."""
     for i, c in enumerate(cells):
         if i == balance_idx:
             continue
         if _LONG_DIGITS.match(c):
             return c
+    # alphanumeric refs (e.g. CBINR52025041110007492) that aren't a pure-digit
+    # cell: scan individual tokens. Used only where the profile asks for it.
+    if find_ref_tokens:
+        for i, c in enumerate(cells):
+            if i == balance_idx:
+                continue
+            for tok in c.split():
+                if C.is_ref_token(tok):
+                    return tok
     # fall back to a ref pattern anywhere in the row text
     return C.guess_reference(" ".join(cells))
 
 
-def _description(cells, date_idx, balance_idx, ref):
+def _is_code_cell(cell):
+    """True when *every* whitespace token in the cell contains a digit — an
+    instrument-number / transaction-id cluster such as 'M453009 25180'. Such a
+    cell is reference data, not narration: a real description always carries at
+    least one purely-alphabetic word ('BANGAON', 'RAKESH GHOSH')."""
+    toks = cell.split()
+    return bool(toks) and all(any(ch.isdigit() for ch in t) for t in toks)
+
+
+def _description(cells, date_idx, balance_idx, ref,
+                 drop_code_cells=False, strip_ref_tokens=False):
     parts = []
     for i, c in enumerate(cells):
         if not c or i == date_idx or i == balance_idx:
@@ -69,6 +88,26 @@ def _description(cells, date_idx, balance_idx, ref):
             continue
         if c == ref:                  # drop the reference token
             continue
+        if drop_code_cells and _is_code_cell(c):  # drop instrument/txn-id cells
+            continue
+        if strip_ref_tokens:
+            # Remove reference tokens (the Chq./Ref.No. column value, or the
+            # ref the bank appends to its own narration). Handles both a
+            # standalone token and one hyphen-glued onto a word, e.g.
+            # "...PRIVATE LIMITED-CBINR52025041110007492" -> "...PRIVATE LIMITED".
+            kept = []
+            for t in c.split():
+                if C.is_ref_token(t):
+                    continue
+                if "-" in t:
+                    sub = [p for p in t.split("-") if not C.is_ref_token(p)]
+                    t = "-".join(sub)
+                    if not t:
+                        continue
+                kept.append(t)
+            if not kept:
+                continue
+            c = " ".join(kept)
         parts.append(c)
     return " ".join(parts).strip()
 
@@ -80,6 +119,8 @@ def parse_rows(tables_rows, profile):
 
     engine = profile.get("engine", "columnar")
     header_keywords = profile.get("header_keywords")
+    drop_code = profile.get("drop_code_cells", False)
+    strip_refs = profile.get("strip_ref_tokens", False)
 
     started = header_keywords is None
     colmap = {}
@@ -167,10 +208,12 @@ def parse_rows(tables_rows, profile):
                 c_idx = profile.get("credit_col", colmap.get("credit"))
                 col_dr, col_cr = _classify_amount(cells, bal_idx, d_idx, c_idx)
 
-                ref = _reference(cells, bal_idx)
+                ref = _reference(cells, bal_idx, strip_refs)
                 current = {
                     "Date": iso,
-                    "Description": _description(cells, date_idx, bal_idx, ref),
+                    "Description": _description(
+                        cells, date_idx, bal_idx, ref, drop_code, strip_refs
+                    ),
                     "Reference": ref,
                     "Balance": bal,
                     "_amt_val": amt_val,
@@ -186,7 +229,9 @@ def parse_rows(tables_rows, profile):
                 # continuation line -> extend description; pick up the balance,
                 # the explicit Dr/Cr marker amount and Debit/Credit columns when
                 # they were carried over to a wrapped line (e.g. JK Bank).
-                extra = _description(cells, None, bal_idx, current["Reference"])
+                extra = _description(
+                    cells, None, bal_idx, current["Reference"], drop_code, strip_refs
+                )
                 if extra:
                     current["Description"] = (
                         current["Description"] + " " + extra

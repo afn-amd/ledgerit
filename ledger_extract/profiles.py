@@ -18,8 +18,13 @@ from __future__ import annotations
 
 PROFILES = {
     "hdfc": {
+        # HDFC carries the Chq./Ref.No. as its own column AND repeats it inside
+        # the narration (e.g. "...PRIVATE LIMITED-CBINR52025041110007492");
+        # strip_ref_tokens pulls those reference tokens out of the Description
+        # and lets the alphanumeric ref populate the Reference column.
         "engine": "columnar",
         "header_keywords": ["narration", "balance"],
+        "strip_ref_tokens": True,
     },
     "kotak": {
         "engine": "columnar",
@@ -67,8 +72,12 @@ PROFILES = {
         "header_keywords": None,
     },
     "idbi": {
+        # IDBI's ledger packs the instrument-number + transaction-id into a
+        # cell right after the date (e.g. "M453009 25180"); drop_code_cells
+        # keeps that out of the Description (the reference is still captured).
         "engine": "linear",
         "header_keywords": None,
+        "drop_code_cells": True,
     },
     "generic": {
         "engine": "columnar",

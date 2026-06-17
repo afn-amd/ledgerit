@@ -268,6 +268,19 @@ def guess_reference(text):
     return m.group(0) if m else ""
 
 
+# A standalone transaction-reference / instrument token: either a long pure
+# digit run, or an uppercase-prefixed reference such as CBINR52025041110007492
+# or HDFCR52025042162769705. The >=8-digit tail deliberately excludes shorter
+# IFSC-style codes like CBIN0282791 / UCBA0000945 that are part of the
+# narration text itself ("RTGS CR-CBIN0282791-...").
+_REF_TOKEN_RE = re.compile(r"^(?:\d{10,}|[A-Z]{2,6}\d{8,})$")
+
+
+def is_ref_token(token):
+    """True if *token* is a standalone reference / instrument-number token."""
+    return bool(_REF_TOKEN_RE.match(token))
+
+
 # --------------------------------------------------------------------------
 # Noise detection
 # --------------------------------------------------------------------------
