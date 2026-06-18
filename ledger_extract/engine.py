@@ -54,15 +54,16 @@ def _reference(cells, balance_idx, find_ref_tokens=False):
             continue
         if _LONG_DIGITS.match(c):
             return c
-    # alphanumeric refs (e.g. CBINR52025041110007492) that aren't a pure-digit
-    # cell: scan individual tokens. Used only where the profile asks for it.
+    # Alphanumeric refs (e.g. CBINR52025041110007492) where the WHOLE cell is
+    # the reference — i.e. its own Chq./Ref.No. column, not a number embedded
+    # inside the narration text. Used only where the profile asks for it.
     if find_ref_tokens:
         for i, c in enumerate(cells):
             if i == balance_idx:
                 continue
-            for tok in c.split():
-                if C.is_ref_token(tok):
-                    return tok
+            cs = c.strip()
+            if C.is_ref_token(cs):
+                return cs
     # fall back to a ref pattern anywhere in the row text
     return C.guess_reference(" ".join(cells))
 
@@ -76,8 +77,11 @@ def _is_code_cell(cell):
     return bool(toks) and all(any(ch.isdigit() for ch in t) for t in toks)
 
 
-def _description(cells, date_idx, balance_idx, ref,
-                 drop_code_cells=False, strip_ref_tokens=False):
+def _description(cells, date_idx, balance_idx, ref, drop_code_cells=False):
+    # Builds the description from the narration cell(s) verbatim. Only the
+    # *other* columns are dropped (date, value-date, amounts, balance and the
+    # standalone reference cell) — narration text is never edited, so embedded
+    # account/UTR numbers stay exactly as printed in the statement.
     parts = []
     for i, c in enumerate(cells):
         if not c or i == date_idx or i == balance_idx:
@@ -86,28 +90,10 @@ def _description(cells, date_idx, balance_idx, ref,
             continue
         if C.is_money(c):             # drop amount/balance numbers
             continue
-        if c == ref:                  # drop the reference token
+        if c == ref:                  # drop the standalone reference cell
             continue
         if drop_code_cells and _is_code_cell(c):  # drop instrument/txn-id cells
             continue
-        if strip_ref_tokens:
-            # Remove reference tokens (the Chq./Ref.No. column value, or the
-            # ref the bank appends to its own narration). Handles both a
-            # standalone token and one hyphen-glued onto a word, e.g.
-            # "...PRIVATE LIMITED-CBINR52025041110007492" -> "...PRIVATE LIMITED".
-            kept = []
-            for t in c.split():
-                if C.is_ref_token(t):
-                    continue
-                if "-" in t:
-                    sub = [p for p in t.split("-") if not C.is_ref_token(p)]
-                    t = "-".join(sub)
-                    if not t:
-                        continue
-                kept.append(t)
-            if not kept:
-                continue
-            c = " ".join(kept)
         parts.append(c)
     return " ".join(parts).strip()
 
@@ -120,7 +106,8 @@ def parse_rows(tables_rows, profile):
     engine = profile.get("engine", "columnar")
     header_keywords = profile.get("header_keywords")
     drop_code = profile.get("drop_code_cells", False)
-    strip_refs = profile.get("strip_ref_tokens", False)
+    find_refs = profile.get("find_ref_tokens", False)
+    explode = profile.get("explode_newlines", False)
 
     started = header_keywords is None
     colmap = {}
@@ -131,7 +118,17 @@ def parse_rows(tables_rows, profile):
 
     for table in tables_rows:
         for raw in table:
-            cells = _linearize(raw) if engine == "linear" else list(raw)
+            if explode:
+                # HDFC packs several logical columns into one cell separated by
+                # '\n' (e.g. "Date\nNarration", "Ref\nValueDt\nWithdrawal").
+                # Split them back out so each field becomes its own cell.
+                cells = []
+                for c in raw:
+                    cells.extend(str(c).split("\n"))
+            elif engine == "linear":
+                cells = _linearize(raw)
+            else:
+                cells = list(raw)
             cells = C.split_money_cells([C.clean(c) for c in cells])
             joined = " ".join(cells).strip()
             if not joined:
@@ -208,11 +205,11 @@ def parse_rows(tables_rows, profile):
                 c_idx = profile.get("credit_col", colmap.get("credit"))
                 col_dr, col_cr = _classify_amount(cells, bal_idx, d_idx, c_idx)
 
-                ref = _reference(cells, bal_idx, strip_refs)
+                ref = _reference(cells, bal_idx, find_refs)
                 current = {
                     "Date": iso,
                     "Description": _description(
-                        cells, date_idx, bal_idx, ref, drop_code, strip_refs
+                        cells, date_idx, bal_idx, ref, drop_code
                     ),
                     "Reference": ref,
                     "Balance": bal,
@@ -229,8 +226,36 @@ def parse_rows(tables_rows, profile):
                 # continuation line -> extend description; pick up the balance,
                 # the explicit Dr/Cr marker amount and Debit/Credit columns when
                 # they were carried over to a wrapped line (e.g. JK Bank).
+                desc_cells = cells
+                if explode:
+                    # HDFC continuation row: narration line-2 sits in the text
+                    # cell(s); the Chq./Ref.No. column's wrapped 2nd line sits
+                    # in a bare alphanumeric cell. Separate the two, then only
+                    # join a bare fragment onto the reference when "ref+fragment"
+                    # actually appears in this row's narration (true when the
+                    # ref column wrapped, false when the bare token is really
+                    # the narration's own wrapped tail).
+                    text_cells, frags = [], []
+                    for c in cells:
+                        cs = c.strip()
+                        if not cs:
+                            continue
+                        if (current["Reference"] and " " not in cs
+                                and not C.is_money(cs)
+                                and any(ch.isdigit() for ch in cs)
+                                and not re.search(r"[A-Za-z]{2,}", cs)):
+                            frags.append(cs)
+                        else:
+                            text_cells.append(c)
+                    joined = " ".join(text_cells).replace(" ", "")
+                    for cs in frags:
+                        if (current["Reference"] + cs) in joined:
+                            current["Reference"] = current["Reference"] + cs
+                        else:
+                            text_cells.append(cs)
+                    desc_cells = text_cells
                 extra = _description(
-                    cells, None, bal_idx, current["Reference"], drop_code, strip_refs
+                    desc_cells, None, bal_idx, current["Reference"], drop_code
                 )
                 if extra:
                     current["Description"] = (

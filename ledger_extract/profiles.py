@@ -18,13 +18,16 @@ from __future__ import annotations
 
 PROFILES = {
     "hdfc": {
-        # HDFC carries the Chq./Ref.No. as its own column AND repeats it inside
-        # the narration (e.g. "...PRIVATE LIMITED-CBINR52025041110007492");
-        # strip_ref_tokens pulls those reference tokens out of the Description
-        # and lets the alphanumeric ref populate the Reference column.
+        # On some HDFC statements Camelot collapses the 7 columns into a few
+        # cells separated by '\n' (Date\nNarration, Ref\nValueDt\nWithdrawal...);
+        # explode_newlines splits them back into per-column cells so the generic
+        # parser sees a clean row. find_ref_tokens captures the alphanumeric
+        # Chq./Ref.No. column (e.g. CBINR.../UTIBR...) as the Reference. The
+        # narration is kept verbatim (nothing stripped from the description).
         "engine": "columnar",
         "header_keywords": ["narration", "balance"],
-        "strip_ref_tokens": True,
+        "explode_newlines": True,
+        "find_ref_tokens": True,
     },
     "kotak": {
         "engine": "columnar",

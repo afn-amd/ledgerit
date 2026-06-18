@@ -22,8 +22,13 @@ def _row_tokens(cells):
     """Identifying tokens of a row: dates, money values and reference-like
     strings. Position-independent, so the same transaction split into different
     columns by camelot still yields the same token set."""
+    # Explode any newline-merged cells so a date/money/ref packed behind a
+    # '\n' (HDFC) is still tokenised for dedup coverage.
+    flat = []
+    for c in cells:
+        flat.extend(str(c).split("\n"))
     toks = set()
-    for c in C.split_money_cells(cells):
+    for c in C.split_money_cells(flat):
         c = c.strip()
         if not c:
             continue
@@ -75,14 +80,17 @@ def _dedup_tables(cam_tables):
 
 
 def _raw_clean(cell):
-    """Light clean: newlines -> space, trim ends, but PRESERVE internal runs of
-    spaces (the 'linear' engine relies on >=2-space gaps as column boundaries)."""
+    """Light clean: trim ends, PRESERVE internal runs of spaces (the 'linear'
+    engine relies on >=2-space gaps as column boundaries) AND preserve newlines.
+    Some layouts -- notably HDFC -- pack several logical columns into one cell
+    separated by '\\n'; the engine explodes those for such profiles, while every
+    other path collapses them again via common.clean()."""
     if cell is None:
         return ""
     s = str(cell)
     if s.strip().lower() == "nan":
         return ""
-    s = s.replace("\r", " ").replace("\n", " ")
+    s = s.replace("\r", "\n")
     return s.strip()
 
 

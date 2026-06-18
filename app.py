@@ -454,6 +454,10 @@ def process_pdf_stream(pdf_path, password=None):
 
     df, _meta = extract_statement(pdf_path, pw_map)
 
+    # The derived CR/DR "Type" column isn't wanted in the output.
+    if "Type" in df.columns:
+        df = df.drop(columns=["Type"])
+
     headers = list(df.columns)
     records = [
         {k: _stream_cell_to_str(v) for k, v in rec.items()}
