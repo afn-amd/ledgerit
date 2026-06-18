@@ -108,6 +108,7 @@ def parse_rows(tables_rows, profile):
     drop_code = profile.get("drop_code_cells", False)
     find_refs = profile.get("find_ref_tokens", False)
     explode = profile.get("explode_newlines", False)
+    no_ref = profile.get("no_reference", False)
 
     started = header_keywords is None
     colmap = {}
@@ -205,7 +206,7 @@ def parse_rows(tables_rows, profile):
                 c_idx = profile.get("credit_col", colmap.get("credit"))
                 col_dr, col_cr = _classify_amount(cells, bal_idx, d_idx, c_idx)
 
-                ref = _reference(cells, bal_idx, find_refs)
+                ref = "" if no_ref else _reference(cells, bal_idx, find_refs)
                 current = {
                     "Date": iso,
                     "Description": _description(
@@ -291,6 +292,7 @@ def _parse_around(tables_rows, profile):
     d_idx = profile.get("debit_col")
     c_idx = profile.get("credit_col")
     header_keywords = profile.get("header_keywords")
+    no_ref = profile.get("no_reference", False)
     items = []          # ordered list of {"k": "amt"/"narr", ...}
     opening = None
     in_footer = False
@@ -335,7 +337,7 @@ def _parse_around(tables_rows, profile):
             if is_amt:
                 in_footer = False
                 seen_amount = True
-                ref = _reference(cells, bal_idx)
+                ref = "" if no_ref else _reference(cells, bal_idx)
                 col_dr, col_cr = _classify_amount(cells, bal_idx, d_idx, c_idx)
                 items.append({
                     "k": "amt", "Date": iso, "Balance": bal, "Reference": ref,
@@ -376,7 +378,7 @@ def _parse_around(tables_rows, profile):
             parts.append((pos, it["text"]))
         parts.sort(key=lambda x: x[0])
         desc = " ".join(t for _, t in parts).strip()
-        ref = it["Reference"] or C.guess_reference(desc)
+        ref = "" if no_ref else (it["Reference"] or C.guess_reference(desc))
         txns.append({
             "Date": it["Date"], "Description": desc, "Reference": ref,
             "Balance": it["Balance"], "_amt_val": None, "_amt_sign": None,

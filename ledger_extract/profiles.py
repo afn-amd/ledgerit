@@ -34,12 +34,19 @@ PROFILES = {
         "header_keywords": ["narration", "balance"],
     },
     "canara": {
+        # No Chq./Ref. column (Date | Particulars | Deposits | Withdrawals |
+        # Balance) -> don't fabricate a reference from the narration.
         "engine": "columnar",
         "header_keywords": ["particulars", "balance"],
+        "no_reference": True,
     },
     "indusind": {
+        # IndusInd has a dedicated Chq No/Ref No column (e.g. S30885416);
+        # find_ref_tokens picks that standalone cell as the Reference instead
+        # of a number embedded in the narration, and keeps it out of Description.
         "engine": "columnar",
         "header_keywords": ["particulars", "balance"],
+        "find_ref_tokens": True,
     },
     "indian": {
         "engine": "columnar",
@@ -52,11 +59,14 @@ PROFILES = {
     "uco": {
         # Like PNB, UCO wraps the particulars in rows *around* the amount line
         # (line 1 above the date row, continuation below).
+        # No Chq./Ref. column (Date | Particulars | Withdrawals | Deposits |
+        # Balance) -> don't fabricate a reference from the narration.
         "engine": "columnar",
         "header_keywords": ["particulars", "balance"],
         "debit_col": 2,
         "credit_col": 3,
         "narration_around": True,
+        "no_reference": True,
     },
     "pnb": {
         # PNB's camelot output has no header row; transactions start straight
@@ -69,10 +79,14 @@ PROFILES = {
         "debit_col": 1,
         "credit_col": 2,
         "narration_around": True,
+        # No dedicated ref column; the ref lives inside the narration only.
+        "no_reference": True,
     },
     "jk": {
+        # No dedicated ref column (linear layout); don't fabricate one.
         "engine": "linear",
         "header_keywords": None,
+        "no_reference": True,
     },
     "idbi": {
         # IDBI's ledger packs the instrument-number + transaction-id into a

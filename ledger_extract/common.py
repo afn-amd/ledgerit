@@ -269,11 +269,12 @@ def guess_reference(text):
 
 
 # A standalone transaction-reference / instrument token: either a long pure
-# digit run, or an uppercase-prefixed reference such as CBINR52025041110007492
-# or HDFCR52025042162769705. The >=8-digit tail deliberately excludes shorter
-# IFSC-style codes like CBIN0282791 / UCBA0000945 that are part of the
-# narration text itself ("RTGS CR-CBIN0282791-...").
-_REF_TOKEN_RE = re.compile(r"^(?:\d{10,}|[A-Z]{2,6}\d{8,})$")
+# digit run, or a letter-prefixed reference such as CBINR52025041110007492,
+# HDFCR52025042162769705 or IndusInd's S30885416. This is only ever tested
+# against a WHOLE cell (its own Chq./Ref.No. column), never against tokens
+# embedded inside narration text, so a short IFSC code like CBIN0282791 that
+# lives inside "RTGS CR-CBIN0282791-..." can never be misread as the reference.
+_REF_TOKEN_RE = re.compile(r"^(?:\d{10,}|[A-Z]{1,6}\d{6,})$")
 
 
 def is_ref_token(token):
