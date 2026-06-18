@@ -162,6 +162,45 @@
       background: rgba(37,99,235,0.08);
     }
 
+    /* opening / closing balance summary cards */
+    .balances {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+    .balance-card {
+      flex: 1;
+      min-width: 220px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 18px 22px;
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      transition: background 0.25s ease, border 0.25s ease;
+    }
+    .balance-card.closing { border-color: var(--primary); }
+    .bc-top { display: flex; align-items: center; gap: 10px; }
+    .bc-icon {
+      width: 34px; height: 34px; border-radius: 10px;
+      display: grid; place-items: center; flex-shrink: 0;
+      background: var(--primary-soft); color: var(--primary);
+    }
+    .bc-icon svg { width: 18px; height: 18px; }
+    .bc-label {
+      font-size: 0.78rem; font-weight: 600; letter-spacing: 0.06em;
+      text-transform: uppercase; color: var(--text-muted);
+    }
+    .bc-value {
+      font-size: 1.55rem; font-weight: 700; color: var(--text);
+      font-variant-numeric: tabular-nums; line-height: 1.1;
+    }
+    .balance-card.closing .bc-value { color: var(--primary); }
+    @media (max-width: 560px) { .bc-value { font-size: 1.3rem; } }
+
     .table-container {
 
       background: var(--surface);
@@ -329,6 +368,27 @@
 
   </div>
 
+  <div class="balances" id="balances" style="display:none">
+    <div class="balance-card opening">
+      <div class="bc-top">
+        <span class="bc-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+        </span>
+        <span class="bc-label">Opening Balance</span>
+      </div>
+      <div class="bc-value" id="openingBalance">—</div>
+    </div>
+    <div class="balance-card closing">
+      <div class="bc-top">
+        <span class="bc-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+        </span>
+        <span class="bc-label">Closing Balance</span>
+      </div>
+      <div class="bc-value" id="closingBalance">—</div>
+    </div>
+  </div>
+
   <div class="table-container">
 
     <table id="dataTable">
@@ -453,6 +513,83 @@
         "</tr>"
 
       ).join("");
+
+    renderBalances(headers, data);
+  }
+
+  // Opening & closing balance — works for both the lattice and stream
+  // outputs (both arrive as {headers, data}). Closing = the last entry's
+  // balance. Opening = the first entry's balance adjusted for that entry's
+  // own movement: + its debit (a debit lowered the balance, so it was higher
+  // beforehand) or - its credit.
+  function renderBalances(headers, data) {
+    if (!data || !data.length) return;
+
+    const norm = s => String(s).toLowerCase().replace(/\s+/g, "");
+    const findCol = (...patterns) => {
+      for (const p of patterns) {
+        const np = norm(p);
+        const hit = headers.find(h => norm(h).includes(np));
+        if (hit) return hit;
+      }
+      return null;
+    };
+    const parseAmt = raw => {
+      const n = parseFloat(String(raw ?? "").replace(/[^0-9.\-]/g, ""));
+      return isNaN(n) ? 0 : n;
+    };
+    const hasVal = v => String(v ?? "").trim() !== "";
+
+    const balanceCol = findCol("closing balance", "balance");
+    if (!balanceCol) return;   // no balance column -> can't compute
+
+    // Dual debit/credit columns, else single amount + DR/CR flag.
+    let debitCol  = findCol("withdrawal", "debit", "dr amount", "dr amt");
+    let creditCol = findCol("deposit", "credit", "cr amount", "cr amt");
+    let amountCol = null, flagCol = null;
+    if (!debitCol || !creditCol) {
+      amountCol = findCol("amount", "amt", "transaction amount");
+      flagCol   = findCol("dr / cr", "cr / dr", "dr/cr", "cr/dr", "drcr",
+                          "crdr", "type", "txn type", "transaction type");
+      if (amountCol && flagCol) { debitCol = null; creditCol = null; }
+      else { amountCol = null; flagCol = null; }
+    }
+
+    // first / last entries that actually carry a balance
+    let first = null, last = null;
+    for (let i = 0; i < data.length; i++) {
+      if (hasVal(data[i][balanceCol])) { first = data[i]; break; }
+    }
+    for (let i = data.length - 1; i >= 0; i--) {
+      if (hasVal(data[i][balanceCol])) { last = data[i]; break; }
+    }
+    if (!first || !last) return;
+
+    const closing = parseAmt(last[balanceCol]);
+    const firstBal = parseAmt(first[balanceCol]);
+
+    let debit = 0, credit = 0;
+    if (debitCol || creditCol) {
+      debit  = parseAmt(first[debitCol]);
+      credit = parseAmt(first[creditCol]);
+    } else if (amountCol && flagCol) {
+      const amt = Math.abs(parseAmt(first[amountCol]));
+      const flag = String(first[flagCol] || "").toUpperCase();
+      if (/\bDR\b|DEBIT|WITH/.test(flag)) debit = amt;
+      else if (/\bCR\b|CREDIT|DEP/.test(flag)) credit = amt;
+    }
+
+    let opening = firstBal;
+    if (debit > 0) opening = firstBal + debit;
+    else if (credit > 0) opening = firstBal - credit;
+
+    const fmt = v => "₹ " + Number(v).toLocaleString("en-IN", {
+      minimumFractionDigits: 2, maximumFractionDigits: 2
+    });
+
+    document.getElementById("openingBalance").textContent = fmt(opening);
+    document.getElementById("closingBalance").textContent = fmt(closing);
+    document.getElementById("balances").style.display = "flex";
   }
 
   function initializeTheme() {
