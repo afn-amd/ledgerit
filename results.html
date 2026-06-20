@@ -11,6 +11,10 @@
 
   <title>Extracted Transactions</title>
 
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&display=swap" rel="stylesheet">
+
   <style>
 
     /* Palette shared with index.html so the two pages match exactly.
@@ -107,10 +111,24 @@
     }
 
     .title {
-
-      font-size: 1.5rem;
-
+      font-family: "Sora", system-ui, sans-serif;
+      display: inline-flex;
+      align-items: baseline;
+      gap: 10px;
       font-weight: 700;
+    }
+    .title .t-label {
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      letter-spacing: 0.01em;
+    }
+    .title .t-count {
+      font-size: 1.05rem;
+      font-weight: 800;
+      color: var(--primary);
+      letter-spacing: 0.01em;
+      font-variant-numeric: tabular-nums;
     }
 
     .actions {
@@ -280,6 +298,42 @@
       border-bottom: none;
     }
 
+    /* row action column + popup menu + inline editing */
+    .act-col { width: 70px; text-align: center; }
+    .act-cell { text-align: center; }
+    .act-btn {
+      background: transparent; border: none; cursor: pointer;
+      color: var(--text-muted); font-size: 1.25rem; line-height: 1;
+      padding: 2px 9px; border-radius: 8px; font-weight: 700;
+    }
+    .act-btn:hover { background: rgba(37,99,235,0.10); color: var(--text); }
+    .act-menu {
+      display: none; position: fixed; z-index: 100;
+      min-width: 154px; padding: 6px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; box-shadow: var(--shadow);
+    }
+    .act-menu button {
+      display: block; width: 100%; text-align: left;
+      background: transparent; border: none; cursor: pointer;
+      padding: 9px 12px; border-radius: 8px;
+      font-size: 0.9rem; font-weight: 500; color: var(--text); font-family: inherit;
+    }
+    .act-menu button:hover { background: rgba(37,99,235,0.10); }
+    .act-menu button.danger { color: var(--danger); }
+    .act-menu button.danger:hover { background: rgba(220,38,38,0.10); }
+    .cell-input {
+      width: 100%; box-sizing: border-box;
+      padding: 7px 9px; font-size: 0.85rem; font-family: inherit;
+      color: var(--text); background: var(--bg);
+      border: 1px solid var(--border); border-radius: 8px;
+    }
+    .cell-input:focus {
+      outline: none; border-color: var(--primary);
+      box-shadow: 0 0 0 2px rgba(37,99,235,0.18);
+    }
+    tbody tr.editing { background: rgba(37,99,235,0.06); }
+
     .empty-state {
 
       padding: 80px 20px;
@@ -302,10 +356,8 @@
         padding: 12px;
       }
 
-      .title {
-
-        font-size: 1.2rem;
-      }
+      .title .t-count { font-size: 0.95rem; }
+      .title .t-label { font-size: 0.95rem; }
 
       .actions {
 
@@ -401,6 +453,9 @@
 
 </div>
 
+<!-- shared row-action popup menu (positioned at the clicked row) -->
+<div id="rowMenu" class="act-menu" role="menu"></div>
+
 <script>
 
   initializeTheme();
@@ -430,6 +485,11 @@
 
   const pdfName =
     sessionStorage.getItem("pdfName") || "transactions";
+
+  // ---- editable-table state (keyed by row object, survives re-render) ----
+  const editing = new Set();    // rows currently shown as input fields
+  const freshRows = new Set();  // newly added rows (Cancel removes them)
+  const snapshots = new Map();  // row -> JSON snapshot, to revert an edit
 
   // Shared helper used by both Download XML and Download CSV. Pops up a
   // browser prompt asking the user for the bank name; pre-fills it with
@@ -470,41 +530,184 @@
       .style.display = "block";
 
   } else {
+    updateCount();
+    buildHead();
+    renderBody();
+    renderBalances(stored.headers, stored.data);
+  }
 
-    const headers = stored.headers;
+  // ---------- editable table rendering ----------
+  function escHtml(s) {
+    return String(s ?? "")
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+  function escAttr(s) { return escHtml(s).replace(/"/g, "&quot;"); }
 
-    const data = stored.data;
+  function updateCount() {
+    document.getElementById("title").innerHTML =
+      `<span class="t-label">Total transactions found</span>` +
+      `<span class="t-count">${Number(stored.data.length).toLocaleString("en-IN")}</span>`;
+  }
 
-    document.getElementById("title").textContent =
-      `Total transactions found = ${data.length}`;
-
+  function buildHead() {
     document.getElementById("tableHead").innerHTML =
-
       "<tr>" +
+      stored.headers.map(h => `<th>${escHtml(h)}</th>`).join("") +
+      `<th class="act-col">Action</th></tr>`;
+  }
 
-      headers.map(
-        h => `<th>${h}</th>`
-      ).join("") +
+  // Classify a column by its header so its edit input can be type-restricted.
+  function colType(h) {
+    const hl = String(h).toLowerCase().replace(/\s+/g, "");
+    if (/(debit|credit|withdrawal|deposit|amount|amt|balance)/.test(hl)) return "amount";
+    if (hl.includes("date")) return "date";
+    return "text";
+  }
+  // Build the edit input for a cell. Date cells accept only date characters
+  // (digits and / - . space); amount cells accept only number characters
+  // (digits, decimal, comma, minus). Alphabets are blocked live (see the
+  // input filter wired below). Description / Reference stay free text.
+  function cellInput(h, val) {
+    const t = colType(h);
+    const extra = t === "amount" ? ' data-filter="amount" inputmode="decimal"'
+                : t === "date"   ? ' data-filter="date" inputmode="numeric"'
+                : '';
+    return `<input class="cell-input" data-h="${escAttr(h)}"${extra} value="${escAttr(val)}" />`;
+  }
 
-      "</tr>";
-
-    document.getElementById("tableBody").innerHTML =
-
-      data.map(row =>
-
-        "<tr>" +
-
-        headers.map(h =>
-
-          `<td>${row[h] ?? ""}</td>`
-
-        ).join("") +
-
-        "</tr>"
-
+  function renderBody() {
+    const headers = stored.headers;
+    document.getElementById("tableBody").innerHTML = stored.data.map((row, i) => {
+      const editMode = editing.has(row);
+      const cells = headers.map(h => editMode
+        ? `<td>${cellInput(h, row[h] ?? "")}</td>`
+        : `<td>${escHtml(row[h] ?? "")}</td>`
       ).join("");
+      const act =
+        `<td class="act-cell"><button class="act-btn" type="button" ` +
+        `onclick="openMenu(event, ${i})" aria-label="Row actions">&#8942;</button></td>`;
+      return `<tr data-index="${i}"${editMode ? ' class="editing"' : ''}>${cells}${act}</tr>`;
+    }).join("");
+  }
 
-    renderBalances(headers, data);
+  // ---------- popup action menu ----------
+  function openMenu(e, i) {
+    e.stopPropagation();
+    const menu = document.getElementById("rowMenu");
+    // clicking the same row's dots again toggles the menu closed
+    if (menu.style.display === "block" && menu.dataset.row === String(i)) {
+      closeMenus();
+      return;
+    }
+    const row = stored.data[i];
+    menu.dataset.row = String(i);
+    menu.innerHTML = editing.has(row)
+      ? `<button type="button" onclick="saveRow(${i})">Save</button>` +
+        `<button type="button" class="danger" onclick="cancelRow(${i})">Cancel</button>`
+      : `<button type="button" onclick="addRow(${i},'above')">Add Above</button>` +
+        `<button type="button" onclick="addRow(${i},'below')">Add Row</button>` +
+        `<button type="button" onclick="startEdit(${i})">Edit</button>` +
+        `<button type="button" class="danger" onclick="deleteRow(${i})">Delete</button>`;
+    menu.style.display = "block";
+    const b = e.currentTarget.getBoundingClientRect();
+    const mw = menu.offsetWidth, mh = menu.offsetHeight;
+    let top = b.bottom + 4, left = b.right - mw;
+    if (top + mh > window.innerHeight) top = Math.max(8, b.top - mh - 4);
+    if (left < 8) left = 8;
+    menu.style.top = top + "px";
+    menu.style.left = left + "px";
+  }
+  function closeMenus() {
+    const m = document.getElementById("rowMenu");
+    if (m) m.style.display = "none";
+  }
+  document.addEventListener("click", closeMenus);
+  window.addEventListener("scroll", closeMenus, true);
+
+  // Live input filtering for edit cells: strip characters that don't belong
+  // in date / amount columns (e.g. alphabets) as the user types. Attached once
+  // to the table body, which survives re-renders (only its rows are replaced).
+  document.getElementById("tableBody").addEventListener("input", function (e) {
+    const inp = e.target;
+    if (!inp.classList || !inp.classList.contains("cell-input")) return;
+    const f = inp.getAttribute("data-filter");
+    if (f === "amount") inp.value = inp.value.replace(/[^0-9.,\-]/g, "");
+    else if (f === "date") inp.value = inp.value.replace(/[^0-9/.\- ]/g, "");
+  });
+
+  // ---------- row actions ----------
+  function blankRow() {
+    const r = {};
+    stored.headers.forEach(h => { r[h] = ""; });
+    return r;
+  }
+  function focusFirstInput(i) {
+    const tr = document.querySelector(`#tableBody tr[data-index="${i}"]`);
+    const inp = tr && tr.querySelector("input.cell-input");
+    if (inp) inp.focus();
+  }
+
+  function addRow(i, where) {
+    const row = blankRow();
+    const at = where === "above" ? i : i + 1;
+    stored.data.splice(at, 0, row);
+    editing.add(row);
+    freshRows.add(row);
+    closeMenus();
+    renderBody();
+    focusFirstInput(at);
+  }
+
+  function startEdit(i) {
+    const row = stored.data[i];
+    snapshots.set(row, JSON.stringify(row));
+    editing.add(row);
+    closeMenus();
+    renderBody();
+    focusFirstInput(i);
+  }
+
+  function deleteRow(i) {
+    closeMenus();
+    if (!confirm("Delete this row?")) return;
+    const row = stored.data[i];
+    editing.delete(row); freshRows.delete(row); snapshots.delete(row);
+    stored.data.splice(i, 1);
+    afterChange();
+  }
+
+  function saveRow(i) {
+    const row = stored.data[i];
+    const tr = document.querySelector(`#tableBody tr[data-index="${i}"]`);
+    if (tr) tr.querySelectorAll("input.cell-input").forEach(inp => {
+      row[inp.getAttribute("data-h")] = inp.value;
+    });
+    editing.delete(row); freshRows.delete(row); snapshots.delete(row);
+    closeMenus();
+    afterChange();
+  }
+
+  function cancelRow(i) {
+    const row = stored.data[i];
+    if (freshRows.has(row)) {
+      stored.data.splice(i, 1);                       // unsaved new row -> drop
+    } else if (snapshots.has(row)) {
+      Object.assign(row, JSON.parse(snapshots.get(row)));  // revert edit
+    }
+    editing.delete(row); freshRows.delete(row); snapshots.delete(row);
+    closeMenus();
+    afterChange();
+  }
+
+  // Re-render everything and persist, so downloads + balances stay in sync.
+  function afterChange() {
+    renderBody();
+    updateCount();
+    renderBalances(stored.headers, stored.data);
+    if (!stored.data.length) {
+      document.getElementById("balances").style.display = "none";
+    }
+    try { sessionStorage.setItem("transactions", JSON.stringify(stored)); } catch (e) {}
   }
 
   // Opening & closing balance — works for both the lattice and stream
