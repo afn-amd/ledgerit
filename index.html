@@ -566,10 +566,11 @@
     .price-for { color: var(--muted); font-size: 0.95rem; margin-top: 4px; }
     .price-amt { font-family: "Sora", sans-serif; font-size: 2.5rem; font-weight: 800; margin-top: 22px; color: var(--ink); }
     .price-amt small { font-size: 1rem; font-weight: 500; color: var(--muted); }
+    .price-note { color: var(--muted); font-size: 0.82rem; margin-top: 6px; }
     .price-feats { list-style: none; margin: 24px 0 28px; display: grid; gap: 13px; }
     .price-feats li { display: flex; align-items: center; gap: 11px; color: var(--ink-soft); font-size: 0.97rem; }
     .price-feats svg { color: var(--green); flex-shrink: 0; }
-    .price-btn { margin-top: auto; width: 100%; justify-content: center; }
+    .price-btn { margin: 18px 0 6px; width: 100%; justify-content: center; }
     .btn-dark { background: var(--ink); color: var(--bg); }
     .btn-dark:hover { background: var(--ink-soft); }
     .btn-outline { background: transparent; color: var(--ink); border: 1px solid var(--border); }
@@ -652,7 +653,7 @@
       <p class="sub animate-appear d300">Ledgerit reads any digitally-generated bank statement PDF, understands its layout with AI, and exports clean, import-ready Tally XML — no templates, no manual entry.</p>
 
       <div class="hero-cta animate-appear d300">
-        <button class="btn btn-primary btn-lg" id="uploadBtn" onclick="document.getElementById('pdfInput').click()">
+        <button class="btn btn-primary btn-lg" id="uploadBtn" onclick="window.location.href='/register.html'">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
           Start for free — 100 pages
         </button>
@@ -896,31 +897,32 @@
         <!-- Starter -->
         <div class="price-card">
           <div class="price-name">Starter</div>
-          <div class="price-for">Great for small businesses</div>
-          <div class="price-amt">₹199 <small>/mo</small></div>
+          <div class="price-for">Perfect for individuals</div>
+          <div class="price-amt">₹999 <small>/year</small></div>
+          <div class="price-note">Excl. GST</div>
+          <button class="btn btn-outline price-btn" onclick="alert('Subscription coming soon.')">Subscribe</button>
           <ul class="price-feats">
-            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg> 500 pages / month</li>
-            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg> All Free features</li>
-            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg> Priority support</li>
+            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg> 2500 Pages</li>
+            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg> No user restriction</li>
+            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg> Dedicated support</li>
             <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg> Export history</li>
           </ul>
-          <button class="btn btn-outline price-btn" onclick="alert('Subscription coming soon.')">Subscribe</button>
         </div>
 
         <!-- Professional (popular) -->
         <div class="price-card popular">
           <span class="badge">Most Popular</span>
           <div class="price-name">Professional</div>
-          <div class="price-for">For CAs and accounting firms</div>
-          <div class="price-amt">₹499 <small>/mo</small></div>
-          <ul class="price-feats">
-            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg> 2000 pages / month</li>
-            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg> All Starter features</li>
-            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg> Bulk upload</li>
-            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg> API access (beta)</li>
-            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg> Dedicated support</li>
-          </ul>
+          <div class="price-for">Perfect for CAs and accounting firms</div>
+          <div class="price-amt">₹2499 <small>/year</small></div>
+          <div class="price-note">Excl. GST</div>
           <button class="btn btn-primary price-btn" onclick="alert('Subscription coming soon.')">Subscribe</button>
+          <ul class="price-feats">
+            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg> 10000 Pages</li>
+            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg> All Starter features</li>
+            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg> Priority support</li>
+            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg> Quick issue solving</li>
+          </ul>
         </div>
 
         <!-- Enterprise -->
@@ -928,14 +930,14 @@
           <div class="price-name">Enterprise</div>
           <div class="price-for">Custom plans for large teams</div>
           <div class="price-amt">Custom</div>
-          <ul class="price-feats">
-            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg> Unlimited pages</li>
-            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg> All Pro features</li>
-            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg> Custom ledger mapping</li>
-            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg> SLA guarantee</li>
-            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg> Onboarding support</li>
-          </ul>
+          <div class="price-note">Excl. GST</div>
           <button class="btn btn-dark price-btn" onclick="window.location.href='/contact.html'">Contact sales</button>
+          <ul class="price-feats">
+            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg> Pay as you need</li>
+            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg> Onboarding Support</li>
+            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg> API access</li>
+            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg> Mentorship</li>
+          </ul>
         </div>
       </div>
     </div>

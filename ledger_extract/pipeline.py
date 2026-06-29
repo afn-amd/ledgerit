@@ -16,12 +16,26 @@ from .profiles import get_profile
 def extract_statement(pdf_path, password_map=None):
     """Process one PDF. Returns (df, meta) where meta carries diagnostics."""
     password = resolve_password(pdf_path, password_map)
-    tables_rows, full_text = read_tables(pdf_path, password=password)
 
-    bank = detect_bank(full_text)
-    profile = get_profile(bank)
+    def _read_and_parse(edge_tol):
+        tables_rows, full_text = read_tables(
+            pdf_path, password=password, edge_tol=edge_tol
+        )
+        bank = detect_bank(full_text)
+        txns, opening = parse_rows(tables_rows, get_profile(bank))
+        return txns, opening, bank
 
-    txns, opening = parse_rows(tables_rows, profile)
+    txns, opening, bank = _read_and_parse(None)
+
+    # Some layouts (e.g. Central Bank of India) confine the transaction grid to
+    # a narrow horizontal band that Camelot's default stream column-grouping
+    # drops entirely, yielding zero transactions. Retry once with a wider
+    # edge tolerance before giving up. Done only on an empty first pass so files
+    # that already extract are untouched (the wider grouping can over-merge
+    # columns on other layouts).
+    if not txns:
+        txns, opening, bank = _read_and_parse(500)
+
     txns = finalize(txns, opening)
 
     df = pd.DataFrame(txns, columns=CANONICAL_COLUMNS) if txns else pd.DataFrame(

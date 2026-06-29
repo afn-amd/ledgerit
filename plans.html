@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light dark" />
+  <meta name="theme-color" content="#ffffff" />
+  <script>
+    /* set theme before paint to avoid a flash */
+    (function () {
+      try {
+        var s = localStorage.getItem("theme");
+        var t = s || (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+        document.documentElement.setAttribute("data-theme", t);
+        var m = document.querySelector('meta[name="theme-color"]');
+        if (m) m.setAttribute("content", t === "dark" ? "#090d18" : "#ffffff");
+      } catch (e) { document.documentElement.setAttribute("data-theme", "light"); }
+    })();
+  </script>
+  <title>Plans &amp; Pricing — Ledgerit</title>
+
+  <link rel="icon" type="image/png" href="assets/favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg: #ffffff; --bg-soft: #f6f8fc; --bg-tint: #eef3fb; --surface: #ffffff;
+      --primary: #2563eb; --primary-dark: #1d4ed8; --primary-soft: #e8effd;
+      --ink: #0b1220; --ink-soft: #1e293b; --muted: #64748b; --border: #e2e8f0;
+      --green: #16a34a; --danger: #dc2626;
+      --shadow-sm: 0 1px 2px rgba(15,23,42,0.04);
+      --shadow: 0 12px 34px rgba(15,23,42,0.07);
+      --shadow-lg: 0 24px 60px rgba(15,23,42,0.12);
+      --maxw: 1180px;
+      --header-bg: rgba(255,255,255,0.82);
+      --hover-border: #cbd5e1;
+    }
+    :root[data-theme="dark"] {
+      --bg: #090d18; --bg-soft: #0f1424; --bg-tint: #151b30; --surface: #0f1526;
+      --primary: #3b82f6; --primary-dark: #2563eb; --primary-soft: #16213f;
+      --ink: #e9edf6; --ink-soft: #c4cde0; --muted: #8a96ac; --border: #1f2840;
+      --green: #22c55e; --danger: #f87171;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,0.4);
+      --shadow: 0 14px 38px rgba(0,0,0,0.5);
+      --shadow-lg: 0 24px 60px rgba(0,0,0,0.6);
+      --header-bg: rgba(9,13,24,0.72);
+      --hover-border: #334155;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: "Manrope", system-ui, sans-serif;
+      background: var(--bg-soft); color: var(--ink); line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      transition: background-color 0.25s ease, color 0.25s ease;
+    }
+    h1, h2, h3, .price-name, .price-amt { font-family: "Sora", sans-serif; }
+    a { text-decoration: none; color: inherit; }
+    .wrap { width: 100%; max-width: var(--maxw); margin: 0 auto; padding: 0 24px; }
+
+    .brand { display: inline-flex; align-items: center; gap: 11px; }
+    .brand-logo { height: 38px; width: auto; display: block; }
+    .logo-dark { display: none; }
+    [data-theme="dark"] .logo-light { display: none; }
+    [data-theme="dark"] .logo-dark { display: block; }
+
+    .theme-switch {
+      display: inline-flex; align-items: center; gap: 2px;
+      padding: 4px; border-radius: 999px;
+      background: var(--bg-soft); border: 1px solid var(--border);
+      cursor: pointer; transition: border-color 0.18s ease;
+    }
+    .theme-switch:hover { border-color: var(--hover-border); }
+    .theme-switch .seg { width: 30px; height: 30px; border-radius: 999px; display: grid; place-items: center; color: var(--muted); transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease; }
+    .theme-switch .seg svg { width: 16px; height: 16px; display: block; }
+    [data-theme="light"] .theme-switch .seg-sun { background: var(--surface); color: #f59e0b; box-shadow: var(--shadow-sm); }
+    [data-theme="dark"] .theme-switch .seg-moon { background: var(--surface); color: #93c5fd; box-shadow: var(--shadow-sm); }
+
+    .btn {
+      font-family: "Manrope", sans-serif; font-weight: 600; font-size: 0.95rem;
+      border: none; cursor: pointer; border-radius: 12px; padding: 11px 20px;
+      transition: all 0.18s ease; display: inline-flex; align-items: center; gap: 8px; line-height: 1;
+    }
+    .btn-ghost { background: var(--surface); color: var(--ink-soft); border: 1px solid var(--border); }
+    .btn-ghost:hover { background: var(--bg-soft); border-color: var(--hover-border); }
+    .btn-primary { background: var(--primary); color: #fff; box-shadow: 0 8px 20px rgba(37,99,235,0.24); }
+    .btn-primary:hover { background: var(--primary-dark); transform: translateY(-1px); }
+    .btn-dark { background: var(--ink); color: var(--bg); }
+    .btn-dark:hover { background: var(--ink-soft); }
+    .btn-outline { background: transparent; color: var(--ink); border: 1px solid var(--border); }
+    .btn-outline:hover { background: var(--bg-soft); }
+
+    header {
+      position: sticky; top: 0; z-index: 100;
+      background: var(--header-bg); backdrop-filter: saturate(160%) blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav { display: flex; align-items: center; justify-content: space-between; height: 72px; }
+    .nav-actions { display: flex; align-items: center; gap: 12px; }
+
+    section.block { padding: 80px 0; }
+    .eyebrow {
+      display: inline-block; color: var(--primary); font-weight: 700;
+      font-size: 0.82rem; letter-spacing: 0.12em; text-transform: uppercase;
+      border: 1px solid rgba(37,99,235,0.3); border-radius: 999px;
+      padding: 7px 18px; margin-bottom: 18px;
+    }
+    .section-head { text-align: center; max-width: 680px; margin: 0 auto 56px; }
+    .section-head h2 { font-size: clamp(1.9rem, 3.6vw, 2.7rem); font-weight: 800; letter-spacing: -0.02em; color: var(--ink); }
+    .section-head p { margin-top: 14px; color: var(--muted); font-size: 1.1rem; }
+
+    .price-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; align-items: stretch; max-width: 1040px; margin: 0 auto; }
+    .price-card { background: var(--surface); border: 1px solid var(--border); border-radius: 22px; padding: 34px 30px; position: relative; display: flex; flex-direction: column; }
+    .price-card.popular { border: 2px solid var(--primary); box-shadow: var(--shadow-lg); }
+    .badge {
+      position: absolute; top: -14px; left: 50%; transform: translateX(-50%);
+      background: var(--primary); color: #fff; font-weight: 700; font-size: 0.78rem;
+      padding: 7px 18px; border-radius: 999px; letter-spacing: 0.02em;
+      box-shadow: 0 8px 18px rgba(37,99,235,0.3);
+    }
+    .price-name { font-size: 1.4rem; font-weight: 700; }
+    .price-for { color: var(--muted); font-size: 0.95rem; margin-top: 4px; }
+    .price-amt { font-size: 2.5rem; font-weight: 800; margin-top: 22px; color: var(--ink); }
+    .price-amt small { font-size: 1rem; font-weight: 500; color: var(--muted); }
+    .price-note { color: var(--muted); font-size: 0.82rem; margin-top: 6px; }
+    .price-feats { list-style: none; margin: 24px 0 28px; display: grid; gap: 13px; }
+    .price-feats li { display: flex; align-items: center; gap: 11px; color: var(--ink-soft); font-size: 0.97rem; }
+    .price-feats svg { color: var(--green); flex-shrink: 0; }
+    .price-btn { margin: 18px 0 6px; width: 100%; justify-content: center; }
+
+    footer { background: var(--primary); color: #fff; padding: 22px 0; }
+    .foot-row { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px; font-size: 0.9rem; }
+    .foot-row a:hover { text-decoration: underline; }
+
+    @media (max-width: 980px) { .price-grid { grid-template-columns: 1fr; max-width: 460px; } }
+    @media (max-width: 560px) { .nav { height: 64px; } section.block { padding: 56px 0; } }
+  </style>
+</head>
+<body>
+
+  <!-- ============ HEADER ============ -->
+  <header>
+    <div class="wrap nav">
+      <a class="brand" href="/upload.html">
+        <img src="assets/logo.png" alt="Ledgerit" class="brand-logo logo-light" />
+        <img src="assets/logo-white.png" alt="Ledgerit" class="brand-logo logo-dark" />
+      </a>
+      <div class="nav-actions">
+        <button class="btn btn-ghost" onclick="window.location.href='/upload.html'">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          Back
+        </button>
+        <button class="theme-switch" id="themeToggle" type="button" role="switch" aria-label="Toggle light/dark mode" onclick="toggleTheme()">
+          <span class="seg seg-sun" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          </span>
+          <span class="seg seg-moon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          </span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============ PRICING ============ -->
+  <section class="block pricing">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">Pricing</span>
+        <h2>Simple, transparent pricing</h2>
+        <p>Start free, scale as your practice grows. No hidden fees.</p>
+      </div>
+      <div class="price-grid">
+        <!-- Starter -->
+        <div class="price-card">
+          <div class="price-name">Starter</div>
+          <div class="price-for">Perfect for individuals</div>
+          <div class="price-amt">₹999 <small>/year</small></div>
+          <div class="price-note">Excl. GST</div>
+          <button class="btn btn-outline price-btn" onclick="alert('Subscription coming soon.')">Subscribe</button>
+          <ul class="price-feats">
+            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg> 2500 Pages</li>
+            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg> No user restriction</li>
+            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg> Dedicated support</li>
+            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg> Export history</li>
+          </ul>
+        </div>
+
+        <!-- Professional (popular) -->
+        <div class="price-card popular">
+          <span class="badge">Most Popular</span>
+          <div class="price-name">Professional</div>
+          <div class="price-for">Perfect for CAs and accounting firms</div>
+          <div class="price-amt">₹2499 <small>/year</small></div>
+          <div class="price-note">Excl. GST</div>
+          <button class="btn btn-primary price-btn" onclick="alert('Subscription coming soon.')">Subscribe</button>
+          <ul class="price-feats">
+            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg> 10000 Pages</li>
+            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg> All Starter features</li>
+            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg> Priority support</li>
+            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg> Quick issue solving</li>
+          </ul>
+        </div>
+
+        <!-- Enterprise -->
+        <div class="price-card">
+          <div class="price-name">Enterprise</div>
+          <div class="price-for">Custom plans for large teams</div>
+          <div class="price-amt">Custom</div>
+          <div class="price-note">Excl. GST</div>
+          <button class="btn btn-dark price-btn" onclick="window.location.href='/contact.html'">Contact sales</button>
+          <ul class="price-feats">
+            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg> Pay as you need</li>
+            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg> Onboarding Support</li>
+            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg> API access</li>
+            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg> Mentorship</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FOOTER ============ -->
+  <footer>
+    <div class="wrap foot-row">
+      <span>© <span id="year"></span> Ledgerit by Flint De Orient M&amp;T Pvt. Ltd. All rights reserved.</span>
+      <a href="#">Terms &amp; Conditions</a>
+    </div>
+  </footer>
+
+  <script>
+    document.getElementById("year").textContent = new Date().getFullYear();
+    function applyTheme(t) {
+      document.documentElement.setAttribute("data-theme", t);
+      try { localStorage.setItem("theme", t); } catch (e) {}
+      var m = document.querySelector('meta[name="theme-color"]');
+      if (m) m.setAttribute("content", t === "dark" ? "#090d18" : "#ffffff");
+    }
+    function toggleTheme() {
+      var cur = document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
+      applyTheme(cur === "dark" ? "light" : "dark");
+    }
+  </script>
+
+</body>
+</html>

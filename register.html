@@ -255,8 +255,8 @@
       document.getElementById(id).classList.toggle("show", show);
     }
 
-    // On submit: validate, then redirect to the landing page.
-    document.getElementById("registerForm").addEventListener("submit", function (e) {
+    // On submit: validate, then create the account via the backend.
+    document.getElementById("registerForm").addEventListener("submit", async function (e) {
       e.preventDefault();
 
       var name = document.getElementById("fullName").value.trim();
@@ -271,9 +271,33 @@
       showErr("errMobile", !okPhone);
       showErr("errPass", !okPwd);
 
-      if (okName && okPhone && okPwd) {
-        // Account creation backend not wired yet — redirect to landing page.
-        window.location.href = "/";
+      if (!(okName && okPhone && okPwd)) return;
+
+      var btn = e.target.querySelector(".btn-submit");
+      btn.disabled = true;
+
+      try {
+        var res = await fetch("/api/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: name, mobile: phone, password: pwd })
+        });
+        var out = await res.json();
+
+        if (res.ok) {
+          // Registered and logged in — go to the upload page.
+          window.location.href = "/upload.html";
+        } else {
+          var el = document.getElementById("errMobile");
+          el.textContent = out.error || "Registration failed. Please try again.";
+          el.classList.add("show");
+          btn.disabled = false;
+        }
+      } catch (err) {
+        var el = document.getElementById("errMobile");
+        el.textContent = "Could not reach the server. Please try again.";
+        el.classList.add("show");
+        btn.disabled = false;
       }
     });
   </script>

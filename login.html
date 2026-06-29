@@ -246,8 +246,8 @@
       document.getElementById(id).classList.toggle("show", show);
     }
 
-    // On submit: validate, then redirect to the landing page.
-    document.getElementById("loginForm").addEventListener("submit", function (e) {
+    // On submit: validate, then sign in via the backend.
+    document.getElementById("loginForm").addEventListener("submit", async function (e) {
       e.preventDefault();
 
       var phone = mobile.value.trim();
@@ -259,9 +259,33 @@
       showErr("errMobile", !okPhone);
       showErr("errPass", !okPwd);
 
-      if (okPhone && okPwd) {
-        // Auth backend not wired yet — redirect to landing page.
-        window.location.href = "/";
+      if (!(okPhone && okPwd)) return;
+
+      var btn = e.target.querySelector(".btn-submit");
+      btn.disabled = true;
+
+      try {
+        var res = await fetch("/api/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mobile: phone, password: pwd })
+        });
+        var out = await res.json();
+
+        if (res.ok) {
+          // Admins land on the admin console; everyone else on the uploader.
+          window.location.href = out.is_admin ? "/admin.html" : "/upload.html";
+        } else {
+          var el = document.getElementById("errPass");
+          el.textContent = out.error || "Sign in failed. Please try again.";
+          el.classList.add("show");
+          btn.disabled = false;
+        }
+      } catch (err) {
+        var el = document.getElementById("errPass");
+        el.textContent = "Could not reach the server. Please try again.";
+        el.classList.add("show");
+        btn.disabled = false;
       }
     });
   </script>

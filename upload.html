@@ -1,0 +1,1244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light dark" />
+  <meta name="theme-color" content="#ffffff" />
+  <script>
+    /* set theme before paint to avoid a flash */
+    (function () {
+      try {
+        var s = localStorage.getItem("theme");
+        var t = s || (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+        document.documentElement.setAttribute("data-theme", t);
+        var m = document.querySelector('meta[name="theme-color"]');
+        if (m) m.setAttribute("content", t === "dark" ? "#090d18" : "#ffffff");
+      } catch (e) { document.documentElement.setAttribute("data-theme", "light"); }
+    })();
+  </script>
+  <title>Upload Statement — Ledgerit</title>
+
+  <link rel="icon" type="image/png" href="assets/favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700&family=Lora:wght@500;600;700&family=Yellowtail&family=Pacifico&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg: #ffffff; --bg-soft: #f6f8fc; --bg-tint: #eef3fb; --surface: #ffffff;
+      --primary: #2563eb; --primary-dark: #1d4ed8; --primary-soft: #e8effd;
+      --ink: #0b1220; --ink-soft: #1e293b; --muted: #64748b; --border: #e2e8f0;
+      --green: #16a34a; --danger: #dc2626;
+      --shadow-sm: 0 1px 2px rgba(15,23,42,0.04);
+      --shadow: 0 12px 34px rgba(15,23,42,0.07);
+      --shadow-lg: 0 24px 60px rgba(15,23,42,0.12);
+      --radius: 18px; --maxw: 1180px;
+      --header-bg: rgba(255,255,255,0.82);
+      --pill-text: var(--primary-dark);
+      --hover-border: #cbd5e1;
+    }
+    :root[data-theme="dark"] {
+      --bg: #090d18; --bg-soft: #0f1424; --bg-tint: #151b30; --surface: #0f1526;
+      --primary: #3b82f6; --primary-dark: #2563eb; --primary-soft: #16213f;
+      --ink: #e9edf6; --ink-soft: #c4cde0; --muted: #8a96ac; --border: #1f2840;
+      --green: #22c55e; --danger: #f87171;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,0.4);
+      --shadow: 0 14px 38px rgba(0,0,0,0.5);
+      --shadow-lg: 0 24px 60px rgba(0,0,0,0.6);
+      --header-bg: rgba(9,13,24,0.72);
+      --pill-text: #93c5fd;
+      --hover-border: #334155;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: "Manrope", system-ui, sans-serif;
+      background: var(--bg); color: var(--ink); line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      transition: background-color 0.25s ease, color 0.25s ease;
+      height: 100vh; overflow: hidden;
+    }
+    h1, h2, h3 { font-family: "Sora", sans-serif; }
+    a { text-decoration: none; color: inherit; }
+    .wrap { width: 100%; max-width: var(--maxw); margin: 0 auto; padding: 0 24px; }
+
+    /* brand */
+    .brand { display: inline-flex; align-items: center; gap: 11px; }
+    .brand-logo { height: 38px; width: auto; display: block; }
+    .logo-dark { display: none; }
+    [data-theme="dark"] .logo-light { display: none; }
+    [data-theme="dark"] .logo-dark { display: block; }
+
+    /* theme switch */
+    .theme-switch {
+      display: inline-flex; align-items: center; gap: 2px;
+      padding: 4px; border-radius: 999px;
+      background: var(--bg-soft); border: 1px solid var(--border);
+      cursor: pointer; transition: border-color 0.18s ease;
+    }
+    .theme-switch:hover { border-color: var(--hover-border); }
+    .theme-switch .seg {
+      width: 30px; height: 30px; border-radius: 999px;
+      display: grid; place-items: center; color: var(--muted);
+      transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+    }
+    .theme-switch .seg svg { width: 16px; height: 16px; display: block; }
+    [data-theme="light"] .theme-switch .seg-sun { background: var(--surface); color: #f59e0b; box-shadow: var(--shadow-sm); }
+    [data-theme="dark"] .theme-switch .seg-moon { background: var(--surface); color: #93c5fd; box-shadow: var(--shadow-sm); }
+
+    /* profile dropdown */
+    .profile { position: relative; }
+    .profile-btn {
+      width: 42px; height: 42px; border-radius: 50%;
+      background: var(--bg-soft); border: 1px solid var(--border);
+      color: var(--ink-soft); cursor: pointer; display: grid; place-items: center;
+      transition: border-color 0.18s ease, background 0.18s ease;
+    }
+    .profile-btn:hover { border-color: var(--hover-border); background: var(--bg-tint); }
+    .profile-btn svg { width: 20px; height: 20px; display: block; }
+    .profile-menu {
+      position: absolute; top: calc(100% + 10px); right: 0;
+      min-width: 196px; background: var(--surface);
+      border: 1px solid var(--border); border-radius: 14px;
+      box-shadow: var(--shadow-lg); padding: 6px; z-index: 200;
+      display: none; flex-direction: column; gap: 2px;
+    }
+    .profile-menu.open { display: flex; }
+    .profile-menu button {
+      display: flex; align-items: center; gap: 11px; width: 100%;
+      padding: 10px 12px; border: none; background: transparent; border-radius: 10px;
+      cursor: pointer; font-family: inherit; font-size: 0.92rem; font-weight: 600;
+      color: var(--ink-soft); text-align: left; transition: background 0.15s ease;
+    }
+    .profile-menu button:hover { background: var(--bg-soft); }
+    .profile-menu button svg { width: 16px; height: 16px; flex-shrink: 0; }
+    .profile-menu .danger { color: var(--danger); }
+
+    /* buttons */
+    .btn {
+      font-family: "Manrope", sans-serif; font-weight: 600; font-size: 0.95rem;
+      border: none; cursor: pointer; border-radius: 12px;
+      padding: 11px 20px; transition: all 0.18s ease;
+      display: inline-flex; align-items: center; gap: 8px; line-height: 1;
+    }
+    .btn-ghost { background: transparent; color: var(--ink-soft); border: 1px solid var(--border); }
+    .btn-ghost:hover { background: var(--bg-soft); border-color: var(--hover-border); }
+    .btn-primary { background: var(--primary); color: #fff; box-shadow: 0 8px 20px rgba(37,99,235,0.24); }
+    .btn-primary:hover { background: var(--primary-dark); transform: translateY(-1px); }
+    .btn-lg { padding: 15px 26px; font-size: 1rem; border-radius: 14px; }
+
+    /* header */
+    header {
+      position: sticky; top: 0; z-index: 100;
+      background: var(--header-bg);
+      backdrop-filter: saturate(160%) blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav { display: flex; align-items: center; justify-content: space-between; height: 72px; }
+    .nav-actions { display: flex; align-items: center; gap: 12px; }
+
+    /* split layout — fills the viewport below the header, no page scroll */
+    .layout {
+      height: calc(100vh - 72px);
+      display: flex; gap: 2rem; padding: 2rem;
+      background:
+        radial-gradient(900px 420px at 80% -10%, rgba(37,99,235,0.10), transparent 60%),
+        radial-gradient(700px 380px at 10% 10%, rgba(37,99,235,0.06), transparent 55%);
+    }
+    .col-left  { flex: 2 1 0; min-width: 0; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; text-align: left; }
+    .col-right { position: relative; flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; gap: 8px; transform: translateX(-5rem); }
+
+    /* Admin view: no onboarding column — illustration on the left, upload card on the right. */
+    .layout.admin-mode { position: relative; justify-content: center; align-items: center; }
+    .layout.admin-mode .col-left { display: none; }
+    .layout.admin-mode .col-right {
+      flex: 0 1 auto; flex-direction: row; align-items: center;
+      justify-content: center; gap: 3.5rem; transform: none;
+    }
+    .layout.admin-mode .converter-img { max-height: 42vh; max-width: 460px; }
+    .layout.admin-mode .upload-card { margin-top: 0; }
+    /* The content is centered now, so move the light strip off the card and
+       anchor it to the very top of the page instead. */
+    .layout.admin-mode .col-right::before,
+    .layout.admin-mode .col-right::after { display: none; }
+    .layout.admin-mode::before {
+      content: ""; position: absolute; top: 2px; left: 50%; transform: translateX(-50%);
+      width: 150%; height: 1000px;
+      background: radial-gradient(ellipse 40% 100% at 50% 0%, rgba(56,189,248,0.40), transparent 90%);
+      filter: blur(40px); pointer-events: none; z-index: 0;
+    }
+    .layout.admin-mode::after {
+      content: ""; position: absolute; top: 2px; left: 50%; transform: translateX(-50%);
+      width: 80%; height: 2px;
+      background: linear-gradient(to right, transparent, #7dd3fc 18%, #e0f7ff 50%, #7dd3fc 82%, transparent);
+      box-shadow: 0 0 18px 1px rgba(125,211,252,0.75);
+      pointer-events: none; z-index: 2;
+    }
+    /* Light mode: the near-white centre blends into the light background, so the
+       glow reads as off-centre. Use a saturated centre that fades to the edges
+       so the bright concentration sits in the middle, like dark mode. */
+    :root[data-theme="light"] .layout.admin-mode::after {
+      background: linear-gradient(to right, transparent, #7dd3fc 28%, #0284c7 50%, #7dd3fc 72%, transparent);
+      box-shadow: 0 0 18px 1px rgba(2,132,199,0.45);
+    }
+    .layout.admin-mode .col-right { z-index: 1; }
+    @media (max-width: 860px) {
+      .layout.admin-mode .col-right { flex-direction: column; gap: 1.25rem; }
+      .layout.admin-mode .upload-card { margin-top: -28px; }
+    }
+    /* light spreading downwards from a bright strip above the image */
+    .col-right::before {
+      content: "";
+      position: absolute; top: -22px; left: 50%; transform: translateX(-50%);
+      width: 150%; height: 1150px;
+      background: radial-gradient(ellipse 48% 100% at 50% 0%, rgba(56,189,248,0.45), transparent 90%);
+      filter: blur(40px);
+      pointer-events: none; z-index: 0;
+    }
+    .col-right::after {
+      content: "";
+      position: absolute; top: -22px; left: 50%; transform: translateX(-50%);
+      width: 130%; height: 2px;
+      background: linear-gradient(to right, transparent, #7dd3fc 18%, #e0f7ff 50%, #7dd3fc 82%, transparent);
+      box-shadow: 0 0 18px 1px rgba(125,211,252,0.75);
+      pointer-events: none; z-index: 2;
+    }
+    .col-right > * { position: relative; z-index: 1; }
+
+    /* left: heading + steps */
+    .lead h1 {
+      font-family: "Lora", Georgia, serif;
+      font-size: clamp(2.1rem, 3.7vw, 3.2rem); font-weight: 700;
+      letter-spacing: -0.01em; line-height: 1.12;
+      background: linear-gradient(180deg, var(--ink) 0%, var(--ink-soft) 55%, var(--muted) 120%);
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+    .lead h1 .grad {
+      background: linear-gradient(100deg, var(--primary), #6366f1 60%, var(--primary-dark));
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+    /* cursive script accent for the word "Tally" */
+    .lead h1 .script {
+      font-family: "Yellowtail", cursive; font-weight: 400;
+      font-size: 1.32em; letter-spacing: 0; line-height: 1; padding: 0 0.04em;
+      background: linear-gradient(100deg, var(--primary), #6366f1 60%, var(--primary-dark));
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+    /* Tally-logo style brush script, themed to our primary colour */
+    .lead h1 .tally {
+      font-family: "Pacifico", cursive; font-weight: 400;
+      font-size: 0.89em; letter-spacing: 0; line-height: 1; padding: 0 0.06em;
+      background: linear-gradient(100deg, var(--primary), #6366f1 60%, var(--primary-dark));
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+    .lead .sub {
+      font-family: "Sora", sans-serif; font-weight: 600;
+      font-size: clamp(1rem, 1.6vw, 1.25rem); line-height: 1.2;
+      margin-top: 8px; color: var(--primary);
+    }
+
+    .steps { display: grid; gap: 22px; margin-top: 30px; max-width: 560px; }
+    .step { display: flex; gap: 16px; align-items: flex-start; }
+    .step-num {
+      flex-shrink: 0; width: 44px; height: 44px; border-radius: 50%;
+      display: grid; place-items: center;
+      font-family: "Sora", sans-serif; font-weight: 800; font-size: 1.1rem;
+      color: var(--primary); background: var(--surface);
+      border: 2px solid var(--border); box-shadow: var(--shadow-sm);
+    }
+    .step h3 { font-size: 1.1rem; font-weight: 700; color: var(--ink); line-height: 1.3; }
+    .step p { color: var(--muted); font-size: 0.95rem; margin-top: 2px; }
+    .step .notes { list-style: none; margin-top: 6px; display: grid; gap: 4px; }
+    .step .notes li {
+      color: var(--muted); font-weight: 500; font-size: 0.9rem;
+      display: flex; gap: 8px; align-items: center;
+    }
+
+    /* right: converter illustration */
+    .converter-img { max-width: 100%; max-height: 30vh; object-fit: contain; display: block; }
+
+    /* upload area (pill from index.html) */
+    #pdfInput { display: none; }
+
+    /* bank selector */
+    .bank-select { position: relative; }
+    .bank-trigger {
+      display: inline-flex; align-items: center; gap: 12px; justify-content: space-between;
+      font-family: "Manrope", sans-serif; font-weight: 600; font-size: 1rem;
+      min-width: 220px; padding: 15px 18px; border-radius: 14px; cursor: pointer;
+      background: var(--surface); color: var(--ink-soft);
+      border: 1px solid var(--border); transition: border-color 0.18s ease, background 0.18s ease;
+    }
+    .bank-trigger:hover { border-color: var(--hover-border); background: var(--bg-soft); }
+    .bank-trigger.placeholder { color: var(--muted); }
+    /* required-field error state */
+    .bank-select.invalid .bank-trigger,
+    .bank-select.invalid.other .bank-other-wrap input { border-color: var(--danger); }
+    @keyframes bankShake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-5px); }
+      75% { transform: translateX(5px); }
+    }
+    .bank-select.shake { animation: bankShake 0.3s ease; }
+    .bank-error { display: none; color: var(--danger); font-size: 0.8rem; font-weight: 600; margin-top: -8px; }
+    .bank-error.show { display: block; }
+    .bank-trigger .bank-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .bank-trigger .chev { width: 18px; height: 18px; flex-shrink: 0; color: var(--muted); transition: transform 0.18s ease; }
+    .bank-select.open .bank-trigger .chev { transform: rotate(180deg); }
+
+    .bank-menu {
+      position: absolute; top: calc(100% + 8px); left: 0;
+      width: 300px; max-width: 84vw; background: var(--surface);
+      border: 1px solid var(--border); border-radius: 14px;
+      box-shadow: var(--shadow-lg); z-index: 300; overflow: hidden;
+      display: none; flex-direction: column;
+    }
+    .bank-select.open .bank-menu { display: flex; }
+    .bank-search { padding: 10px; border-bottom: 1px solid var(--border); }
+    .bank-search input {
+      width: 100%; padding: 9px 12px; border-radius: 10px;
+      border: 1px solid var(--border); background: var(--bg-soft);
+      font-family: inherit; font-size: 0.92rem; color: var(--ink); outline: none;
+      transition: border-color 0.16s ease;
+    }
+    .bank-search input:focus { border-color: var(--primary); }
+    .bank-options { max-height: 220px; overflow-y: auto; padding: 6px; display: flex; flex-direction: column; gap: 2px; }
+    .bank-opt {
+      text-align: left; padding: 9px 12px; border: none; background: transparent;
+      border-radius: 9px; cursor: pointer; font-family: inherit; font-size: 0.92rem;
+      font-weight: 500; color: var(--ink-soft); transition: background 0.14s ease;
+    }
+    .bank-opt:hover { background: var(--bg-soft); }
+    .bank-opt.active { background: var(--bg-soft); box-shadow: inset 0 0 0 1.5px var(--primary); }
+    .bank-opt.selected { background: var(--primary-soft); color: var(--pill-text); font-weight: 700; }
+    .bank-opt-other { color: var(--primary); font-weight: 700; border-top: 1px solid var(--border); border-radius: 0; margin-top: 4px; padding-top: 11px; }
+    .bank-empty { padding: 16px 12px; text-align: center; color: var(--muted); font-size: 0.9rem; }
+
+    /* "Other" free-text input (replaces the trigger) */
+    .bank-other-wrap { position: relative; display: none; }
+    .bank-select.other .bank-other-wrap { display: block; }
+    .bank-select.other .bank-trigger { display: none; }
+    .bank-other-wrap input {
+      width: 220px; padding: 15px 44px 15px 18px; border-radius: 14px;
+      border: 1px solid var(--primary); background: var(--surface);
+      font-family: inherit; font-size: 1rem; color: var(--ink); outline: none;
+    }
+    .bank-other-wrap input::placeholder { color: var(--muted); }
+    .bank-other-back {
+      position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+      width: 30px; height: 30px; border: none; background: transparent; cursor: pointer;
+      color: var(--muted); display: grid; place-items: center; border-radius: 8px;
+    }
+    .bank-other-back:hover { color: var(--ink); background: var(--bg-soft); }
+    .bank-other-back svg { width: 18px; height: 18px; }
+    .hero-status { margin-top: 10px; font-size: 0.95rem; color: var(--muted); display: none; }
+    .hero-status.show { display: block; }
+    .hero-status.error { color: var(--danger); }
+    .hero-status a { color: var(--primary); font-weight: 700; text-decoration: underline; }
+
+    /* free-plan page-credit meter */
+    .credit-meter { display: none; margin-bottom: 64px; flex-direction: column; align-items: flex-start; gap: 8px; }
+    .credit-meter.show { display: flex; }
+    .credit-meter .cm-text { font-size: 0.9rem; color: var(--muted); font-weight: 500; }
+    .credit-meter .cm-text strong { color: var(--ink); font-weight: 700; }
+    .credit-meter .cm-text a { color: var(--primary); font-weight: 700; text-decoration: underline; }
+    .credit-bar { width: 260px; max-width: 70vw; height: 8px; border-radius: 999px; background: var(--bg-tint); overflow: hidden; }
+    .credit-bar > i { display: block; height: 100%; width: 0; background: var(--primary); border-radius: 999px; transition: width 0.35s ease; }
+    .credit-meter.low .cm-text { color: var(--danger); }
+    .credit-meter.low .cm-text strong { color: var(--danger); }
+    .credit-meter.low .credit-bar > i { background: var(--danger); }
+    .credit-meter .cm-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: var(--primary-soft); color: var(--pill-text);
+      font-weight: 700; font-size: 0.78rem; padding: 4px 10px; border-radius: 999px;
+    }
+
+    /* ===== upload card (drag & drop) ===== */
+    .upload-card {
+      position: relative;
+      width: 360px; max-width: 100%; margin-top: -28px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 18px; box-shadow: var(--shadow); padding: 20px;
+      display: flex; flex-direction: column; gap: 14px; text-align: left;
+    }
+    .uc-title { font-size: 1.05rem; font-weight: 700; color: var(--ink); }
+
+    /* bank controls fill the card width */
+    .upload-card .bank-select, .upload-card .bank-trigger,
+    .upload-card .bank-other-wrap, .upload-card .bank-other-wrap input,
+    .upload-card .bank-menu { width: 100%; }
+    .upload-card .bank-trigger { min-width: 0; }
+
+    /* dashed drop zone */
+    .dropzone {
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
+      text-align: center; cursor: pointer;
+      border: 1.5px dashed var(--border); border-radius: 12px;
+      padding: 26px 18px; transition: border-color 0.18s ease, background 0.18s ease;
+    }
+    .dropzone:hover, .dropzone.drag { border-color: var(--primary); background: var(--primary-soft); }
+    .dropzone.hidden { display: none; }
+    .dz-icon { width: 30px; height: 30px; color: var(--muted); transition: color 0.18s ease; }
+    .dropzone:hover .dz-icon, .dropzone.drag .dz-icon { color: var(--primary); }
+    .dz-text { font-size: 0.92rem; color: var(--ink-soft); font-weight: 500; }
+    .dz-link { color: var(--primary); font-weight: 700; }
+    .dz-hint { font-size: 0.78rem; color: var(--muted); margin-top: -4px; }
+    .dz-hint.hidden { display: none; }
+
+    /* selected-file card */
+    .file-card {
+      display: none; position: relative; align-items: center; gap: 12px;
+      background: var(--bg-soft); border: 1px solid var(--border);
+      border-radius: 12px; padding: 12px 14px;
+    }
+    .file-card.show { display: flex; }
+    .file-icon {
+      flex-shrink: 0; width: 40px; height: 40px; border-radius: 9px;
+      display: grid; place-items: center; background: var(--surface);
+      border: 1px solid var(--border); color: var(--primary);
+    }
+    .file-icon svg { width: 20px; height: 20px; }
+    .file-meta { min-width: 0; flex: 1; }
+    .file-name {
+      font-size: 0.85rem; font-weight: 600; color: var(--ink);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 22px;
+    }
+    .file-status { display: flex; justify-content: space-between; gap: 10px; font-size: 0.78rem; color: var(--muted); margin-top: 2px; }
+    .fc-state { font-weight: 600; }
+    .file-card.processing .fc-state { color: var(--primary); }
+
+    /* "Generating" loader — centered full-page overlay */
+    .gen-overlay {
+      display: none; position: fixed; inset: 0; z-index: 1000;
+      align-items: center; justify-content: center; padding: 20px;
+      background: rgba(5,9,18,0.6); backdrop-filter: blur(4px);
+    }
+    .gen-overlay.show { display: flex; }
+    /* glowing rotating ring with animated letters */
+    .gen-loader {
+      position: relative; width: 150px; height: 150px;
+      display: flex; align-items: center; justify-content: center; user-select: none;
+    }
+    .gen-ring {
+      position: absolute; inset: 0; border-radius: 50%;
+      background: #0a1330;   /* dark fill so the orb reads the same on light & dark */
+      animation: loaderCircle 5s linear infinite;
+    }
+    .gen-text { display: flex; font-family: "Manrope", sans-serif; }
+    .gen-text span {
+      display: inline-block; color: #eaf2ff; font-size: 0.98rem; font-weight: 600;
+      opacity: 0.4; animation: loaderLetter 3s infinite;
+    }
+    @keyframes loaderCircle {
+      0% {
+        transform: rotate(90deg);
+        box-shadow:
+          0 6px 12px 0 #38bdf8 inset, 0 12px 18px 0 #005dff inset, 0 36px 36px 0 #1e40af inset,
+          0 0 3px 1.2px rgba(56,189,248,0.3), 0 0 6px 1.8px rgba(0,93,255,0.2);
+      }
+      50% {
+        transform: rotate(270deg);
+        box-shadow:
+          0 6px 12px 0 #60a5fa inset, 0 12px 6px 0 #0284c7 inset, 0 24px 36px 0 #005dff inset,
+          0 0 3px 1.2px rgba(56,189,248,0.3), 0 0 6px 1.8px rgba(0,93,255,0.2);
+      }
+      100% {
+        transform: rotate(450deg);
+        box-shadow:
+          0 6px 12px 0 #4dc8fd inset, 0 12px 18px 0 #005dff inset, 0 36px 36px 0 #1e40af inset,
+          0 0 3px 1.2px rgba(56,189,248,0.3), 0 0 6px 1.8px rgba(0,93,255,0.2);
+      }
+    }
+    @keyframes loaderLetter {
+      0%, 100% { opacity: 0.4; transform: translateY(0); }
+      20%      { opacity: 1;   transform: scale(1.15); }
+      40%      { opacity: 0.7; transform: translateY(0); }
+    }
+    .file-remove {
+      position: absolute; right: 8px; top: 8px;
+      width: 26px; height: 26px; border: none; background: transparent; cursor: pointer;
+      color: var(--muted); display: grid; place-items: center; border-radius: 7px;
+    }
+    .file-remove:hover { color: var(--ink); background: var(--bg-tint); }
+    .file-remove svg { width: 15px; height: 15px; }
+
+    /* password modal (protected PDFs) — centered overlay */
+    .pw-modal {
+      display: none; position: fixed; inset: 0; z-index: 1000;
+      align-items: center; justify-content: center; padding: 20px;
+      background: rgba(5,9,18,0.6); backdrop-filter: blur(4px);
+    }
+    .pw-modal.show { display: flex; }
+    .pw-modal-box {
+      position: relative; width: 380px; max-width: 100%;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 18px; box-shadow: var(--shadow-lg); padding: 26px 24px 22px;
+      display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center;
+    }
+    .pw-modal-icon {
+      width: 54px; height: 54px; border-radius: 50%; display: grid; place-items: center;
+      color: var(--primary); background: var(--primary-soft); border: 1px solid var(--border);
+    }
+    .pw-modal-icon svg { width: 24px; height: 24px; }
+    .pw-modal-title { font-size: 1.12rem; font-weight: 700; color: var(--ink); }
+    .pw-modal-sub { font-size: 0.88rem; color: var(--muted); margin-top: -6px; max-width: 300px; }
+    .pw-modal-sub span { color: var(--ink-soft); font-weight: 600; }
+    /* page-limit variant */
+    .limit-icon { color: var(--danger); background: rgba(220,38,38,0.12); }
+    .limit-msg { color: var(--ink-soft); max-width: 320px; line-height: 1.5; }
+    .pw-modal .pw-field { width: 100%; margin-top: 2px; }
+    .pw-modal .pp-error { justify-content: center; }
+    .pw-modal-actions { display: flex; width: 100%; margin-top: 6px; }
+    .pw-modal-actions .btn-submit { flex: 1; justify-content: center; }
+    .pw-modal-close {
+      position: absolute; top: 12px; right: 12px;
+      width: 32px; height: 32px; border-radius: 9px; border: none; background: transparent;
+      color: var(--muted); cursor: pointer; display: grid; place-items: center;
+      transition: background 0.16s ease, color 0.16s ease;
+    }
+    .pw-modal-close:hover { background: var(--bg-soft); color: var(--ink); }
+    .pw-modal-close svg { width: 18px; height: 18px; }
+
+    .pw-field {
+      display: flex; align-items: center; gap: 8px;
+      background: var(--bg-soft); border: 1px solid var(--border);
+      border-radius: 10px; padding: 10px 12px; transition: border-color 0.16s ease;
+    }
+    .pw-field:focus-within { border-color: var(--primary); }
+    .pw-field .pw-lock { width: 16px; height: 16px; color: var(--muted); flex-shrink: 0; }
+    .pw-field input {
+      flex: 1; min-width: 0; background: transparent; border: none; outline: none;
+      color: var(--ink); font-size: 0.9rem; font-family: inherit; padding: 0;
+    }
+    .pw-eye { background: transparent; border: none; cursor: pointer; color: var(--muted); display: grid; place-items: center; padding: 0; flex-shrink: 0; }
+    .pw-eye:hover { color: var(--ink); }
+    .pp-error { display: none; align-items: center; gap: 6px; color: var(--danger); font-size: 0.78rem; font-weight: 600; }
+    .pp-error.show { display: flex; }
+    .pp-error svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+    /* content: blur-stagger fade-in entrance */
+    @keyframes blurIn {
+      from { filter: blur(10px); opacity: 0; transform: translateY(10px); }
+      to   { filter: blur(0);    opacity: 1; transform: none; }
+    }
+    .stagger > * { opacity: 0; animation: blurIn 0.6s cubic-bezier(0.22,1,0.36,1) forwards; }
+    .stagger > *:nth-child(1) { animation-delay: 0.05s; }
+    .stagger > *:nth-child(2) { animation-delay: 0.20s; }
+    .stagger > *:nth-child(3) { animation-delay: 0.35s; }
+    .stagger > *:nth-child(4) { animation-delay: 0.50s; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .stagger > * { opacity: 1; animation: none; }
+    }
+
+    @media (max-width: 860px) {
+      .layout { flex-direction: column; gap: 1.5rem; }
+      .col-left, .col-right { flex: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ============ HEADER ============ -->
+  <header>
+    <div class="wrap nav">
+      <a class="brand" href="/upload.html">
+        <img src="assets/logo.png" alt="Ledgerit" class="brand-logo logo-light" />
+        <img src="assets/logo-white.png" alt="Ledgerit" class="brand-logo logo-dark" />
+      </a>
+      <div class="nav-actions">
+        <a class="btn btn-primary" id="adminLink" href="/admin.html" style="display:none;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
+          Admin
+        </a>
+        <button class="btn btn-primary" id="upgradeBtn" onclick="window.location.href='/plans.html'">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7"/><polyline points="7 7 17 7 17 17"/></svg>
+          Upgrade Plan
+        </button>
+        <button class="theme-switch" id="themeToggle" type="button" role="switch" aria-label="Toggle light/dark mode" onclick="toggleTheme()">
+          <span class="seg seg-sun" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          </span>
+          <span class="seg seg-moon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          </span>
+        </button>
+
+        <!-- profile dropdown -->
+        <div class="profile" id="profile">
+          <button class="profile-btn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Account menu" onclick="toggleProfile(event)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          </button>
+          <div class="profile-menu" id="profileMenu" role="menu">
+            <button type="button" role="menuitem" onclick="window.location.href='/statements.html'">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+              My Statements
+            </button>
+            <button type="button" role="menuitem">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              My Issues
+            </button>
+            <button type="button" role="menuitem" class="danger" onclick="logout()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+              Logout
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============ MAIN ============ -->
+  <main class="layout">
+
+    <!-- left: heading + steps -->
+    <div class="col-left stagger">
+
+      <!-- free-plan page-credit meter; filled in by loadCredit() -->
+      <div class="credit-meter" id="creditMeter" aria-live="polite"></div>
+
+      <div class="lead">
+        <h1><span class="grad">PDF</span> to <span class="tally">Tally</span> <span class="grad">XML</span>, <span class="grad">CSV</span></h1>
+        <div class="sub">in 3 simple steps</div>
+      </div>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div>
+            <h3>Upload PDF Bank Statement</h3>
+            <ul class="notes">
+              <li>Scanned PDFs are currently not supported</li>
+              <li>Enter password if protected</li>
+            </ul>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div>
+            <h3>Let AI Convert Into Structured Data</h3>
+            <p>Ledgerit's AI identifies and extracts the transactions and structures them automatically.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div>
+            <h3>Download Tally XML or CSV</h3>
+            <p>Download your converted bank statement as Tally-ready XML or a clean CSV file.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- right: illustration + upload pill -->
+    <div class="col-right stagger">
+
+      <img src="assets/converter.png" alt="PDF to Tally converter" class="converter-img" />
+
+      <form class="upload-card" id="uploadCard" onsubmit="return false;">
+        <h3 class="uc-title">Upload Statement</h3>
+
+        <!-- bank selector -->
+        <div class="bank-select" id="bankSelect">
+          <button type="button" class="bank-trigger placeholder" id="bankTrigger" aria-haspopup="listbox" aria-expanded="false" onclick="toggleBankMenu(event)">
+            <span class="bank-label" id="bankLabel">Choose your bank</span>
+            <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+
+          <div class="bank-other-wrap" id="bankOtherWrap">
+            <input type="text" id="bankOtherInput" placeholder="Enter bank name" autocomplete="off" />
+            <button type="button" class="bank-other-back" title="Choose from list" aria-label="Choose from list" onclick="resetBankToList()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+            </button>
+          </div>
+
+          <div class="bank-menu" id="bankMenu" role="listbox" aria-label="Select your bank">
+            <div class="bank-search">
+              <input type="text" id="bankSearch" placeholder="Search bank…" autocomplete="off" oninput="renderBankOptions(this.value)" />
+            </div>
+            <div class="bank-options" id="bankOptions"></div>
+          </div>
+        </div>
+        <p class="bank-error" id="bankError">Please select your bank first.</p>
+
+        <!-- dashed drop zone -->
+        <label class="dropzone" id="dropzone" for="pdfInput">
+          <svg class="dz-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          <span class="dz-text">Drag and drop or <span class="dz-link">choose file</span> to upload</span>
+        </label>
+        <input type="file" id="pdfInput" accept=".pdf" onchange="onFileChange(event)" />
+        <p class="dz-hint" id="dzHint">Digitally-generated PDFs only (no scans) · Max size 10&nbsp;MB</p>
+
+        <!-- selected file -->
+        <div class="file-card" id="fileCard">
+          <button type="button" class="file-remove" onclick="removeFile()" aria-label="Remove file">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+          <span class="file-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          </span>
+          <div class="file-meta">
+            <p class="file-name" id="fileName"></p>
+            <p class="file-status">
+              <span id="fileSize"></span>
+              <span class="fc-state" id="fileState"></span>
+            </p>
+          </div>
+        </div>
+
+        <div class="hero-status" id="status"></div>
+      </form>
+    </div>
+
+  </main>
+
+  <!-- ============ GENERATING OVERLAY ============ -->
+  <div class="gen-overlay" id="genLoader" aria-live="polite" aria-label="Generating">
+    <div class="gen-loader">
+      <div class="gen-ring"></div>
+      <div class="gen-text">
+        <span style="animation-delay:0s">G</span><span style="animation-delay:.1s">e</span><span style="animation-delay:.2s">n</span><span style="animation-delay:.3s">e</span><span style="animation-delay:.4s">r</span><span style="animation-delay:.5s">a</span><span style="animation-delay:.6s">t</span><span style="animation-delay:.7s">i</span><span style="animation-delay:.8s">n</span><span style="animation-delay:.9s">g</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ PASSWORD MODAL ============ -->
+  <div class="pw-modal" id="passwordPill" role="dialog" aria-modal="true" aria-label="Enter PDF password">
+    <div class="pw-modal-box">
+      <button type="button" class="pw-modal-close" aria-label="Discard" title="Discard" onclick="removeFile()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+      <div class="pw-modal-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      </div>
+      <h3 class="pw-modal-title">This PDF is password-protected</h3>
+      <p class="pw-modal-sub"><span id="pwModalFile"></span></p>
+
+      <div class="pw-field">
+        <svg class="pw-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        <input type="password" id="passwordInput" placeholder="Enter PDF password" autocomplete="off" />
+        <button type="button" class="pw-eye" id="passwordEye" aria-label="Show password" onclick="togglePasswordVisible()">
+          <svg id="eyeIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
+      <div class="pp-error" id="passwordError" aria-live="polite">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        Incorrect Password! Try Again.
+      </div>
+
+      <div class="pw-modal-actions">
+        <button type="button" class="btn btn-primary btn-submit" onclick="processFile()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>
+          Unlock
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ PAGE-LIMIT MODAL ============ -->
+  <div class="pw-modal" id="limitModal" role="dialog" aria-modal="true" aria-label="Not enough free pages">
+    <div class="pw-modal-box">
+      <button type="button" class="pw-modal-close" aria-label="Dismiss" title="Dismiss" onclick="removeFile()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+      <div class="pw-modal-icon limit-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      </div>
+      <h3 class="pw-modal-title">Not enough free pages</h3>
+      <p class="pw-modal-sub limit-msg" id="limitModalMsg"></p>
+
+      <div class="pw-modal-actions">
+        <button type="button" class="btn btn-primary btn-submit" onclick="window.location.href='/plans.html'">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7"/><polyline points="7 7 17 7 17 17"/></svg>
+          Upgrade your plan
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ ERROR MODAL ============ -->
+  <div class="pw-modal" id="errorModal" role="dialog" aria-modal="true" aria-label="Could not convert PDF">
+    <div class="pw-modal-box">
+      <button type="button" class="pw-modal-close" aria-label="Dismiss" title="Dismiss" onclick="removeFile()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+      <div class="pw-modal-icon limit-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      </div>
+      <h3 class="pw-modal-title">Couldn't convert this PDF</h3>
+      <p class="pw-modal-sub limit-msg" id="errorModalMsg"></p>
+
+      <div class="pw-modal-actions">
+        <button type="button" class="btn btn-primary btn-submit" onclick="removeFile()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><polyline points="21 3 21 9 15 9"/></svg>
+          Try another file
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ---- Theme toggle (light/dark) ----
+    function applyTheme(t) {
+      document.documentElement.setAttribute("data-theme", t);
+      try { localStorage.setItem("theme", t); } catch (e) {}
+      var m = document.querySelector('meta[name="theme-color"]');
+      if (m) m.setAttribute("content", t === "dark" ? "#090d18" : "#ffffff");
+    }
+    function toggleTheme() {
+      var cur = document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
+      applyTheme(cur === "dark" ? "light" : "dark");
+    }
+
+    // ---- Profile dropdown ----
+    function toggleProfile(e) {
+      e.stopPropagation();
+      const menu = document.getElementById("profileMenu");
+      const btn = e.currentTarget;
+      const open = menu.classList.toggle("open");
+      btn.setAttribute("aria-expanded", open ? "true" : "false");
+    }
+    // close on outside click or Escape
+    document.addEventListener("click", function (e) {
+      const profile = document.getElementById("profile");
+      if (profile && !profile.contains(e.target)) {
+        document.getElementById("profileMenu").classList.remove("open");
+        profile.querySelector(".profile-btn").setAttribute("aria-expanded", "false");
+      }
+      const bank = document.getElementById("bankSelect");
+      if (bank && !bank.contains(e.target)) closeBankMenu();
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") {
+        document.getElementById("profileMenu").classList.remove("open");
+        document.querySelector(".profile-btn").setAttribute("aria-expanded", "false");
+        closeBankMenu();
+      }
+    });
+
+    // ---- Bank selector ----
+    const BANKS = [
+      "AB Bank Ltd.", "Abu Dhabi Commercial Bank", "Airtel Payments Bank", "AU Small Finance Bank",
+      "Australia and New Zealand Banking Group", "Axis Bank", "Bandhan Bank", "Bank of America", "Bank of Bahrain and Kuwait",
+      "Bank of Baroda", "Bank of Ceylon", "Bank of China", "Bank of India", "Bank of Maharashtra",
+      "Barclays Bank", "BNP Paribas", "Canara Bank", "Capital Small Finance Bank", "Central Bank of India",
+      "Citibank", "Coastal Local Area Bank", "Credit Agricole Corporate and Investment Bank", "Credit Suisse AG",
+      "CSB Bank", "CTBC Bank", "DBS Bank India", "DCB Bank", "Deutsche Bank", "Doha Bank", "Dhanlaxmi Bank",
+      "Emirates NBD Bank", "Equitas Small Finance Bank", "ESAF Small Finance Bank", "Export-Import Bank of India",
+      "Federal Bank", "First Abu Dhabi Bank", "HDFC Bank", "HSBC", "ICICI Bank", "IDBI Bank", "IDFC FIRST Bank",
+      "India Post Payments Bank", "Indian Bank", "Indian Overseas Bank",
+      "Industrial and Commercial Bank of China", "IndusInd Bank", "J.P. Morgan Chase Bank",
+      "Jammu & Kashmir Bank", "Jana Small Finance Bank", "Jio Payments Bank", "Karnataka Bank",
+      "Karur Vysya Bank", "KEB Hana Bank", "Kotak Mahindra Bank", "Krung Thai Bank",
+      "Krishna Bhima Samruddhi Local Area Bank", "Mashreq Bank", "Mizuho Bank", "MUFG Bank",
+      "National Australia Bank", "NatWest Markets", "Nainital Bank", "North East Small Finance Bank",
+      "NSDL Payments Bank", "Punjab & Sind Bank", "Punjab National Bank", "QNB Bank", "RBL Bank",
+      "SBM Bank (India)", "Shinhan Bank", "Shivalik Small Finance Bank", "Societe Generale",
+      "South Indian Bank", "Standard Chartered Bank", "State Bank of India", "Suryoday Small Finance Bank",
+      "Sumitomo Mitsui Banking Corporation", "Tamilnad Mercantile Bank", "UCO Bank", "Ujjivan Small Finance Bank",
+      "Union Bank of India", "Unity Small Finance Bank", "Utkarsh Small Finance Bank", "Woori Bank", "YES Bank"
+    ];
+
+    let selectedBank = "";   // bank chosen from the list ("" = none / using "Other")
+    let bankActive = -1;     // index of the keyboard-highlighted option
+
+    function toggleBankMenu(e) {
+      e.stopPropagation();
+      const sel = document.getElementById("bankSelect");
+      const open = sel.classList.toggle("open");
+      document.getElementById("bankTrigger").setAttribute("aria-expanded", open ? "true" : "false");
+      if (open) {
+        const search = document.getElementById("bankSearch");
+        search.value = "";
+        renderBankOptions("");
+        search.focus();
+      }
+    }
+
+    function closeBankMenu() {
+      const sel = document.getElementById("bankSelect");
+      if (!sel) return;
+      sel.classList.remove("open");
+      document.getElementById("bankTrigger").setAttribute("aria-expanded", "false");
+    }
+
+    function renderBankOptions(filter) {
+      const wrap = document.getElementById("bankOptions");
+      const f = (filter || "").trim().toLowerCase();
+      const matches = BANKS.filter(b => b.toLowerCase().includes(f));
+      wrap.innerHTML = "";
+
+      matches.forEach(name => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "bank-opt" + (name === selectedBank ? " selected" : "");
+        b.setAttribute("role", "option");
+        b.textContent = name;
+        b.addEventListener("click", () => selectBank(name));
+        wrap.appendChild(b);
+      });
+
+      if (!matches.length) {
+        const empty = document.createElement("div");
+        empty.className = "bank-empty";
+        empty.textContent = "No banks match your search";
+        wrap.appendChild(empty);
+      }
+
+      // "Other" is always available
+      const other = document.createElement("button");
+      other.type = "button";
+      other.className = "bank-opt bank-opt-other";
+      other.setAttribute("role", "option");
+      other.textContent = "Other (enter manually)";
+      other.addEventListener("click", selectOther);
+      wrap.appendChild(other);
+
+      // highlight the first option so Enter / arrow keys work right away
+      bankActive = 0;
+      updateBankActive();
+    }
+
+    function bankOptionEls() {
+      return Array.from(document.querySelectorAll("#bankOptions .bank-opt"));
+    }
+    function updateBankActive() {
+      const opts = bankOptionEls();
+      opts.forEach((o, i) => o.classList.toggle("active", i === bankActive));
+      if (bankActive >= 0 && opts[bankActive]) opts[bankActive].scrollIntoView({ block: "nearest" });
+    }
+    // arrow keys move the highlight, Enter selects it, Escape closes
+    function onBankKey(e) {
+      const opts = bankOptionEls();
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        bankActive = opts.length ? Math.min(bankActive + 1, opts.length - 1) : -1;
+        updateBankActive();
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        bankActive = Math.max(bankActive - 1, 0);
+        updateBankActive();
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        if (opts[bankActive]) opts[bankActive].click();
+      } else if (e.key === "Escape") {
+        closeBankMenu();
+        document.getElementById("bankTrigger").focus();
+      }
+    }
+    document.getElementById("bankSearch").addEventListener("keydown", onBankKey);
+
+    function selectBank(name) {
+      selectedBank = name;
+      const trigger = document.getElementById("bankTrigger");
+      trigger.classList.remove("placeholder");
+      document.getElementById("bankLabel").textContent = name;
+      document.getElementById("bankSelect").classList.remove("other");
+      clearBankError();
+      closeBankMenu();
+    }
+
+    // A bank must be chosen before any PDF can be uploaded.
+    function flagBankRequired() {
+      const sel = document.getElementById("bankSelect");
+      document.getElementById("bankError").classList.add("show");
+      sel.classList.add("invalid");
+      sel.classList.remove("shake"); void sel.offsetWidth; sel.classList.add("shake");
+      sel.scrollIntoView({ block: "nearest" });
+      (sel.classList.contains("other") ? document.getElementById("bankOtherInput")
+                                       : document.getElementById("bankTrigger")).focus();
+    }
+    function clearBankError() {
+      const sel = document.getElementById("bankSelect");
+      sel.classList.remove("invalid", "shake");
+      document.getElementById("bankError").classList.remove("show");
+    }
+    // typing a name in the "Other" field also satisfies the requirement
+    document.getElementById("bankOtherInput").addEventListener("input", function () {
+      if (this.value.trim()) clearBankError();
+    });
+
+    function selectOther() {
+      selectedBank = "";
+      document.getElementById("bankSelect").classList.add("other");
+      closeBankMenu();
+      document.getElementById("bankOtherInput").focus();
+    }
+
+    function resetBankToList() {
+      const sel = document.getElementById("bankSelect");
+      sel.classList.remove("other");
+      document.getElementById("bankOtherInput").value = "";
+      document.getElementById("bankTrigger").classList.add("placeholder");
+      document.getElementById("bankLabel").textContent = "Select your bank";
+      selectedBank = "";
+    }
+
+    // The bank the user picked (list selection or free-typed "Other").
+    function getSelectedBank() {
+      const sel = document.getElementById("bankSelect");
+      if (sel.classList.contains("other")) return document.getElementById("bankOtherInput").value.trim();
+      return selectedBank;
+    }
+
+    // Clear the server session before returning to the login page.
+    async function logout() {
+      try { await fetch("/api/logout", { method: "POST" }); } catch (e) {}
+      window.location.href = "/login.html";
+    }
+
+    // When the user navigates back here from results.html, the browser may
+    // restore this page from its back-forward cache — frozen with the
+    // processing pill still showing. Detect that restore and reload.
+    window.addEventListener("pageshow", function (e) {
+      if (e.persisted) window.location.reload();
+    });
+
+    // Tailor the nav for admins: show the Admin button (styled like the primary
+    // CTA) and drop the Upgrade Plan + profile controls they don't need here.
+    // Cosmetic only — the server still enforces admin access.
+    (async function revealAdmin() {
+      try {
+        var me = await (await fetch("/api/me")).json();
+        if (me.is_admin) {
+          var al = document.getElementById("adminLink");
+          if (al) al.style.display = "";
+          var up = document.getElementById("upgradeBtn");
+          if (up) up.style.display = "none";
+          var prof = document.getElementById("profile");
+          if (prof) prof.style.display = "none";
+          // Admins don't need the onboarding copy — switch to the admin layout:
+          // left column hidden, illustration left and upload card right.
+          var layout = document.querySelector(".layout");
+          if (layout) layout.classList.add("admin-mode");
+        }
+      } catch (e) {}
+    })();
+
+    // ---- Real conversion flow (identical to the landing-page uploader) ----
+    let pendingFile = null;
+    let activeController = null;   // AbortController for the in-flight /process request
+
+    const ub = id => document.getElementById(id);
+
+    function formatBytes(bytes) {
+      if (bytes < 1024) return bytes + " B";
+      if (bytes < 1048576) return (bytes / 1024).toFixed(1) + " KB";
+      return (bytes / 1048576).toFixed(1) + " MB";
+    }
+
+    // back to the empty drop-zone state
+    function resetToIdle() {
+      pendingFile = null;
+      ub("pdfInput").value = "";
+      ub("passwordInput").value = "";
+      ub("fileCard").classList.remove("show", "processing");
+      ub("passwordPill").classList.remove("show");
+      ub("passwordError").classList.remove("show");
+      ub("genLoader").classList.remove("show");
+      ub("limitModal").classList.remove("show");
+      ub("errorModal").classList.remove("show");
+      ub("dropzone").classList.remove("hidden");
+      ub("dzHint").classList.remove("hidden");
+      setStatus("", false);
+    }
+
+    // not enough free pages — show the centered upgrade modal
+    function showLimitModal(message) {
+      resetToIdle();
+      ub("limitModalMsg").textContent = message;
+      ub("limitModal").classList.add("show");
+    }
+
+    // remove / cancel — abort an in-flight request, then reset
+    function removeFile() {
+      if (activeController) { try { activeController.abort(); } catch (e) {} activeController = null; }
+      resetToIdle();
+    }
+
+    // request in flight — show the file card + "Generating" loader
+    function showProcessing() {
+      if (pendingFile) {
+        ub("fileName").textContent = pendingFile.name;
+        ub("fileSize").textContent = formatBytes(pendingFile.size);
+      }
+      ub("fileState").textContent = "";
+      ub("fileCard").classList.remove("processing");
+      ub("fileCard").classList.add("show");
+      ub("passwordPill").classList.remove("show");
+      ub("dropzone").classList.add("hidden");
+      ub("dzHint").classList.add("hidden");
+      ub("genLoader").classList.add("show");
+    }
+
+    // PDF is password-protected — open the centered password modal
+    function showPasswordPrompt(isWrong) {
+      ub("fileState").textContent = "Locked";
+      ub("fileCard").classList.remove("processing");
+      ub("fileCard").classList.add("show");
+      ub("genLoader").classList.remove("show");
+      ub("dropzone").classList.add("hidden");
+      ub("dzHint").classList.add("hidden");
+      ub("pwModalFile").textContent = pendingFile ? pendingFile.name : "this PDF";
+      ub("passwordError").classList.toggle("show", !!isWrong);
+      ub("passwordPill").classList.add("show");
+      ub("passwordInput").focus();
+    }
+
+    // error — reset to the drop zone, then show the message in a centered
+    // modal (same pattern as the password / page-limit boxes) with a close
+    // button so the user can dismiss it and try another file.
+    function showError(msg) {
+      resetToIdle();
+      ub("errorModalMsg").textContent = msg || "We couldn't convert this PDF.";
+      ub("errorModal").classList.add("show");
+    }
+
+    function togglePasswordVisible() {
+      const inp = document.getElementById("passwordInput");
+      const eye = document.getElementById("eyeIcon");
+      const showing = inp.type === "text";
+      inp.type = showing ? "password" : "text";
+      if (showing) {
+        eye.innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+      } else {
+        eye.innerHTML = '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>';
+      }
+      inp.focus();
+    }
+
+    function onFileChange(e) { handleFiles(e.target.files); }
+
+    function handleFiles(files) {
+      const file = files && files[0];
+      if (!file) return;
+      // a bank selection is mandatory before uploading
+      if (!getSelectedBank()) { flagBankRequired(); ub("pdfInput").value = ""; return; }
+      if (!/\.pdf$/i.test(file.name)) { setStatus("Please choose a PDF file.", true); return; }
+      pendingFile = file;
+      ub("passwordInput").value = "";
+      setStatus("", false);
+      processFile();   // start converting as soon as a PDF is selected/dropped
+    }
+
+    // drag & drop onto the drop zone
+    (function () {
+      const dz = ub("dropzone");
+      if (!dz) return;
+      // the drop zone is a <label> — stop it from opening the file picker
+      // until a bank is selected
+      dz.addEventListener("click", e => {
+        if (!getSelectedBank()) { e.preventDefault(); flagBankRequired(); }
+      });
+      ["dragenter", "dragover"].forEach(ev => dz.addEventListener(ev, e => {
+        e.preventDefault(); dz.classList.add("drag");
+      }));
+      ["dragleave", "drop"].forEach(ev => dz.addEventListener(ev, e => {
+        e.preventDefault(); dz.classList.remove("drag");
+      }));
+      dz.addEventListener("drop", e => {
+        if (e.dataTransfer && e.dataTransfer.files.length) handleFiles(e.dataTransfer.files);
+      });
+    })();
+
+    async function processFile() {
+      if (!pendingFile) return;
+      const password = document.getElementById("passwordInput").value;
+      const formData = new FormData();
+      formData.append("pdf", pendingFile);
+      if (password) formData.append("password", password);
+      const bank = getSelectedBank();
+      if (bank) formData.append("bank", bank);
+
+      showProcessing();
+      setStatus("", false);
+      activeController = new AbortController();
+
+      try {
+        const res = await fetch("/process", { method: "POST", body: formData, signal: activeController.signal });
+        const result = await res.json();
+        activeController = null;
+
+        if (result.error === "PASSWORD_REQUIRED" || result.error === "WRONG_PASSWORD") {
+          ub("passwordInput").value = "";
+          showPasswordPrompt(result.error === "WRONG_PASSWORD");
+          return;
+        }
+        // Out of free-plan page credit (or this file would exceed it).
+        if (result.error === "PAGE_LIMIT_REACHED" || result.error === "INSUFFICIENT_PAGES") {
+          showLimitModal(result.message || "You don't have enough free pages left to convert this statement.");
+          loadCredit();   // reflect the latest usage in the meter
+          return;
+        }
+        if (result.error) { showError(result.error); return; }
+
+        sessionStorage.setItem("transactions", JSON.stringify(result));
+        sessionStorage.setItem("pdfName", pendingFile.name.replace(/\.pdf$/i, ""));
+        window.location.href = "/results.html";
+
+      } catch (err) {
+        activeController = null;
+        if (err.name === "AbortError") return;
+        showError(err.message);
+      }
+    }
+
+    document.getElementById("passwordInput").addEventListener("keydown", function (e) {
+      if (e.key === "Enter") { e.preventDefault(); processFile(); }       // Enter = Submit
+      else if (e.key === "Escape") { e.preventDefault(); removeFile(); }  // Escape = discard
+    });
+
+
+    function setStatus(msg, isError) {
+      const el = document.getElementById("status");
+      el.innerHTML = msg;
+      el.className = "hero-status show" + (isError ? " error" : "");
+      if (!msg) el.className = "hero-status";
+    }
+
+    // ---- Free-plan page-credit meter ----
+    // Pulls live usage from /api/me and renders "used / limit" with a bar.
+    // Admins show as unlimited; an exhausted free account gets an upgrade link.
+    async function loadCredit() {
+      const el = document.getElementById("creditMeter");
+      try {
+        const res = await fetch("/api/me");
+        const me = await res.json();
+        if (!me.authenticated) { el.className = "credit-meter"; return; }
+
+        if (me.unlimited) {
+          // Admins have no page limit — don't show the credit meter at all.
+          el.className = "credit-meter";
+          return;
+        }
+
+        const limit = Number(me.page_limit) || 0;
+        const used = Number(me.pages_used) || 0;
+        const remaining = Math.max(0, limit - used);
+        const pct = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
+
+        if (remaining <= 0) {
+          el.innerHTML =
+            '<div class="cm-text">You\'ve used all <strong>' + limit + '</strong> free pages. ' +
+              '<a href="/plans.html">Upgrade your plan</a> to continue.</div>' +
+            '<div class="credit-bar"><i style="width:100%"></i></div>';
+        } else {
+          el.innerHTML =
+            '<div class="cm-text">Pages used: <strong>' + used + '</strong> / ' + limit + '</div>' +
+            '<div class="credit-bar"><i style="width:' + pct + '%"></i></div>';
+        }
+        // Flag "low" in red when a tenth or less of the allowance remains.
+        el.classList.toggle("low", remaining <= Math.max(1, Math.ceil(limit * 0.1)));
+        el.classList.add("show");
+      } catch (e) {
+        el.className = "credit-meter";   // network hiccup — just hide it
+      }
+    }
+
+    loadCredit();
+  </script>
+
+</body>
+</html>

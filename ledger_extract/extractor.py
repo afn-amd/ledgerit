@@ -101,16 +101,24 @@ def _is_encrypted(pdf_path):
         return False
 
 
-def read_tables(pdf_path, password=None, pages="all"):
+def read_tables(pdf_path, password=None, pages="all", edge_tol=None):
     """Run Camelot stream and return (tables_as_rows, full_text).
 
     tables_as_rows : list of tables; each table is a list of rows; each row is
                      a list of cleaned cell strings.
     full_text      : every cell joined with spaces/newlines (for detection).
+
+    edge_tol : Camelot's column-edge tolerance. ``None`` keeps the library
+               default (50). A larger value makes stream group text that sits in
+               a narrow horizontal band into one row+table instead of dropping
+               it -- some layouts (Central Bank of India) confine the whole
+               transaction grid to such a band, which the default misses.
     """
     kwargs = dict(pages=pages, flavor="stream")
     if password:
         kwargs["password"] = password
+    if edge_tol is not None:
+        kwargs["edge_tol"] = edge_tol
 
     tables = _dedup_tables(camelot.read_pdf(pdf_path, **kwargs))
 

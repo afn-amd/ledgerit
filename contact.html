@@ -291,6 +291,7 @@
         </div>
 
         <button type="submit" class="btn-submit">Send Details</button>
+        <div class="err" id="errSubmit" style="text-align:center;margin-top:12px;">Could not send your details. Please try again.</div>
       </form>
 
       <div class="success" id="success">
@@ -340,10 +341,11 @@
       }
     });
 
-    document.getElementById("salesForm").addEventListener("submit", function (e) {
+    document.getElementById("salesForm").addEventListener("submit", async function (e) {
       e.preventDefault();
 
       var first = document.getElementById("firstName").value.trim();
+      var last = document.getElementById("lastName").value.trim();
       var email = document.getElementById("email").value.trim();
       var ph = phone.value.trim();
       var org = document.getElementById("orgName").value.trim();
@@ -366,12 +368,42 @@
       showErr("errType", !okType);
       showErr("errTypeOther", needOther && !okTypeOther);
 
-      if (okFirst && okEmail && okPhone && okOrg && okType && okTypeOther) {
-        // Backend not wired yet — show a success state in place of the form.
-        document.getElementById("salesForm").style.display = "none";
-        document.getElementById("formHead").style.display = "none";
-        document.getElementById("success").classList.add("show");
+      if (!(okFirst && okEmail && okPhone && okOrg && okType && okTypeOther)) return;
+
+      var btn = e.target.querySelector(".btn-submit");
+      btn.disabled = true;
+      showErr("errSubmit", false);
+
+      var sent = false;
+      try {
+        var res = await fetch("/api/contact", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            firstName: first,
+            lastName: last,
+            email: email,
+            phone: ph,
+            orgName: org,
+            orgType: needOther ? typeOther : type
+          })
+        });
+        sent = res.ok;
+      } catch (err) {
+        sent = false;
       }
+
+      if (!sent) {
+        // Don't claim success when the request never reached the server.
+        btn.disabled = false;
+        showErr("errSubmit", true);
+        return;
+      }
+
+      // Show a success state in place of the form.
+      document.getElementById("salesForm").style.display = "none";
+      document.getElementById("formHead").style.display = "none";
+      document.getElementById("success").classList.add("show");
     });
   </script>
 

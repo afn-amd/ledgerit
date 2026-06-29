@@ -18,6 +18,7 @@ _SIGNATURES = [
     ("union",    ["union bank", "ubin0", "vyom"]),
     ("uco",      ["uco bank", "ucobank", "ucba0"]),
     ("hdfc",     ["hdfc bank", "hdfc0"]),
+    ("cbi",      ["central bank of india", "cbin0"]),
 ]
 
 

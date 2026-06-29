@@ -18,6 +18,9 @@ info_rows.json
 *.pth
 *.bin
 
+# Flask dev session secret (auto-generated; never commit)
+.flask_secret
+
 # Python
 __pycache__/
 *.py[cod]

@@ -1,0 +1,1804 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light dark" />
+  <meta name="theme-color" content="#ffffff" />
+  <script>
+    /* set theme before paint to avoid a flash */
+    (function () {
+      try {
+        var s = localStorage.getItem("theme");
+        var t = s || (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+        document.documentElement.setAttribute("data-theme", t);
+        var m = document.querySelector('meta[name="theme-color"]');
+        if (m) m.setAttribute("content", t === "dark" ? "#030712" : "#ffffff");
+      } catch (e) { document.documentElement.setAttribute("data-theme", "light"); }
+    })();
+  </script>
+  <title>Admin — Ledgerit</title>
+
+  <link rel="icon" type="image/png" href="assets/favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    /* Palette mirrors the Tailwind gray/blue scale used in the reference. */
+    :root {
+      --bg: #f9fafb;            /* gray-50  */
+      --surface: #ffffff;
+      --sidebar: #ffffff;
+      --border: #e5e7eb;        /* gray-200 */
+      --ink: #111827;           /* gray-900 */
+      --ink-soft: #374151;      /* gray-700 */
+      --muted: #4b5563;         /* gray-600 */
+      --muted-2: #6b7280;       /* gray-500 */
+      --hover: #f9fafb;
+      --hover-strong: #e8edf4;  /* clearer hover for interactive chart bars/legend */
+      --accent: #3b82f6;        /* blue-500 */
+      --accent-strong: #2563eb; /* blue-600 */
+      --accent-text: #1d4ed8;   /* blue-700 */
+      --sel-bg: #eff6ff;        /* blue-50  */
+      --sel-text: #1d4ed8;
+      --green: #16a34a; --green-text: #15803d;
+      --track: #e5e7eb;
+      --shadow-sm: 0 1px 2px rgba(16,24,40,0.05);
+      --shadow: 0 8px 24px rgba(16,24,40,0.08);
+      --shadow-lg: 0 24px 60px rgba(16,24,40,0.16);
+      /* tile accents: icon-bg / icon-fg */
+      --t-blue-bg: #eff6ff;   --t-blue-fg: #2563eb;
+      --t-purple-bg: #faf5ff; --t-purple-fg: #9333ea;
+      --t-amber-bg: #fff7ed;  --t-amber-fg: #ea580c;
+      --t-red-bg: #fef2f2;    --t-red-fg: #dc2626;
+      --t-green-bg: #f0fdf4;  --t-green-fg: #16a34a;
+      --danger-bg: #fef2f2; --danger-fg: #dc2626;
+      --ok-bg: #f0fdf4; --ok-fg: #16a34a;
+      --open-bg: #fff7ed; --open-fg: #c2410c;
+    }
+    :root[data-theme="dark"] {
+      --bg: #030712;            /* gray-950 */
+      --surface: #111827;       /* gray-900 */
+      --sidebar: #111827;
+      --border: #1f2937;        /* gray-800 */
+      --ink: #f3f4f6;           /* gray-100 */
+      --ink-soft: #d1d5db;      /* gray-300 */
+      --muted: #9ca3af;         /* gray-400 */
+      --muted-2: #9ca3af;
+      --hover: #1f2937;
+      --hover-strong: #1f2937;  /* dark hover is already clear — keep as-is */
+      --accent: #3b82f6;
+      --accent-strong: #2563eb;
+      --accent-text: #93c5fd;
+      --sel-bg: rgba(30,58,138,0.5);   /* blue-900/50 */
+      --sel-text: #93c5fd;             /* blue-300 */
+      --green: #22c55e; --green-text: #4ade80;
+      --track: #374151;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,0.4);
+      --shadow: 0 10px 30px rgba(0,0,0,0.5);
+      --shadow-lg: 0 24px 60px rgba(0,0,0,0.6);
+      --t-blue-bg: rgba(30,58,138,0.2);   --t-blue-fg: #60a5fa;
+      --t-purple-bg: rgba(88,28,135,0.2); --t-purple-fg: #c084fc;
+      --t-amber-bg: rgba(124,45,18,0.2);  --t-amber-fg: #fb923c;
+      --t-red-bg: rgba(127,29,29,0.2);    --t-red-fg: #f87171;
+      --t-green-bg: rgba(20,83,45,0.2);   --t-green-fg: #4ade80;
+      --danger-bg: rgba(127,29,29,0.25); --danger-fg: #f87171;
+      --ok-bg: rgba(20,83,45,0.25); --ok-fg: #4ade80;
+      --open-bg: rgba(124,45,18,0.25); --open-fg: #fb923c;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: "Inter", system-ui, sans-serif;
+      background: var(--bg); color: var(--ink);
+      -webkit-font-smoothing: antialiased;
+      transition: background-color 0.2s ease, color 0.2s ease;
+    }
+    a { text-decoration: none; color: inherit; }
+    .shell { display: flex; min-height: 100vh; width: 100%; }
+    svg { display: block; }
+
+    /* ===================== Sidebar ===================== */
+    .sidebar {
+      position: sticky; top: 0; height: 100vh; flex-shrink: 0;
+      width: 256px; border-right: 1px solid var(--border);
+      background: var(--sidebar); padding: 8px;
+      display: flex; flex-direction: column;
+      transition: width 0.3s ease; box-shadow: var(--shadow-sm);
+    }
+    .sidebar.collapsed { width: 64px; }
+
+    .side-top { margin-bottom: 18px; border-bottom: 1px solid var(--border); padding-bottom: 14px; }
+    .side-brand {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; padding: 8px; border-radius: 8px;
+    }
+    .brand-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .brand-logo {
+      width: 40px; height: 40px; flex-shrink: 0; border-radius: 10px;
+      background: linear-gradient(135deg, #3b82f6, #2563eb);
+      display: grid; place-content: center; box-shadow: var(--shadow-sm);
+    }
+    .brand-logo svg { width: 20px; height: 20px; color: #fff; }
+    .brand-logo img { width: 24px; height: 24px; object-fit: contain; display: block; }
+    .brand-meta { min-width: 0; }
+    .brand-meta .t { display: block; font-size: 0.875rem; font-weight: 600; color: var(--ink); white-space: nowrap; }
+    .brand-meta .s { display: block; font-size: 0.75rem; color: var(--muted-2); white-space: nowrap; }
+
+    .side-nav { display: flex; flex-direction: column; gap: 4px; }
+    .side-label {
+      padding: 8px 12px 4px; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.06em;
+      text-transform: uppercase; color: var(--muted-2);
+    }
+    .side-sep { border-top: 1px solid var(--border); margin: 12px 0 6px; }
+
+    .nav-opt {
+      position: relative; display: flex; align-items: center; height: 44px; width: 100%;
+      border: none; background: none; cursor: pointer; border-radius: 8px;
+      color: var(--muted); transition: background 0.18s ease, color 0.18s ease;
+      font-family: inherit; text-align: left;
+    }
+    .nav-opt:hover { background: var(--hover); color: var(--ink); }
+    .nav-opt.active { background: var(--sel-bg); color: var(--sel-text); box-shadow: var(--shadow-sm); }
+    .nav-opt.active::before {
+      content: ""; position: absolute; left: 0; top: 8px; bottom: 8px; width: 2px;
+      background: var(--accent); border-radius: 2px;
+    }
+    .nav-opt .ic { display: grid; place-content: center; height: 100%; width: 48px; flex-shrink: 0; }
+    .nav-opt .ic svg { width: 18px; height: 18px; }
+    .nav-opt .lbl { font-size: 0.875rem; font-weight: 500; white-space: nowrap; }
+
+    /* notification badge — pops up beside Messages / Issues when items are pending */
+    .nav-opt .notif {
+      position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+      min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px;
+      background: #ef4444; color: #fff; font-size: 0.68rem; font-weight: 700;
+      line-height: 1; display: inline-grid; place-content: center;
+      animation: notifPop 0.2s ease, notifPulse 2.2s ease-in-out infinite 0.2s;
+    }
+    .nav-opt .notif[hidden] { display: none; }
+    @keyframes notifPop { from { transform: translateY(-50%) scale(0); } to { transform: translateY(-50%) scale(1); } }
+    @keyframes notifPulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5); }
+      50% { box-shadow: 0 0 0 5px rgba(239, 68, 68, 0); }
+    }
+    /* collapsed sidebar: shrink the badge to a dot on the icon corner */
+    .sidebar.collapsed .nav-opt .notif {
+      right: 9px; top: 7px; transform: none; animation: none;
+      min-width: 9px; width: 9px; height: 9px; padding: 0; font-size: 0;
+      border: 2px solid var(--sidebar);
+    }
+
+    .sidebar.collapsed .lbl,
+    .sidebar.collapsed .brand-meta,
+    .sidebar.collapsed .side-label,
+    .sidebar.collapsed .side-theme { display: none; }
+    .sidebar.collapsed .side-brand { justify-content: center; }
+
+    .side-toggle {
+      margin-top: auto; display: flex; align-items: center; width: 100%;
+      border: none; border-top: 1px solid var(--border); background: none; cursor: pointer;
+      color: var(--muted); transition: background 0.18s ease; border-radius: 0 0 8px 8px;
+      font-family: inherit;
+    }
+    .side-toggle:hover { background: var(--hover); }
+    .side-toggle .ic { display: grid; place-content: center; height: 44px; width: 48px; flex-shrink: 0; }
+    .side-toggle .ic svg { width: 18px; height: 18px; transition: transform 0.3s ease; }
+    .sidebar.collapsed .side-toggle .ic svg { transform: rotate(180deg); }
+    .side-toggle .lbl { font-size: 0.875rem; font-weight: 500; }
+
+    /* ===================== Main ===================== */
+    .main { flex: 1; background: var(--bg); padding: 24px; overflow: auto; min-width: 0; }
+
+    .icon-btn {
+      display: grid; place-content: center; height: 40px; width: 40px; border-radius: 10px;
+      border: 1px solid var(--border); background: var(--surface); color: var(--muted);
+      cursor: pointer; transition: color 0.18s ease, background 0.18s ease;
+    }
+    .icon-btn:hover { color: var(--ink); background: var(--hover); }
+    .icon-btn svg { width: 18px; height: 18px; }
+    .who {
+      display: flex; align-items: center; gap: 8px; padding: 0 12px; height: 40px;
+      border: 1px solid var(--border); border-radius: 10px; background: var(--surface);
+      font-size: 0.88rem; font-weight: 600; color: var(--ink); white-space: nowrap;
+    }
+    .who svg { width: 16px; height: 16px; color: var(--muted); }
+
+    /* tiles */
+    .tile-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 32px; }
+    @media (max-width: 1024px) { .tile-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 560px) { .tile-grid { grid-template-columns: 1fr; } }
+    .tile {
+      padding: 22px; border-radius: 14px; border: 1px solid var(--border);
+      background: var(--surface); box-shadow: var(--shadow-sm); transition: box-shadow 0.18s ease;
+    }
+    .tile[data-nav] { cursor: pointer; }
+    .tile:hover { box-shadow: var(--shadow); transform: translateY(-2px); border-color: var(--accent); }
+    .tile[data-nav]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .tile-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    .tile-ic { padding: 9px; border-radius: 10px; display: grid; place-content: center; }
+    .tile-ic svg { width: 20px; height: 20px; }
+    .tile-blue .tile-ic { background: var(--t-blue-bg); color: var(--t-blue-fg); }
+    .tile-purple .tile-ic { background: var(--t-purple-bg); color: var(--t-purple-fg); }
+    .tile-amber .tile-ic { background: var(--t-amber-bg); color: var(--t-amber-fg); }
+    .tile-red .tile-ic { background: var(--t-red-bg); color: var(--t-red-fg); }
+    .tile h3 { font-size: 0.9rem; font-weight: 500; color: var(--muted); margin-bottom: 4px; }
+    .tile .val { font-size: 1.6rem; font-weight: 700; color: var(--ink); }
+    .tile .sub { font-size: 0.82rem; color: var(--muted-2); margin-top: 4px; }
+    .tile .sub.attn { color: var(--t-red-fg); font-weight: 600; }
+
+    /* cards / panels */
+    .card { border-radius: 14px; border: 1px solid var(--border); background: var(--surface); box-shadow: var(--shadow-sm); }
+    .card-pad { padding: 22px; }
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    /* dashboard lower row — anchors the usage card to the right */
+    .dash-lower { display: flex; justify-content: flex-end; margin-top: 24px; }
+    .usage-card { width: 100%; max-width: 340px; }
+    .usage-title { font-size: 1.1rem; font-weight: 700; color: var(--ink); margin-bottom: 20px; }
+    .usage-list { display: flex; flex-direction: column; gap: 18px; }
+    .usage-item { min-width: 0; }
+    .usage-top { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 8px; }
+    .usage-top .nm { color: var(--ink-soft); font-size: 0.92rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .usage-top .pct { flex-shrink: 0; font-weight: 600; color: var(--ink); font-size: 0.92rem; font-variant-numeric: tabular-nums; }
+    .meter { width: 100%; height: 8px; border-radius: 999px; background: var(--track); overflow: hidden; }
+    .meter > i { display: block; height: 100%; border-radius: 999px; }
+    .usage-empty { color: var(--muted-2); font-size: 0.88rem; padding: 6px 0; }
+
+    /* toolbar / search */
+    .toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; flex-wrap: wrap; }
+    .search {
+      flex: 1; min-width: 220px; display: flex; align-items: center; gap: 9px;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 0 14px;
+    }
+    .search:focus-within { border-color: var(--accent); }
+    .search svg { width: 18px; height: 18px; color: var(--muted-2); flex-shrink: 0; }
+    .search input {
+      flex: 1; border: none; background: none; outline: none; color: var(--ink);
+      font-family: inherit; font-size: 0.92rem; padding: 11px 0;
+    }
+    .seg { display: inline-flex; gap: 6px; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 3px; }
+    .seg button {
+      font-family: inherit; font-weight: 500; font-size: 0.85rem; color: var(--muted);
+      background: none; border: none; cursor: pointer; padding: 7px 14px; border-radius: 8px;
+    }
+    .seg button.active { background: var(--surface); color: var(--ink); box-shadow: var(--shadow-sm); }
+    /* statements filter: soft tinted chips with coloured text; the selected one
+       fills with its solid (opaque) colour. 'All' is white by default. */
+    #stmtFilter button { background: var(--surface); color: var(--ink); border: 1px solid var(--border); }
+    #stmtFilter button[data-f="success"] { background: var(--ok-bg); color: var(--ok-fg); border-color: var(--ok-fg); }
+    #stmtFilter button[data-f="failed"] { background: var(--danger-bg); color: var(--danger-fg); border-color: var(--danger-fg); }
+    #stmtFilter button[data-f="issue"] { background: var(--open-bg); color: var(--open-fg); border-color: var(--open-fg); }
+    #stmtFilter button.active { box-shadow: var(--shadow-sm); }
+    #stmtFilter button.active[data-f="all"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+    #stmtFilter button.active[data-f="success"] { background: #16a34a; color: #fff; border-color: #16a34a; }
+    #stmtFilter button.active[data-f="failed"] { background: #dc2626; color: #fff; border-color: #dc2626; }
+    #stmtFilter button.active[data-f="issue"] { background: #d97706; color: #fff; border-color: #d97706; }
+    /* issues filter: Open is red, Resolved is green — solid when selected. */
+    #issueFilter button { border: 1px solid var(--border); }
+    #issueFilter button[data-f="open"] { background: var(--danger-bg); color: var(--danger-fg); border-color: var(--danger-fg); }
+    #issueFilter button[data-f="resolved"] { background: var(--ok-bg); color: var(--ok-fg); border-color: var(--ok-fg); }
+    #issueFilter button.active { box-shadow: var(--shadow-sm); }
+    #issueFilter button.active[data-f="open"] { background: #dc2626; color: #fff; border-color: #dc2626; }
+    #issueFilter button.active[data-f="resolved"] { background: #16a34a; color: #fff; border-color: #16a34a; }
+    /* messages filter: selected chip is black in light mode, white in dark mode */
+    #msgFilter button.active { background: var(--ink); color: var(--surface); box-shadow: var(--shadow-sm); }
+    /* sales status dropdown — coloured like its current state */
+    .status-select { font-family: inherit; font-size: 0.78rem; font-weight: 700; padding: 5px 10px; border-radius: 999px; border: 1px solid; cursor: pointer; }
+    .status-select:focus { outline: none; }
+    .status-select.st-open { color: var(--open-fg); background: var(--open-bg); border-color: var(--open-fg); }
+    .status-select.st-ok { color: var(--ok-fg); background: var(--ok-bg); border-color: var(--ok-fg); }
+    .status-select.st-off { color: var(--danger-fg); background: var(--danger-bg); border-color: var(--danger-fg); }
+    .status-select option { color: var(--ink); background: var(--surface); font-weight: 600; }
+    /* header status-dot filters */
+    .st-filter { display: inline-flex; gap: 6px; margin-left: 8px; vertical-align: middle; }
+    .st-dot { width: 14px; height: 14px; border-radius: 50%; border: none; cursor: pointer; padding: 0; opacity: 0.55; transition: opacity 0.15s ease, box-shadow 0.15s ease; }
+    .st-dot:hover { opacity: 1; }
+    .st-dot.active { opacity: 1; box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px var(--muted-2); }
+    .st-dot.st-open { background: #d97706; }
+    .st-dot.st-ok { background: #16a34a; }
+    .st-dot.st-off { background: #dc2626; }
+    /* fixed-width sales table: static column sizes so the full data is always
+       visible and headers never shift (scrolls horizontally if it overflows). */
+    .sales-table { table-layout: fixed; width: 100%; min-width: 1200px; }
+    .sales-table th, .sales-table td { white-space: nowrap; }
+    .sales-table .role-select { width: 100%; }
+    /* Type column dropdown filter */
+    .th-filter { position: relative; display: inline-flex; align-items: center; margin-left: 4px; vertical-align: middle; }
+    .th-arrow { background: none; border: none; cursor: pointer; color: var(--muted-2); padding: 2px; display: inline-grid; place-content: center; border-radius: 4px; }
+    .th-arrow:hover { color: var(--ink); }
+    .th-arrow.on { color: var(--accent-text); }
+    .th-arrow svg { width: 14px; height: 14px; }
+    .type-menu { position: fixed; z-index: 200; min-width: 160px; max-height: 260px; overflow: auto;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); padding: 4px; }
+    .type-menu[hidden] { display: none; }
+    .type-opt { display: block; width: 100%; text-align: left; background: none; border: none; cursor: pointer;
+      font-family: inherit; font-size: 0.82rem; font-weight: 500; color: var(--ink); padding: 7px 10px;
+      border-radius: 7px; white-space: nowrap; text-transform: none; letter-spacing: normal; }
+    .type-opt:hover { background: var(--hover); }
+    .type-opt.active { background: var(--sel-bg); color: var(--accent-text); font-weight: 600; }
+
+    /* buttons */
+    .btn {
+      font-family: inherit; font-weight: 600; font-size: 0.88rem; border: 1px solid var(--border);
+      cursor: pointer; border-radius: 9px; padding: 8px 14px; background: var(--surface); color: var(--ink-soft);
+      display: inline-flex; align-items: center; gap: 7px; transition: all 0.16s ease;
+    }
+    .btn:hover { background: var(--hover); }
+    /* Stronger, more defined borders on the neutral buttons (View PDF, Mark
+       resolved, etc.) — excludes the filled primary/danger variants. */
+    .btn:not(.btn-primary):not(.btn-danger) { border-color: #cbd5e1; }
+    :root[data-theme="dark"] .btn:not(.btn-primary):not(.btn-danger) { border-color: #4b5563; }
+    .btn:not(.btn-primary):not(.btn-danger):hover { border-color: #94a3b8; }
+    :root[data-theme="dark"] .btn:not(.btn-primary):not(.btn-danger):hover { border-color: #6b7280; }
+    .btn-primary { background: var(--accent-strong); border-color: transparent; color: #fff; }
+    .btn-primary:hover { background: var(--accent-text); }
+    /* Dark mode: --accent-text is a light blue, so hover with white text would
+       wash out. Keep a saturated blue on hover instead. */
+    :root[data-theme="dark"] .btn-primary:hover { background: #3b82f6; }
+    .btn-danger { background: var(--danger-bg); border-color: transparent; color: var(--danger-fg); }
+    .btn-danger:hover { filter: brightness(0.97); }
+    .btn:disabled { opacity: 0.55; cursor: default; }
+
+    /* table */
+    .table-scroll { overflow-x: auto; border-radius: 14px; }
+    /* fixed-height scroll area (statements): header stays put, body scrolls */
+    .table-scroll.scroll-y { overflow-y: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    thead th {
+      text-align: left; font-weight: 600; color: #565e6b;
+      font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.04em;
+      padding: 10px 18px; border-bottom: 1px solid var(--border); white-space: nowrap; background: var(--bg);
+    }
+    /* brighter header text in dark mode for quicker scanning */
+    :root[data-theme="dark"] thead th { color: #aeb6c3; }
+    /* keep the header in view while the body scrolls in the fixed area */
+    .scroll-y thead th { position: sticky; top: 0; z-index: 2; }
+    tbody td { padding: 8px 18px; height: 52px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover { background: var(--hover-strong); }
+    tbody tr.filler:hover { background: transparent; }
+    td.num { font-variant-numeric: tabular-nums; }
+    .cell-strong { font-weight: 600; color: var(--ink); }
+    .cell-sub { color: var(--muted-2); font-size: 0.82rem; }
+    /* secondary "uploaded" time line beneath the date */
+    .upload-time { color: var(--muted-2); font-size: 0.74rem; opacity: 0.85; margin-top: 2px; white-space: nowrap; }
+    .row-actions { display: flex; gap: 8px; justify-content: flex-end; align-items: center; }
+
+    /* statements breakdown pie chart (below the table) */
+    /* bank list pinned left, pie centred to the table, legend right of the pie */
+    .chart-wrap { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; column-gap: 44px; margin: 52px 0 6px; }
+    .chart-title { font-weight: 600; color: var(--ink); font-size: 0.98rem; }
+    .pie { width: 252px; height: 252px; }
+    .pie svg { width: 100%; height: 100%; display: block; overflow: visible; }
+    /* pie + its legend sit together in the centre column */
+    .chart-center { display: flex; align-items: center; gap: 30px; }
+    .chart-legend { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+    /* owner bar list pinned to the table's right edge */
+    .user-block { justify-self: end; }
+    .chart-legend { gap: 6px; }
+    .lg-item { display: flex; align-items: center; gap: 10px; font-size: 0.9rem; color: var(--ink-soft); cursor: pointer; border-radius: 8px; padding: 3px 8px; transition: background 0.14s ease; }
+    .lg-item:hover { background: var(--hover-strong); }
+    .lg-item.sel { font-weight: 700; color: var(--seg); }
+    .lg-item.dim { opacity: 0.4; }
+    .chart-legend .st-icon { margin-left: 0; }
+    /* clickable pie slices */
+    .pie-slice { cursor: pointer; transition: fill 0.14s ease; }
+
+    /* statements-by-bank ranked bar list (left of the pie) */
+    .bank-block { display: flex; flex-direction: column; gap: 10px; justify-self: start; }
+    /* fixed height keeps the page size constant — scrolls when there are many banks */
+    .bank-list { width: 300px; max-height: 240px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; padding-right: 8px; }
+    .bar-row { display: flex; flex-direction: column; gap: 5px; cursor: pointer; border-radius: 8px; padding: 5px 8px; transition: background 0.14s ease; }
+    .bar-row:hover { background: var(--hover-strong); }
+    .bar-row.sel { background: var(--hover-strong); }
+    .bar-row.sel .bar-name { color: var(--accent-text); font-weight: 700; }
+    .bar-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-size: 0.85rem; }
+    .bar-name { color: var(--ink-soft); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .bar-val { color: var(--muted); font-weight: 600; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+    .bar-track { height: 8px; border-radius: 999px; background: var(--track); overflow: hidden; }
+    .bar-fill { height: 100%; border-radius: 999px; background: var(--accent-strong); }
+
+    /* conversion-status icon beside a statement filename */
+    .st-icon { display: inline-grid; place-content: center; width: 24px; height: 24px; border-radius: 50%; margin-left: 10px; vertical-align: middle; flex-shrink: 0; }
+    .st-icon.ok { background: var(--ok-bg); color: var(--ok-fg); }
+    .st-icon.bad { background: var(--danger-bg); color: var(--danger-fg); }
+    .st-icon.issue { background: var(--open-bg); color: var(--open-fg); }
+    .st-icon svg { width: 15px; height: 15px; }
+    /* clickable statement filename → opens the source PDF in view mode */
+    .file-link { cursor: pointer; }
+    .file-link:hover { color: var(--accent-text); text-decoration: underline; }
+    /* icon-only action button (view result) */
+    .icon-act { display: inline-grid; place-content: center; width: 34px; height: 34px; border-radius: 9px; border: 1px solid #cbd5e1; background: var(--surface); color: var(--accent-text); cursor: pointer; transition: all 0.16s ease; }
+    :root[data-theme="dark"] .icon-act { border-color: #4b5563; }
+    .icon-act:hover { background: var(--hover); border-color: #94a3b8; }
+    :root[data-theme="dark"] .icon-act:hover { border-color: #6b7280; }
+    .icon-act:disabled { opacity: 0.4; cursor: default; color: var(--muted-2); }
+    .icon-act svg { width: 18px; height: 18px; }
+
+    /* inline pulsing count badges beside the statement number */
+    .count-badge {
+      display: inline-grid; place-content: center; vertical-align: middle;
+      min-width: 18px; height: 18px; padding: 0 5px; margin-left: 6px;
+      border-radius: 999px; font-size: 0.68rem; font-weight: 700; line-height: 1; color: #fff;
+      animation: cbPop 0.2s ease;
+    }
+    .count-badge.red { background: #ef4444; animation: cbPop 0.2s ease, cbPulseRed 2.2s ease-in-out infinite 0.2s; }
+    .count-badge.green { background: #16a34a; animation: cbPop 0.2s ease, cbPulseGreen 2.2s ease-in-out infinite 0.2s; }
+    @keyframes cbPop { from { transform: scale(0); } to { transform: scale(1); } }
+    @keyframes cbPulseRed { 0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.5); } 50% { box-shadow: 0 0 0 5px rgba(239,68,68,0); } }
+    @keyframes cbPulseGreen { 0%, 100% { box-shadow: 0 0 0 0 rgba(22,163,74,0.5); } 50% { box-shadow: 0 0 0 5px rgba(22,163,74,0); } }
+
+    /* badges */
+    .badge { display: inline-flex; align-items: center; gap: 5px; font-size: 0.74rem; font-weight: 600; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+    .badge.admin { background: var(--sel-bg); color: var(--accent-text); }
+    .badge.ok { background: var(--ok-bg); color: var(--ok-fg); }
+    .badge.off { background: var(--danger-bg); color: var(--danger-fg); }
+    .badge.open { background: var(--open-bg); color: var(--open-fg); }
+    .badge.muted { background: var(--bg); color: var(--muted-2); border: 1px solid var(--border); }
+    .badge.sales { background: var(--t-purple-bg); color: var(--t-purple-fg); }
+    /* role assignment dropdown in the Users table */
+    .role-select { font-family: inherit; font-size: 0.84rem; font-weight: 600; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--ink); cursor: pointer; }
+    .role-select:focus { outline: none; border-color: var(--accent); }
+    .role-select:disabled { opacity: 0.6; }
+
+    /* switch */
+    .switch { position: relative; display: inline-block; width: 38px; height: 21px; flex-shrink: 0; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .switch .slider { position: absolute; inset: 0; cursor: pointer; background: var(--track); border-radius: 999px; transition: 0.2s; }
+    .switch .slider::before { content: ""; position: absolute; height: 15px; width: 15px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: 0.2s; box-shadow: var(--shadow-sm); }
+    .switch input:checked + .slider { background: var(--accent); }
+    .switch input:checked + .slider::before { transform: translateX(17px); }
+    .switch input:disabled + .slider { opacity: 0.5; cursor: default; }
+
+    /* Instant tooltips (the native title attribute has a ~1s browser delay). */
+    [data-tip] { position: relative; }
+    [data-tip]::after {
+      content: attr(data-tip);
+      position: absolute; bottom: calc(100% + 8px); left: 50%;
+      transform: translateX(-50%);
+      background: var(--ink); color: var(--surface);
+      padding: 5px 9px; border-radius: 7px;
+      font-size: 0.74rem; font-weight: 600; white-space: nowrap;
+      box-shadow: var(--shadow); opacity: 0; pointer-events: none;
+      transition: opacity 0.1s ease; z-index: 50;
+    }
+    [data-tip]:hover::after, [data-tip]:focus-within::after { opacity: 1; }
+
+    /* message / issue list */
+    .feed { display: flex; flex-direction: column; gap: 14px; }
+    .feed-card { padding: 18px 20px; }
+    .feed-card.resolved { opacity: 0.7; }
+    .feed-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+    .feed-who { font-weight: 600; color: var(--ink); }
+    .feed-contact { color: var(--muted-2); font-size: 0.84rem; margin-top: 2px; }
+    .feed-subject { font-weight: 600; margin-top: 12px; color: var(--ink); }
+    .feed-body { color: var(--ink-soft); margin-top: 4px; white-space: pre-wrap; word-break: break-word; }
+    .feed-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; flex-wrap: wrap; }
+    .feed-time { color: var(--muted-2); font-size: 0.8rem; }
+
+    /* states */
+    .state { text-align: center; padding: 56px 24px; }
+    .state .sic { width: 56px; height: 56px; border-radius: 16px; margin: 0 auto 16px; background: var(--sel-bg); color: var(--accent-text); display: grid; place-content: center; }
+    .state .sic svg { width: 26px; height: 26px; }
+    .state h2 { font-size: 1.15rem; font-weight: 600; color: var(--ink); }
+    .state p { color: var(--muted); margin-top: 8px; max-width: 420px; margin-left: auto; margin-right: auto; }
+    .state .btn { margin-top: 20px; }
+    .spinner { width: 34px; height: 34px; margin: 0 auto; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* theme icon swap */
+    .ico-moon { display: none; }
+    [data-theme="dark"] .ico-moon { display: block; }
+    [data-theme="dark"] .ico-sun { display: none; }
+
+    /* toast */
+    .toast {
+      position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%) translateY(20px);
+      background: var(--ink); color: var(--bg); padding: 12px 20px; border-radius: 12px;
+      font-size: 0.9rem; font-weight: 600; box-shadow: var(--shadow-lg);
+      opacity: 0; pointer-events: none; transition: opacity 0.2s ease, transform 0.2s ease; z-index: 200;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* confirm modal */
+    .modal-overlay {
+      position: fixed; inset: 0; z-index: 300; padding: 24px;
+      display: none; place-items: center;
+      background: rgba(15, 23, 42, 0.55); backdrop-filter: blur(3px);
+      opacity: 0; transition: opacity 0.18s ease;
+    }
+    [data-theme="dark"] .modal-overlay { background: rgba(0, 0, 0, 0.62); }
+    .modal-overlay.show { display: grid; opacity: 1; }
+    .modal {
+      width: 100%; max-width: 420px; text-align: center; padding: 28px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 16px; box-shadow: var(--shadow-lg);
+      transform: translateY(10px) scale(0.97); transition: transform 0.18s ease;
+    }
+    .modal-overlay.show .modal { transform: none; }
+    .modal-ic {
+      width: 52px; height: 52px; border-radius: 14px; margin: 0 auto 16px;
+      display: grid; place-content: center; background: var(--sel-bg); color: var(--accent-text);
+    }
+    .modal-ic.danger { background: var(--danger-bg); color: var(--danger-fg); }
+    .modal-ic svg { width: 26px; height: 26px; }
+    .modal h3 { font-size: 1.18rem; font-weight: 700; color: var(--ink); }
+    .modal p { color: var(--muted); margin-top: 8px; font-size: 0.92rem; line-height: 1.55; }
+    .modal-actions { display: flex; gap: 10px; justify-content: center; margin-top: 24px; }
+    .modal-actions .btn { min-width: 112px; justify-content: center; padding: 10px 16px; }
+
+    /* full-screen gate (non-admins) */
+    .gate-wrap { display: grid; place-content: center; min-height: 100vh; width: 100%; padding: 24px; }
+  </style>
+</head>
+<body>
+
+  <!-- Non-admins / signed-out users see only this; replaced by the shell for admins. -->
+  <div class="gate-wrap" id="gate" style="display:none;"></div>
+
+  <div class="shell" id="shell" style="display:none;">
+    <!-- ===================== Sidebar ===================== -->
+    <nav class="sidebar" id="sidebar">
+      <div class="side-top">
+        <div class="side-brand">
+          <div class="brand-left">
+            <div class="brand-logo">
+              <img src="assets/logo-mark-white.png" alt="Ledgerit" />
+            </div>
+            <div class="brand-meta">
+              <span class="t">Ledgerit</span>
+              <span class="s">Admin Console</span>
+            </div>
+          </div>
+          <button class="icon-btn side-theme" type="button" aria-label="Toggle theme" onclick="toggleTheme()">
+            <svg class="ico-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+            <svg class="ico-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="side-nav">
+        <button class="nav-opt active" data-tab="dashboard">
+          <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5 12 3l9 6.5"/><path d="M5 10v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V10"/><path d="M9 21v-6h6v6"/></svg></span>
+          <span class="lbl">Dashboard</span>
+        </button>
+        <button class="nav-opt" data-tab="users">
+          <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+          <span class="lbl">Users</span>
+        </button>
+        <button class="nav-opt" data-tab="statements">
+          <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
+          <span class="lbl">Statements</span>
+        </button>
+        <button class="nav-opt" data-tab="messages">
+          <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
+          <span class="lbl">Messages</span>
+          <span class="notif" id="nMessages" hidden>0</span>
+        </button>
+        <button class="nav-opt" data-tab="issues">
+          <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></span>
+          <span class="lbl">Issues</span>
+          <span class="notif" id="nIssues" hidden>0</span>
+        </button>
+
+        <div class="side-sep"></div>
+        <div class="side-label">Account</div>
+        <button class="nav-opt" onclick="window.location.href='/upload.html'">
+          <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M2 15h10"/><path d="m9 18 3-3-3-3"/></svg></span>
+          <span class="lbl">Convert</span>
+        </button>
+        <button class="nav-opt" id="logoutBtn" onclick="logout()">
+          <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></span>
+          <span class="lbl">Logout</span>
+        </button>
+      </div>
+
+      <button class="side-toggle" id="sideToggle" onclick="toggleSidebar()">
+        <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg></span>
+        <span class="lbl">Collapse</span>
+      </button>
+    </nav>
+
+    <!-- ===================== Main ===================== -->
+    <div class="main">
+      <section class="panel active" id="panel-dashboard"></section>
+      <section class="panel" id="panel-users"></section>
+      <section class="panel" id="panel-statements"></section>
+      <section class="panel" id="panel-messages"></section>
+      <section class="panel" id="panel-issues"></section>
+    </div>
+  </div>
+
+  <!-- Themed confirmation dialog (replaces window.confirm). -->
+  <div class="modal-overlay" id="confirmOverlay" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="confirmTitle" aria-describedby="confirmMsg">
+      <div class="modal-ic" id="confirmIc">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      </div>
+      <h3 id="confirmTitle">Are you sure?</h3>
+      <p id="confirmMsg"></p>
+      <div class="modal-actions">
+        <button class="btn" id="confirmCancel" type="button">Cancel</button>
+        <button class="btn btn-danger" id="confirmOk" type="button">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    // ---- Theme (shared with the rest of the app via data-theme + localStorage) ----
+    function applyTheme(t) {
+      document.documentElement.setAttribute("data-theme", t);
+      try { localStorage.setItem("theme", t); } catch (e) {}
+      var m = document.querySelector('meta[name="theme-color"]');
+      if (m) m.setAttribute("content", t === "dark" ? "#030712" : "#ffffff");
+    }
+    function toggleTheme() {
+      var cur = document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
+      applyTheme(cur === "dark" ? "light" : "dark");
+    }
+
+    function toggleSidebar() {
+      document.getElementById("sidebar").classList.toggle("collapsed");
+    }
+
+    // ---- Helpers ----
+    function escHtml(s) {
+      return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+        return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+      });
+    }
+    function fmtDate(iso) {
+      if (!iso) return "—";
+      var d = new Date(iso);
+      if (isNaN(d)) return "—";
+      return d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+    }
+    function fmtDateTime(iso) {
+      if (!iso) return "—";
+      var d = new Date(iso);
+      if (isNaN(d)) return "—";
+      return fmtDate(iso) + ", " + d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+    }
+    // Secondary "uploaded" line shown beneath the date: a relative time
+    // ("2 hours ago") when the upload happened today, otherwise the exact
+    // clock time ("2:32 PM") once the day has passed.
+    function fmtUploadTime(iso) {
+      if (!iso) return "";
+      var d = new Date(iso);
+      if (isNaN(d)) return "";
+      var now = new Date();
+      var sameDay = d.getFullYear() === now.getFullYear() &&
+                    d.getMonth() === now.getMonth() &&
+                    d.getDate() === now.getDate();
+      if (sameDay) {
+        var mins = Math.max(0, now - d) / 60000;
+        if (mins < 1) return "just now";
+        if (mins < 60) { var m = Math.round(mins); return m + (m === 1 ? " minute ago" : " minutes ago"); }
+        var hours = Math.round((mins / 60) * 10) / 10;            // one decimal, e.g. 2.5
+        var hStr = (hours % 1 === 0) ? String(hours) : hours.toFixed(1);
+        return hStr + (hours === 1 ? " hour ago" : " hours ago");
+      }
+      return d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+    }
+    function fmtNum(n) { return (n || 0).toLocaleString(); }
+
+    var toastTimer = null;
+    function showToast(msg) {
+      var t = document.getElementById("toast");
+      t.textContent = msg;
+      t.classList.add("show");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(function () { t.classList.remove("show"); }, 2600);
+    }
+
+    // Themed confirmation dialog. Returns a Promise that resolves true on
+    // confirm, false on cancel / Escape / backdrop click.
+    function confirmDialog(opts) {
+      opts = opts || {};
+      return new Promise(function (resolve) {
+        var overlay = document.getElementById("confirmOverlay");
+        var okBtn = document.getElementById("confirmOk");
+        var cancelBtn = document.getElementById("confirmCancel");
+        var ic = document.getElementById("confirmIc");
+
+        document.getElementById("confirmTitle").textContent = opts.title || "Are you sure?";
+        document.getElementById("confirmMsg").textContent = opts.message || "";
+        okBtn.textContent = opts.confirmText || "Confirm";
+        cancelBtn.textContent = opts.cancelText || "Cancel";
+        okBtn.className = "btn " + (opts.danger ? "btn-danger" : "btn-primary");
+        ic.className = "modal-ic" + (opts.danger ? " danger" : "");
+
+        function close(result) {
+          overlay.classList.remove("show");
+          overlay.setAttribute("aria-hidden", "true");
+          okBtn.removeEventListener("click", onOk);
+          cancelBtn.removeEventListener("click", onCancel);
+          overlay.removeEventListener("click", onBackdrop);
+          document.removeEventListener("keydown", onKey);
+          resolve(result);
+        }
+        function onOk() { close(true); }
+        function onCancel() { close(false); }
+        function onBackdrop(e) { if (e.target === overlay) close(false); }
+        function onKey(e) {
+          if (e.key === "Escape") close(false);
+          else if (e.key === "Enter") close(true);
+        }
+
+        okBtn.addEventListener("click", onOk);
+        cancelBtn.addEventListener("click", onCancel);
+        overlay.addEventListener("click", onBackdrop);
+        document.addEventListener("keydown", onKey);
+
+        overlay.setAttribute("aria-hidden", "false");
+        overlay.classList.add("show");
+        okBtn.focus();
+      });
+    }
+
+    async function api(url, opts) {
+      var res = await fetch(url, opts);
+      var out = null;
+      try { out = await res.json(); } catch (e) { out = {}; }
+      return { ok: res.ok, status: res.status, data: out };
+    }
+
+    async function logout() {
+      var btn = document.getElementById("logoutBtn");
+      if (btn) btn.disabled = true;
+      try { await fetch("/api/logout", { method: "POST" }); } catch (e) {}
+      window.location.href = "/login.html";
+    }
+
+    function loadingPanel(el) {
+      el.innerHTML = '<div class="card card-pad"><div class="state"><div class="spinner"></div><p style="margin-top:16px;">Loading…</p></div></div>';
+    }
+
+    // Show/hide a sidebar notification badge (Messages / Issues). Hidden at 0.
+    function setNotif(id, n) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      n = n || 0;
+      if (n > 0) {
+        el.textContent = n > 99 ? "99+" : n;
+        el.hidden = false;
+      } else {
+        el.hidden = true;
+      }
+    }
+
+    // ---- Gate ----
+    function showGate(signIn) {
+      document.getElementById("shell").style.display = "none";
+      var g = document.getElementById("gate");
+      g.style.display = "grid";
+      g.innerHTML =
+        '<div class="card card-pad state" style="max-width:440px;">' +
+          '<div class="sic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>' +
+          '<h2>' + (signIn ? "Please sign in" : "Admins only") + '</h2>' +
+          '<p>' + (signIn
+            ? "You need to be signed in as an administrator to view this page."
+            : "Your account doesn't have admin access. If you think this is a mistake, contact another administrator.") + '</p>' +
+          '<button class="btn btn-primary" onclick="window.location.href=\'' + (signIn ? '/login.html' : '/upload.html') + '\'">' +
+            (signIn ? "Sign in" : "Back to app") + '</button>' +
+        '</div>';
+    }
+
+    // ---- Nav / sections ----
+    var SECTIONS = {
+      dashboard: { title: "Dashboard", sub: "Overview of your platform" },
+      users: { title: "Users", sub: "Manage accounts, roles and access" },
+      statements: { title: "Statements", sub: "Every statement across all users" },
+      messages: { title: "Messages", sub: "Contact-form inbox" },
+      issues: { title: "Issues", sub: "Statement issues raised by users" },
+    };
+    var tabs = {};
+    var loaded = {};
+    function activateTab(name) {
+      // Don't open a section this role isn't allowed to use.
+      if (window.allowedSections && window.allowedSections.indexOf(name) === -1) return;
+      document.querySelectorAll(".nav-opt[data-tab]").forEach(function (t) {
+        t.classList.toggle("active", t.getAttribute("data-tab") === name);
+      });
+      document.querySelectorAll(".panel").forEach(function (p) {
+        p.classList.toggle("active", p.id === "panel-" + name);
+      });
+      var meta = SECTIONS[name];
+      if (meta) {
+        var st = document.getElementById("secTitle");
+        var ss = document.getElementById("secSub");
+        if (st) st.textContent = meta.title;
+        if (ss) ss.textContent = meta.sub;
+      }
+      if (!loaded[name] && tabs[name]) { loaded[name] = true; tabs[name](); }
+
+      // If statements changed while this tab was hidden (issue resolved from the
+      // Issues tab), re-render now that it's visible so measurements are correct.
+      if (name === "statements" && stmtDirty && loaded.statements) {
+        renderAll();
+        stmtDirty = false;
+      }
+    }
+
+    // =====================================================================
+    // Dashboard
+    // =====================================================================
+    tabs.dashboard = async function () {
+      var el = document.getElementById("panel-dashboard");
+      loadingPanel(el);
+      var r = await api("/api/admin/stats");
+      if (!r.ok) { el.innerHTML = '<div class="card card-pad state"><h2>Couldn\'t load stats</h2><p>' + escHtml(r.data.error || "") + '</p></div>'; return; }
+      var t = r.data.totals || {};
+
+      function tile(cls, icon, label, value, nav, sub, attn) {
+        // Only show a tile for a section this role can open.
+        if (window.allowedSections && window.allowedSections.indexOf(nav) === -1) return "";
+        return '<div class="tile ' + cls + '" data-nav="' + nav + '" role="button" tabindex="0">' +
+          '<div class="tile-top"><div class="tile-ic">' + icon + '</div></div>' +
+          '<h3>' + escHtml(label) + '</h3>' +
+          '<div class="val">' + fmtNum(value) + '</div>' +
+          (sub ? '<div class="sub' + (attn ? ' attn' : '') + '">' + escHtml(sub) + '</div>' : '') +
+        '</div>';
+      }
+      var IC_USERS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>';
+      var IC_DOC = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
+      var IC_MSG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>';
+      var IC_ALERT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
+
+      el.innerHTML =
+        '<div class="tile-grid">' +
+          tile("tile-blue", IC_USERS, "Users", t.users, "users") +
+          tile("tile-purple", IC_DOC, "Statements", t.statements, "statements") +
+          tile("tile-amber", IC_MSG, "Messages", t.open_messages, "messages") +
+          tile("tile-red", IC_ALERT, "Issues", t.open_issues, "issues") +
+        '</div>' +
+        (window.currentRole === "super_admin"
+          ? '<div class="dash-lower">' + freeUsageCard(r.data.free_usage || []) + '</div>' : '');
+
+      // Tiles jump to their section.
+      el.querySelectorAll(".tile[data-nav]").forEach(function (t) {
+        t.addEventListener("click", function () { activateTab(t.getAttribute("data-nav")); });
+        t.addEventListener("keydown", function (e) {
+          if (e.key === "Enter" || e.key === " ") { e.preventDefault(); activateTab(t.getAttribute("data-nav")); }
+        });
+      });
+
+      // Light up the sidebar notification badges for pending work.
+      setNotif("nMessages", t.open_messages);
+      setNotif("nIssues", t.open_issues);
+    };
+
+    // Free-plan users closest to using up their 100-page credit (top 5, desc).
+    function freeUsageCard(list) {
+      var body;
+      if (!list.length) {
+        body = '<div class="usage-empty">No free users have used any pages yet.</div>';
+      } else {
+        body = '<div class="usage-list">' + list.map(function (u) {
+          var limit = u.page_limit || 100;
+          var pct = Math.min(100, Math.round((u.pages_used / limit) * 100));
+          // Amber as the credit gets low, red when nearly out.
+          var color = pct >= 90 ? "var(--t-red-fg)" : (pct >= 70 ? "var(--t-amber-fg)" : "var(--accent)");
+          return '<div class="usage-item">' +
+            '<div class="usage-top"><span class="nm">' + escHtml(u.name || "Unnamed") + '</span>' +
+              '<span class="pct">' + pct + '%</span></div>' +
+            '<div class="meter"><i style="width:' + pct + '%;background:' + color + ';"></i></div>' +
+          '</div>';
+        }).join("") + '</div>';
+      }
+      return '<div class="card card-pad usage-card">' +
+        '<h3 class="usage-title">Approach them</h3>' + body + '</div>';
+    }
+
+    // =====================================================================
+    // Users
+    // =====================================================================
+    var usersData = [];
+    var userTypeFilter = "all";   // all | free | paid | admin | salesperson
+    function renderUsers(list) {
+      var el = document.getElementById("usersTable");
+      var TYPE_BADGE = {
+        admin: '<span class="badge admin">Admin</span>',
+        salesperson: '<span class="badge sales">Salesperson</span>',
+        paid: '<span class="badge ok">Paid plan</span>',
+        free: '<span class="badge muted">Free user</span>',
+      };
+      var CHEV = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
+      function utOpt(val, label) {
+        return '<button type="button" class="type-opt' + (userTypeFilter === val ? ' active' : '') + '" data-utf="' + val + '">' + label + '</button>';
+      }
+      var utMenu = '<div class="type-menu" id="userTypeMenu" hidden>' +
+        utOpt("all", "All types") + utOpt("free", "Free user") + utOpt("paid", "Paid user") +
+        utOpt("admin", "Admin") + utOpt("salesperson", "Salesperson") + '</div>';
+      var typeHead = 'User type <span class="th-filter"><button type="button" class="th-arrow' +
+        (userTypeFilter !== "all" ? " on" : "") + '" id="userTypeBtn">' + CHEV + '</button>' + utMenu + '</span>';
+
+      var rows = list.map(function (u) {
+        var typeBadge = TYPE_BADGE[u.user_type] || TYPE_BADGE.free;
+
+        var roleSelect = '<select class="role-select" data-role-sel>' +
+          '<option value="user"' + (u.role === "user" ? " selected" : "") + '>User</option>' +
+          '<option value="salesperson"' + (u.role === "salesperson" ? " selected" : "") + '>Salesperson</option>' +
+          '<option value="admin"' + (u.role === "admin" ? " selected" : "") + '>Admin</option>' +
+        '</select>';
+        var actions = roleSelect + '<button class="btn btn-danger" data-delete>Delete</button>';
+
+        return '<tr data-id="' + escHtml(u.id) + '">' +
+          '<td><div class="cell-strong">' + escHtml(u.name || "—") + '</div><div class="cell-sub">' + escHtml(u.mobile) + '</div></td>' +
+          '<td>' + typeBadge + '</td>' +
+          '<td class="num">' + fmtNum(u.statement_count) +
+            (u.issue_count ? '<span class="count-badge red" data-tip="' + u.issue_count + ' open issue' + (u.issue_count > 1 ? 's' : '') + '">' + u.issue_count + '</span>' : '') +
+            (u.message_count ? '<span class="count-badge green" data-tip="' + u.message_count + ' open message' + (u.message_count > 1 ? 's' : '') + '">' + u.message_count + '</span>' : '') +
+          '</td>' +
+          '<td class="cell-sub">' + escHtml(fmtDate(u.created_at)) + '</td>' +
+          '<td><div class="row-actions">' + actions + '</div></td>' +
+        '</tr>';
+      }).join("");
+
+      el.innerHTML = '<div class="card"><div class="table-scroll"><table>' +
+        '<thead><tr><th>User</th><th>' + typeHead + '</th><th>Statements</th><th>Joined</th><th style="text-align:right;">Actions</th></tr></thead>' +
+        '<tbody>' + (rows || '<tr><td colspan="5" class="cell-sub" style="text-align:center;padding:34px;">No users match your search.</td></tr>') +
+        '</tbody></table></div></div>';
+
+      el.querySelectorAll("tbody tr[data-id]").forEach(function (tr) {
+        var id = tr.getAttribute("data-id");
+        var user = list.find(function (x) { return x.id === id; });
+        var roleSel = tr.querySelector("[data-role-sel]");
+        if (roleSel) roleSel.addEventListener("change", function (e) { setUserRole(id, e.target.value, roleSel); });
+        var delBtn = tr.querySelector("[data-delete]");
+        if (delBtn) delBtn.addEventListener("click", function () { deleteUser(id, user); });
+      });
+
+      // USER TYPE dropdown filter (fixed-position so it isn't clipped).
+      var btn = document.getElementById("userTypeBtn"), menu = document.getElementById("userTypeMenu");
+      if (btn && menu) {
+        btn.addEventListener("click", function (e) {
+          e.stopPropagation();
+          var willOpen = menu.hidden;
+          document.querySelectorAll(".type-menu").forEach(function (mm) { mm.hidden = true; });
+          if (willOpen) {
+            var rect = btn.getBoundingClientRect();
+            menu.style.top = (rect.bottom + 6) + "px";
+            menu.style.left = Math.max(8, Math.min(rect.left, window.innerWidth - 168 - 8)) + "px";
+            menu.hidden = false;
+          }
+        });
+      }
+      el.querySelectorAll("[data-utf]").forEach(function (o) {
+        o.addEventListener("click", function () { userTypeFilter = o.getAttribute("data-utf"); applyUsersFilter(); });
+      });
+      if (!window.__headerMenuClose) {
+        window.__headerMenuClose = true;
+        document.addEventListener("click", function (ev) {
+          if (ev.target.closest && (ev.target.closest(".type-menu") || ev.target.closest(".th-arrow"))) return;
+          document.querySelectorAll(".type-menu").forEach(function (m) { m.hidden = true; });
+        });
+      }
+    }
+
+    function applyUsersFilter() {
+      var list = userTypeFilter === "all" ? usersData
+        : usersData.filter(function (u) { return u.user_type === userTypeFilter; });
+      renderUsers(list);
+    }
+
+    tabs.users = function () {
+      var el = document.getElementById("panel-users");
+      el.innerHTML =
+        '<div class="toolbar"><div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>' +
+          '<input id="userSearch" type="search" placeholder="Search by name or mobile…" autocomplete="off"></div></div>' +
+        '<div id="usersTable"><div class="card card-pad state"><div class="spinner"></div></div></div>';
+      var debounce = null;
+      document.getElementById("userSearch").addEventListener("input", function (e) {
+        clearTimeout(debounce); var q = e.target.value;
+        debounce = setTimeout(function () { fetchUsers(q); }, 250);
+      });
+      fetchUsers("");
+    };
+
+    async function fetchUsers(q) {
+      var r = await api("/api/admin/users?q=" + encodeURIComponent(q || ""));
+      if (!r.ok) { showToast(r.data.error || "Could not load users."); return; }
+      usersData = r.data.users || [];
+      applyUsersFilter();
+    }
+
+    async function setUserRole(id, role, sel) {
+      sel.disabled = true;
+      var r = await api("/api/admin/users/" + encodeURIComponent(id) + "/role", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ role: role }),
+      });
+      sel.disabled = false;
+      if (!r.ok) { showToast(r.data.error || "Could not update role."); }
+      else { showToast("Role updated to " + role + "."); }
+      fetchUsers(document.getElementById("userSearch").value);
+    }
+
+    async function deleteUser(id, user) {
+      var name = (user && user.name) || "this user";
+      var ok = await confirmDialog({
+        title: "Delete user?",
+        message: "Delete " + name + "? Their account is removed, but their statements are kept and re-attributed to you.",
+        confirmText: "Delete",
+        cancelText: "Cancel",
+        danger: true,
+      });
+      if (!ok) return;
+      var r = await api("/api/admin/users/" + encodeURIComponent(id), { method: "DELETE" });
+      if (!r.ok) { showToast(r.data.error || "Could not delete user."); return; }
+      showToast("User deleted.");
+      fetchUsers(document.getElementById("userSearch").value);
+    }
+
+    // =====================================================================
+    // Statements
+    // =====================================================================
+    function renderStatements(list) {
+      var el = document.getElementById("panel-statements");
+      var CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+      var CROSS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+      var EYE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>';
+      // info "i" glyph (the circular background comes from .st-icon)
+      var INFO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="11" x2="12" y2="16"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>';
+
+      var rows = list.map(function (s) {
+        var owner = s.owner_name || s.owner_mobile || "Unknown";
+        var ownerSub = s.owner_deleted ? "deleted account" : (s.owner_name ? s.owner_mobile : "");
+        var failed = s.status === "failed";
+        // Red cross for a failed conversion; an info "i" while an issue is open
+        // (an open issue is not a success). Once resolved it counts as success,
+        // so it shows the green tick like any other success.
+        var statusIcon;
+        if (failed) statusIcon = '<span class="st-icon bad">' + CROSS + '</span>';
+        else if (s.issue_status === "open") statusIcon = '<span class="st-icon issue" data-tip="Issue raised">' + INFO + '</span>';
+        else statusIcon = '<span class="st-icon ok">' + CHECK + '</span>';
+        // View the extracted result; failed conversions have no result to show.
+        var viewAct = failed
+          ? '<button class="icon-act" disabled>' + EYE + '</button>'
+          : '<button class="icon-act" data-result="' + escHtml(s.id) + '">' + EYE + '</button>';
+
+        var nameStyle = 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+        var nameHtml = s.has_pdf
+          ? '<a class="cell-strong file-link" href="/api/admin/statements/' + escHtml(s.id) + '/pdf?inline=1" target="_blank" rel="noopener" data-tip="View PDF" style="' + nameStyle + '">' + escHtml(s.filename || "Untitled") + '</a>'
+          : '<span class="cell-strong" style="' + nameStyle + '">' + escHtml(s.filename || "Untitled") + '</span>';
+
+        return '<tr>' +
+          '<td><div style="display:flex;align-items:center;">' + nameHtml + statusIcon + '</div></td>' +
+          '<td><div>' + escHtml(owner) + (s.owner_deleted ? ' <span class="badge off">deleted</span>' : '') + '</div><div class="cell-sub">' + escHtml(ownerSub) + '</div></td>' +
+          '<td>' + (s.bank ? escHtml(s.bank) : '<span class="cell-sub">—</span>') + '</td>' +
+          '<td class="num">' + fmtNum(s.row_count) + '</td>' +
+          '<td class="num">' + fmtNum(s.page_count) + '</td>' +
+          '<td><div class="cell-sub">' + escHtml(fmtDate(s.created_at)) + '</div>' +
+            '<div class="upload-time">' + escHtml(fmtUploadTime(s.created_at)) + '</div></td>' +
+          '<td><div class="row-actions">' + viewAct + '</div></td>' +
+        '</tr>';
+      }).join("");
+      el.querySelector("tbody").innerHTML = rows ||
+        '<tr><td colspan="7" class="cell-sub" style="text-align:center;padding:34px;">No statements match your search.</td></tr>';
+
+      // Fix the scroll area to exactly 5 statements tall; anything beyond
+      // scrolls within this region. Measured from the rendered rows so it
+      // stays correct regardless of row height (two-line owners, badges, etc.).
+      fixStatementsHeight();
+
+      el.querySelectorAll("[data-result]").forEach(function (btn) {
+        btn.addEventListener("click", function () { viewResult(btn.getAttribute("data-result")); });
+      });
+    }
+
+    function fixStatementsHeight() {
+      var scroll = document.getElementById("stmtScroll");
+      if (!scroll) return;
+      var thead = scroll.querySelector("thead");
+      var tbody = scroll.querySelector("tbody");
+      if (!thead || !tbody) return;
+
+      // Drop any filler rows from a previous pass before measuring.
+      tbody.querySelectorAll("tr.filler").forEach(function (f) { f.remove(); });
+      var trs = tbody.querySelectorAll("tr");
+
+      // Spinner / empty-state placeholder (single full-width cell): don't
+      // reserve 5 rows — let it size naturally.
+      var placeholder = trs.length === 1 && trs[0].querySelector("td[colspan]");
+      if (!trs.length || placeholder) { scroll.style.height = ""; return; }
+
+      // Use one uniform row height for every row, kept as the tallest natural
+      // row seen across renders so the table is the SAME size for every filter.
+      var maxH = 0;
+      trs.forEach(function (t) { if (t.offsetHeight > maxH) maxH = t.offsetHeight; });
+      if (maxH > stmtRowH) stmtRowH = maxH;
+      var rh = stmtRowH;
+      trs.forEach(function (t) { t.style.height = rh + "px"; });
+
+      // Pad with empty filler rows so the table always shows VISIBLE_ROWS rows,
+      // keeping the area — and the charts below it — at a fixed position.
+      var n = trs.length;
+      if (n < VISIBLE_ROWS) {
+        var html = "";
+        for (var k = 0; k < VISIBLE_ROWS - n; k++) {
+          html += '<tr class="filler" style="height:' + rh + 'px"><td colspan="7"></td></tr>';
+        }
+        tbody.insertAdjacentHTML("beforeend", html);
+      }
+
+      // Height = header + VISIBLE_ROWS uniform rows; any extra rows scroll within.
+      scroll.style.height = (thead.offsetHeight + rh * VISIBLE_ROWS + 1) + "px";
+    }
+
+    var VISIBLE_ROWS = 5;     // rows shown before the table scrolls
+    var stmtFilter = "all";   // status filter: all | success | failed | issue
+    var selBank = null;       // cross-filter: selected bank (null = all)
+    var selOwner = null;      // cross-filter: selected owner (null = all)
+    var stmtData = [];
+    var stmtRowH = 0;     // uniform row height, shared across all filters
+    var stmtDirty = false; // statements changed elsewhere (e.g. issue resolved)
+
+    function bankKey(s) { return (s.bank || "").trim(); }
+    function ownerKey(s) { return (s.owner_name || s.owner_mobile || "Unknown").trim(); }
+    function matchStatus(s) {
+      // A resolved issue counts as success; only an OPEN issue is "issue raised".
+      if (stmtFilter === "success") return s.status !== "failed" && s.issue_status !== "open";
+      if (stmtFilter === "failed") return s.status === "failed";
+      if (stmtFilter === "issue") return s.issue_status === "open";
+      return true;
+    }
+    function matchBank(s) { return !selBank || bankKey(s) === selBank; }
+    function matchOwner(s) { return !selOwner || ownerKey(s) === selOwner; }
+
+    // Cross-filter render: the table reflects every active selection, while each
+    // chart reflects the OTHER dimensions' selections (not its own) so you can
+    // still see and re-pick within that chart.
+    function renderAll() {
+      renderStatements(stmtData.filter(function (s) { return matchStatus(s) && matchBank(s) && matchOwner(s); }));
+      renderStmtChart(
+        stmtData.filter(function (s) { return matchBank(s) && matchOwner(s); }),    // pie  — status excluded
+        stmtData.filter(function (s) { return matchStatus(s) && matchOwner(s); }),  // banks — bank excluded
+        stmtData.filter(function (s) { return matchStatus(s) && matchBank(s); })    // owners — owner excluded
+      );
+      syncChips();
+    }
+    function syncChips() {
+      document.querySelectorAll("#stmtFilter button").forEach(function (b) {
+        b.classList.toggle("active", b.getAttribute("data-f") === stmtFilter);
+      });
+    }
+    // Clicking a selected item again clears that selection (toggle).
+    function toggleBank(name) { selBank = (selBank === name ? null : name); renderAll(); }
+    function toggleOwner(name) { selOwner = (selOwner === name ? null : name); renderAll(); }
+    function toggleStatus(cat) { stmtFilter = (stmtFilter === cat ? "all" : cat); renderAll(); }
+
+    // Re-render after an external change (issue resolved/reopened from Issues tab).
+    function refreshStatements() {
+      if (!loaded.statements) return;            // not built yet — fetched fresh on first open
+      var panel = document.getElementById("panel-statements");
+      if (panel && panel.classList.contains("active")) {
+        renderAll();
+        stmtDirty = false;
+      } else {
+        stmtDirty = true;                        // defer until the tab is shown
+      }
+    }
+    tabs.statements = function () {
+      var el = document.getElementById("panel-statements");
+      el.innerHTML =
+        '<div class="toolbar"><div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>' +
+          '<input id="stmtSearch" type="search" placeholder="Search by filename, bank or owner…" autocomplete="off"></div>' +
+          '<div class="seg" id="stmtFilter">' +
+            '<button data-f="all" class="active">All</button>' +
+            '<button data-f="success">Success</button>' +
+            '<button data-f="failed">Failed</button>' +
+            '<button data-f="issue">Issue raised</button>' +
+          '</div>' +
+        '</div>' +
+        '<div class="card"><div class="table-scroll scroll-y" id="stmtScroll"><table>' +
+          '<thead><tr><th>File</th><th>Owner</th><th>Bank</th><th>Rows</th><th>Pages</th><th>Uploaded</th><th style="text-align:right;">Result</th></tr></thead>' +
+          '<tbody><tr><td colspan="7" style="text-align:center;padding:34px;"><div class="spinner"></div></td></tr></tbody>' +
+        '</table></div></div>' +
+        '<div class="chart-wrap" id="stmtChart"></div>';
+      var debounce = null;
+      document.getElementById("stmtSearch").addEventListener("input", function (e) {
+        clearTimeout(debounce); var q = e.target.value;
+        debounce = setTimeout(function () { fetchStatements(q); }, 250);
+      });
+      el.querySelectorAll("#stmtFilter button").forEach(function (b) {
+        b.addEventListener("click", function () {
+          var f = b.getAttribute("data-f");
+          // Re-clicking the active filter (other than All) clears back to All.
+          stmtFilter = (f === stmtFilter && f !== "all") ? "all" : f;
+          renderAll();
+        });
+      });
+      fetchStatements("");
+    };
+
+    async function fetchStatements(q) {
+      var r = await api("/api/admin/statements?q=" + encodeURIComponent(q || ""));
+      if (!r.ok) { showToast(r.data.error || "Could not load statements."); return; }
+      stmtData = r.data.statements || [];
+      selBank = null; selOwner = null;   // new dataset → clear cross-filter selections
+      renderAll();
+    }
+
+    // Pie + bank/owner bar lists, all cross-filter aware. Each receives its own
+    // pre-filtered dataset (pie excludes the status selection, bank list the
+    // bank selection, owner list the owner selection). Clicking a slice, legend
+    // row, or bar toggles that dimension's selection (handled via data-* attrs).
+    function renderStmtChart(pieData, bankData, ownerData) {
+      var wrap = document.getElementById("stmtChart");
+      if (!wrap) return;
+
+      var failed = 0, issue = 0, success = 0;
+      pieData.forEach(function (s) {
+        if (s.status === "failed") failed++;
+        else if (s.issue_status === "open") issue++;   // resolved counts as success
+        else success++;
+      });
+
+      // Each slice: tinted fill with a full-opacity border in the same colour
+      // (the solid filter-chip colours: green / red / orange). The legend
+      // reuses the table's status icons (tick / cross / info).
+      var ICON = {
+        ok: '<span class="st-icon ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>',
+        bad: '<span class="st-icon bad"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span>',
+        issue: '<span class="st-icon issue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="11" x2="12" y2="16"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></span>',
+      };
+      var segs = [
+        { label: "Success", value: success, rgb: "22,163,74", cls: "ok", filter: "success" },
+        { label: "Failed", value: failed, rgb: "220,38,38", cls: "bad", filter: "failed" },
+        { label: "Issue raised", value: issue, rgb: "217,119,6", cls: "issue", filter: "issue" },
+      ];
+      var total = success + failed + issue;
+
+      var R = 46, C = 50, GAP = 3;   // radius, centre, gap between slices (deg)
+      function pt(angle) {
+        var rad = (angle - 90) * Math.PI / 180;   // -90° → start at 12 o'clock
+        return (C + R * Math.cos(rad)).toFixed(3) + " " + (C + R * Math.sin(rad)).toFixed(3);
+      }
+      // emphasise the selected status slice
+      function alphaFor(f) { return (stmtFilter !== "all" && f === stmtFilter) ? 0.6 : 0.3; }
+
+      var inner = "";
+      if (total) {
+        var active = segs.filter(function (s) { return s.value > 0; });
+        if (active.length === 1) {
+          var only = active[0];
+          inner = '<circle class="pie-slice' + (stmtFilter === only.filter ? ' sel' : '') + '" data-status="' + only.filter +
+                  '" cx="' + C + '" cy="' + C + '" r="' + R + '" fill="rgba(' + only.rgb + ',' + alphaFor(only.filter) +
+                  ')" stroke="rgb(' + only.rgb + ')" stroke-width="0.6"/>';
+        } else {
+          var paths = "", acc = 0;
+          active.forEach(function (sg) {
+            var a0 = (acc / total) * 360;
+            acc += sg.value;
+            var a1 = (acc / total) * 360;
+            var s = a0 + GAP / 2, e = a1 - GAP / 2;
+            if (e < s) { s = a0; e = a1; }                 // safety for tiny slices
+            var large = (e - s) > 180 ? 1 : 0;
+            paths += '<path class="pie-slice' + (stmtFilter === sg.filter ? ' sel' : '') + '" data-status="' + sg.filter +
+                     '" d="M ' + C + ' ' + C + ' L ' + pt(s) +
+                     ' A ' + R + ' ' + R + ' 0 ' + large + ' 1 ' + pt(e) + ' Z" ' +
+                     'fill="rgba(' + sg.rgb + ',' + alphaFor(sg.filter) + ')" stroke="rgb(' + sg.rgb +
+                     ')" stroke-width="0.6" stroke-linejoin="round"/>';
+          });
+          inner = paths;
+        }
+      }
+
+      var anySel = stmtFilter !== "all";
+      var legend = segs.map(function (sg) {
+        var pct = total ? Math.round((sg.value / total) * 100) : 0;
+        var isSel = stmtFilter === sg.filter;
+        var cls = "lg-item" + (isSel ? " sel" : (anySel ? " dim" : ""));
+        return '<div class="' + cls + '" data-status="' + sg.filter + '" style="--seg:rgb(' + sg.rgb + ')">' +
+               ICON[sg.cls] + '<span>' + sg.value + ' (' + pct + '%)</span></div>';
+      }).join("");
+
+      wrap.innerHTML =
+        renderBankBars(bankData) +
+        '<div class="chart-center"><div class="pie"><svg viewBox="0 0 100 100">' + inner + '</svg></div>' +
+          '<div class="chart-legend">' + legend + '</div></div>' +
+        '<div class="user-block">' + renderUserBars(ownerData) + '</div>';
+
+      // wire cross-filter clicks
+      wrap.querySelectorAll("[data-status]").forEach(function (el) {
+        el.addEventListener("click", function () { toggleStatus(el.getAttribute("data-status")); });
+      });
+      wrap.querySelectorAll("[data-bank]").forEach(function (el) {
+        el.addEventListener("click", function () { toggleBank(el.getAttribute("data-bank")); });
+      });
+      wrap.querySelectorAll("[data-owner]").forEach(function (el) {
+        el.addEventListener("click", function () { toggleOwner(el.getAttribute("data-owner")); });
+      });
+
+      capBarLists();
+    }
+
+    // Cap each bar list so at least 5 rows are fully visible; if there are more,
+    // leave a small peek of the 6th to signal that it scrolls. Measured from the
+    // rendered rows so it's correct regardless of font metrics.
+    function capBarLists() {
+      document.querySelectorAll("#stmtChart .bank-list").forEach(function (list) {
+        var rows = list.querySelectorAll(".bar-row");
+        if (rows.length <= 5) { list.style.maxHeight = "none"; return; }   // show all, no scroll
+        var h = 0;
+        for (var i = 0; i < 5; i++) h += rows[i].offsetHeight;
+        h += 4 * 4 + 12;   // 4 inter-row gaps + a peek of the 6th row
+        list.style.maxHeight = h + "px";
+      });
+    }
+
+    // Rank a {name: count} map: most first, ties broken alphabetically.
+    function rankByCount(counts) {
+      return Object.keys(counts).map(function (name) { return { name: name, count: counts[name] }; })
+        .sort(function (a, b) {
+          if (b.count !== a.count) return b.count - a.count;
+          return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
+        });
+    }
+
+    // Shared ranked-bar-list markup. `attr` is the data-* used for click
+    // selection; `selected` is the currently-selected name (highlighted).
+    function barListHtml(items, selected, attr, emptyMsg) {
+      if (!items.length) return '<div class="bank-list"><div class="cell-sub">' + emptyMsg + '</div></div>';
+      var max = items[0].count;
+      var rows = items.map(function (it) {
+        var w = (it.count / max) * 100;
+        return '<div class="bar-row' + (it.name === selected ? ' sel' : '') + '" ' + attr + '="' + escHtml(it.name) + '">' +
+                 '<div class="bar-head">' +
+                   '<span class="bar-name" title="' + escHtml(it.name) + '">' + escHtml(it.name) + '</span>' +
+                   '<span class="bar-val">' + it.count + '</span>' +
+                 '</div>' +
+                 '<div class="bar-track"><div class="bar-fill" style="width:' + w.toFixed(1) + '%"></div></div>' +
+               '</div>';
+      }).join("");
+      return '<div class="bank-list">' + rows + '</div>';
+    }
+
+    // Statements per bank (left of the pie). Statements with no bank are skipped.
+    function renderBankBars(data) {
+      var counts = {};
+      data.forEach(function (s) { var b = bankKey(s); if (b) counts[b] = (counts[b] || 0) + 1; });
+      return '<div class="bank-block">' + barListHtml(rankByCount(counts), selBank, "data-bank", "No bank data yet.") + '</div>';
+    }
+
+    // Statements per user (right of the pie).
+    function renderUserBars(data) {
+      var counts = {};
+      data.forEach(function (s) { var n = ownerKey(s); counts[n] = (counts[n] || 0) + 1; });
+      return barListHtml(rankByCount(counts), selOwner, "data-owner", "No user data yet.");
+    }
+
+    // =====================================================================
+    // Messages
+    // =====================================================================
+    var msgFilter = "sales";   // source filter: "sales" (contact) | "general" (contactus)
+    var msgData = [];
+    var msgSalespeople = [];   // [{id, name}] for the assignment dropdown (super admin)
+    var salesStatusFilter = "all";   // sales table: "all" | "open" | "purchased" | "not_purchased"
+    var salesTypeFilter = "all";     // sales table: "all" | <org_type>
+    var salesPersonFilter = "all";   // sales table: "all" | "__unassigned" | <salesperson>
+    function renderMessages(list) {
+      var el = document.getElementById("panel-messages").querySelector("#msgList");
+      if (!list.length) {
+        el.innerHTML = '<div class="card card-pad state"><div class="sic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div><h2>No messages</h2><p>Nothing in this view yet.</p></div>';
+        return;
+      }
+      el.innerHTML = list.map(function (m) {
+        var who = (m.first_name || m.last_name) ? (m.first_name + " " + m.last_name).trim() : (m.org_name || "Anonymous");
+        var contact = [m.email, m.phone].filter(Boolean).join(" · ");
+        var resolved = m.status === "resolved";
+        var subject = m.subject || (m.source === "contact" ? "Sales enquiry" : "Message");
+        return '<div class="card feed-card' + (resolved ? ' resolved' : '') + '">' +
+          '<div class="feed-top"><div><div class="feed-who">' + escHtml(who) +
+            (m.org_type ? ' <span class="badge muted">' + escHtml(m.org_type) + '</span>' : '') + '</div>' +
+            '<div class="feed-contact">' + escHtml(contact || "no contact details") + '</div></div>' +
+            '<span class="badge ' + (resolved ? 'ok' : 'open') + '">' + (resolved ? 'Resolved' : 'Open') + '</span></div>' +
+          '<div class="feed-subject">' + escHtml(subject) + '</div>' +
+          (m.message ? '<div class="feed-body">' + escHtml(m.message) + '</div>' : '') +
+          '<div class="feed-foot"><span class="feed-time">' + escHtml(fmtDateTime(m.created_at)) + ' · via ' + escHtml(m.source || "contact") + '</span>' +
+            '<button class="btn" data-resolve="' + escHtml(m.id) + '" data-to="' + (resolved ? 'open' : 'resolved') + '">' + (resolved ? 'Reopen' : 'Mark resolved') + '</button></div>' +
+        '</div>';
+      }).join("");
+      el.querySelectorAll("[data-resolve]").forEach(function (btn) {
+        btn.addEventListener("click", function () { resolveMessage(btn.getAttribute("data-resolve"), btn.getAttribute("data-to") === "resolved"); });
+      });
+    }
+
+    tabs.messages = function () {
+      var el = document.getElementById("panel-messages");
+      var role = window.currentRole;
+      // Source scope by role: admins see general, salespeople see sales, the
+      // super admin can switch between both.
+      var toolbar = "";
+      if (role === "admin") {
+        msgFilter = "general";
+      } else if (role === "salesperson") {
+        msgFilter = "sales";
+      } else {
+        msgFilter = "sales";
+        toolbar =
+          '<div class="toolbar"><div class="seg" id="msgFilter">' +
+            '<button data-f="sales" class="active">Sales</button><button data-f="general">General</button>' +
+          '</div></div>';
+      }
+      el.innerHTML = toolbar +
+        '<div class="feed" id="msgList"><div class="card card-pad state"><div class="spinner"></div></div></div>';
+      el.querySelectorAll("#msgFilter button").forEach(function (b) {
+        b.addEventListener("click", function () {
+          el.querySelectorAll("#msgFilter button").forEach(function (x) { x.classList.remove("active"); });
+          b.classList.add("active"); msgFilter = b.getAttribute("data-f"); applyMsgFilter();
+        });
+      });
+      fetchMessages();
+    };
+
+    function applyMsgFilter() {
+      // General = the contactus form; Sales = the contact (sales) form.
+      var list = msgData.filter(function (m) {
+        return msgFilter === "general" ? (m.source === "contactus") : (m.source !== "contactus");
+      });
+      if (msgFilter === "sales") renderSalesTable(list);
+      else renderMessages(list);
+    }
+
+    // Sales enquiries as a table with an editable salesperson and toggle status.
+    function renderSalesTable(list) {
+      var el = document.getElementById("msgList");
+      if (!list.length) {
+        el.innerHTML = '<div class="card card-pad state"><div class="sic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div><h2>No sales enquiries</h2><p>Sales-form submissions show up here.</p></div>';
+        return;
+      }
+      // 3-state outcome chosen from a dropdown.
+      var SALES_STATUS = {
+        open:          { cls: "open" },
+        purchased:     { cls: "ok" },
+        not_purchased: { cls: "off" },
+      };
+      function statusOption(val, label, cur) {
+        return '<option value="' + val + '"' + (cur === val ? " selected" : "") + '>' + label + '</option>';
+      }
+      var isSuper = window.currentRole === "super_admin";
+      // Unique org types for the Type dropdown; salespeople come from the
+      // dedicated list (actual salesperson accounts).
+      var typeSet = {};
+      list.forEach(function (m) { var t = (m.org_type || "").trim(); if (t) typeSet[t] = true; });
+      var types = Object.keys(typeSet).sort();
+      var hasUnassigned = list.some(function (m) { return !m.salesperson_id; });
+
+      // Status-dot + type + salesperson filters in the header.
+      var filtered = list.filter(function (m) {
+        var cur = SALES_STATUS[m.status] ? m.status : "open";
+        if (salesStatusFilter !== "all" && cur !== salesStatusFilter) return false;
+        if (salesTypeFilter !== "all" && (m.org_type || "") !== salesTypeFilter) return false;
+        if (salesPersonFilter !== "all") {
+          if (salesPersonFilter === "__unassigned" ? !!m.salesperson_id : m.salesperson_id !== salesPersonFilter) return false;
+        }
+        return true;
+      });
+      function dot(sf, cls) {
+        return '<button type="button" class="st-dot st-' + cls + (salesStatusFilter === sf ? ' active' : '') + '" data-sf="' + sf + '"></button>';
+      }
+      var statusHead = 'Status <span class="st-filter">' +
+        dot("open", "open") + dot("purchased", "ok") + dot("not_purchased", "off") + '</span>';
+
+      // Type column header with a dropdown filter.
+      var CHEV = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
+      function typeOpt(val, label) {
+        return '<button type="button" class="type-opt' + (salesTypeFilter === val ? ' active' : '') + '" data-type="' + escHtml(val) + '">' + escHtml(label) + '</button>';
+      }
+      var typeMenu = '<div class="type-menu" id="typeMenu" hidden>' +
+        typeOpt("all", "All types") +
+        types.map(function (t) { return typeOpt(t, t); }).join("") +
+        '</div>';
+      var typeHead = 'Type <span class="th-filter"><button type="button" class="th-arrow' + (salesTypeFilter !== "all" ? " on" : "") + '" id="typeBtn">' + CHEV + '</button>' + typeMenu + '</span>';
+
+      // Salesperson column header. Super admin gets a dropdown filter over the
+      // real salesperson accounts; other roles just see the label.
+      function spOpt(val, label) {
+        return '<button type="button" class="type-opt' + (salesPersonFilter === val ? ' active' : '') + '" data-spf="' + escHtml(val) + '">' + escHtml(label) + '</button>';
+      }
+      var spHead = 'Salesperson';
+      if (isSuper) {
+        var spMenu = '<div class="type-menu" id="spMenu" hidden>' +
+          spOpt("all", "All salespeople") +
+          msgSalespeople.map(function (p) { return spOpt(p.id, p.name); }).join("") +
+          (hasUnassigned ? spOpt("__unassigned", "Unassigned") : "") +
+          '</div>';
+        spHead = 'Salesperson <span class="th-filter"><button type="button" class="th-arrow' + (salesPersonFilter !== "all" ? " on" : "") + '" id="spBtn">' + CHEV + '</button>' + spMenu + '</span>';
+      }
+
+      var rows = filtered.map(function (m) {
+        var name = ((m.first_name || "") + " " + (m.last_name || "")).trim() || "—";
+        var cur = SALES_STATUS[m.status] ? m.status : "open";
+        var cls = SALES_STATUS[cur].cls;
+        var statusBadge = '<select class="status-select st-' + cls + '" data-status="' + escHtml(m.id) + '">' +
+          statusOption("open", "Open", cur) +
+          statusOption("purchased", "Purchased", cur) +
+          statusOption("not_purchased", "Not Purchased", cur) +
+        '</select>';
+        var spCell;
+        if (isSuper) {
+          spCell = '<select class="role-select" data-spassign="' + escHtml(m.id) + '">' +
+            '<option value="">— Unassigned —</option>' +
+            msgSalespeople.map(function (p) {
+              return '<option value="' + escHtml(p.id) + '"' + (m.salesperson_id === p.id ? " selected" : "") + '>' + escHtml(p.name) + '</option>';
+            }).join("") +
+          '</select>';
+        } else {
+          spCell = '<span>' + escHtml(m.salesperson_name || "—") + '</span>';
+        }
+        return '<tr>' +
+          '<td class="cell-strong">' + escHtml(name) + '</td>' +
+          '<td><div>' + escHtml(m.email || "—") + '</div><div class="cell-sub">' + escHtml(m.phone || "—") + '</div></td>' +
+          '<td>' + escHtml(m.org_name || "—") + '</td>' +
+          '<td>' + escHtml(m.org_type || "—") + '</td>' +
+          '<td><div>' + escHtml(fmtDate(m.created_at)) + '</div>' +
+            '<div class="cell-sub">' + (m.decided_at ? escHtml(fmtDate(m.decided_at)) : "—") + '</div></td>' +
+          '<td>' + spCell + '</td>' +
+          '<td>' + statusBadge + '</td>' +
+        '</tr>';
+      }).join("");
+      var bodyHtml = rows || '<tr><td colspan="7" class="cell-sub" style="text-align:center;padding:30px;">No enquiries with this status.</td></tr>';
+      el.innerHTML = '<div class="card"><div class="table-scroll"><table class="sales-table">' +
+        '<colgroup><col style="width:170px"><col style="width:260px"><col style="width:190px"><col style="width:90px"><col style="width:140px"><col style="width:180px"><col style="width:170px"></colgroup>' +
+        '<thead><tr><th>Name</th><th>Email / Number</th><th>Organisation</th><th>' + typeHead + '</th><th>Date</th><th>' + spHead + '</th><th>' + statusHead + '</th></tr></thead>' +
+        '<tbody>' + bodyHtml + '</tbody></table></div></div>';
+
+      el.querySelectorAll("[data-spassign]").forEach(function (sel) {
+        sel.addEventListener("change", function () { setSalesperson(sel.getAttribute("data-spassign"), sel.value); });
+      });
+      el.querySelectorAll("[data-status]").forEach(function (sel) {
+        sel.addEventListener("change", function () { setSalesStatus(sel.getAttribute("data-status"), sel.value); });
+      });
+      // Header status-dot filters — clicking the active one clears back to all.
+      el.querySelectorAll("[data-sf]").forEach(function (d) {
+        d.addEventListener("click", function () {
+          var sf = d.getAttribute("data-sf");
+          salesStatusFilter = (salesStatusFilter === sf) ? "all" : sf;
+          applyMsgFilter();
+        });
+      });
+
+      // Header dropdown filters (positioned fixed so the scroll container can't
+      // clip them). Opening one closes the other.
+      function wireMenu(btnId, menuId) {
+        var btn = document.getElementById(btnId), menu = document.getElementById(menuId);
+        if (!btn || !menu) return;
+        btn.addEventListener("click", function (e) {
+          e.stopPropagation();
+          var willOpen = menu.hidden;
+          el.querySelectorAll(".type-menu").forEach(function (mm) { mm.hidden = true; });
+          if (willOpen) {
+            var rect = btn.getBoundingClientRect();
+            var left = Math.min(rect.left, window.innerWidth - 168 - 8);
+            menu.style.top = (rect.bottom + 6) + "px";
+            menu.style.left = Math.max(8, left) + "px";
+            menu.hidden = false;
+          }
+        });
+      }
+      wireMenu("typeBtn", "typeMenu");
+      wireMenu("spBtn", "spMenu");
+
+      el.querySelectorAll("[data-type]").forEach(function (o) {
+        o.addEventListener("click", function () { salesTypeFilter = o.getAttribute("data-type"); applyMsgFilter(); });
+      });
+      el.querySelectorAll("[data-spf]").forEach(function (o) {
+        o.addEventListener("click", function () { salesPersonFilter = o.getAttribute("data-spf"); applyMsgFilter(); });
+      });
+
+      // Close any open header menu on an outside click (attached once).
+      if (!window.__headerMenuClose) {
+        window.__headerMenuClose = true;
+        document.addEventListener("click", function (ev) {
+          if (ev.target.closest && (ev.target.closest(".type-menu") || ev.target.closest(".th-arrow"))) return;
+          document.querySelectorAll(".type-menu").forEach(function (m) { m.hidden = true; });
+        });
+      }
+    }
+
+    async function setSalesStatus(id, status) {
+      var r = await api("/api/admin/messages/" + encodeURIComponent(id) + "/status", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: status }),
+      });
+      if (!r.ok) { showToast(r.data.error || "Could not update status."); return; }
+      var m = msgData.find(function (x) { return x.id === id; });
+      if (m) {
+        m.status = status;
+        m.decided_at = status === "open" ? null : new Date().toISOString();
+      }
+      applyMsgFilter();
+      setNotif("nMessages", openMsgCount());
+    }
+
+    function openMsgCount() {
+      return msgData.filter(function (m) {
+        return ["resolved", "purchased", "not_purchased"].indexOf(m.status) === -1;
+      }).length;
+    }
+
+    async function setSalesperson(id, salespersonId) {
+      var r = await api("/api/admin/messages/" + encodeURIComponent(id) + "/salesperson", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ salesperson_id: salespersonId }),
+      });
+      if (!r.ok) { showToast(r.data.error || "Could not assign salesperson."); applyMsgFilter(); return; }
+      var m = msgData.find(function (x) { return x.id === id; });
+      if (m) {
+        var p = msgSalespeople.find(function (x) { return x.id === salespersonId; });
+        m.salesperson_id = salespersonId;
+        m.salesperson_name = p ? p.name : "";
+      }
+      showToast(salespersonId ? "Salesperson assigned." : "Unassigned.");
+      applyMsgFilter();
+    }
+
+    async function fetchMessages() {
+      var r = await api("/api/admin/messages");
+      if (!r.ok) { showToast(r.data.error || "Could not load messages."); return; }
+      msgData = r.data.messages || [];
+      msgSalespeople = r.data.salespeople || [];
+      applyMsgFilter();
+      setNotif("nMessages", openMsgCount());
+    }
+
+    async function resolveMessage(id, resolved) {
+      var r = await api("/api/admin/messages/" + encodeURIComponent(id) + "/resolve", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ resolved: resolved }),
+      });
+      if (!r.ok) { showToast(r.data.error || "Could not update message."); return; }
+      showToast(resolved ? "Marked resolved." : "Reopened.");
+      fetchMessages();
+    }
+
+    // =====================================================================
+    // Issues
+    // =====================================================================
+    function renderIssues(list) {
+      var el = document.getElementById("issuesList");
+      if (!list.length) {
+        el.innerHTML = '<div class="card card-pad state"><div class="sic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div><h2>No issues here</h2><p>Nothing matches this view.</p></div>';
+        return;
+      }
+      el.innerHTML = '<div class="feed">' + list.map(function (i) {
+        var resolved = i.status === "resolved";
+        var owner = i.owner_name || i.owner_mobile || "Unknown";
+        var raisedBy = "Raised by " + escHtml(owner) + (i.owner_mobile && i.owner_name ? " | " + escHtml(i.owner_mobile) : "");
+        return '<div class="card feed-card' + (resolved ? ' resolved' : '') + '">' +
+          '<div class="feed-top"><div><div class="feed-who">' + escHtml(i.filename || "Untitled statement") + '</div>' +
+            '<div class="feed-contact">' + raisedBy + (i.owner_deleted ? ' <span class="badge off">deleted</span>' : '') + '</div></div>' +
+            '<span class="badge ' + (resolved ? 'ok' : 'open') + '">' + (resolved ? 'Resolved' : 'Open') + '</span></div>' +
+          '<div class="feed-body" style="margin-top:12px;' + (i.note ? 'color:var(--t-red-fg);font-weight:500;' : '') + '">' + escHtml(i.note || "(no description provided)") + '</div>' +
+          '<div class="feed-foot"><span class="feed-time">' + escHtml(fmtDateTime(i.created_at)) + '</span>' +
+            '<div style="display:flex;gap:8px;">' +
+              '<button class="btn btn-primary" data-result="' + escHtml(i.statement_id) + '">View result</button>' +
+              '<a class="btn" href="/api/admin/statements/' + escHtml(i.statement_id) + '/pdf?inline=1" target="_blank" rel="noopener">View PDF</a>' +
+              '<button class="btn" data-resolve="' + escHtml(i.statement_id) + '" data-to="' + (resolved ? 'open' : 'resolved') + '">' + (resolved ? 'Reopen' : 'Mark resolved') + '</button>' +
+            '</div></div>' +
+        '</div>';
+      }).join("") + '</div>';
+      el.querySelectorAll("[data-result]").forEach(function (btn) {
+        btn.addEventListener("click", function () { viewResult(btn.getAttribute("data-result")); });
+      });
+      el.querySelectorAll("[data-resolve]").forEach(function (btn) {
+        btn.addEventListener("click", function () { resolveIssue(btn.getAttribute("data-resolve"), btn.getAttribute("data-to") === "resolved"); });
+      });
+    }
+
+    // Open a statement's extracted result in results.html. Loads the full data
+    // via the admin endpoint and hands it off through sessionStorage, the same
+    // contract results.html reads. statement_id is intentionally omitted so the
+    // result page's owner-scoped "View PDF" button stays hidden (admins use the
+    // View PDF button here instead).
+    async function viewResult(id) {
+      if (!id) return;
+      showToast("Opening…");
+      var r = await api("/api/admin/statements/" + encodeURIComponent(id));
+      if (!r.ok) { showToast(r.data.error || "Could not open the result."); return; }
+      try {
+        sessionStorage.setItem("transactions", JSON.stringify({
+          headers: r.data.headers, data: r.data.data, page_count: r.data.page_count,
+        }));
+        sessionStorage.setItem("pdfName", String(r.data.filename || "statement").replace(/\.pdf$/i, ""));
+      } catch (e) {}
+      window.location.href = "/results.html";
+    }
+
+    var issueFilter = "open";
+    var issuesData = [];
+    tabs.issues = function () {
+      var el = document.getElementById("panel-issues");
+      el.innerHTML =
+        '<div class="toolbar"><div class="seg" id="issueFilter">' +
+          '<button data-f="open" class="active">Open</button>' +
+          '<button data-f="resolved">Resolved</button>' +
+        '</div></div>' +
+        '<div id="issuesList"><div class="card card-pad state"><div class="spinner"></div></div></div>';
+      el.querySelectorAll("#issueFilter button").forEach(function (b) {
+        b.addEventListener("click", function () {
+          el.querySelectorAll("#issueFilter button").forEach(function (x) { x.classList.remove("active"); });
+          b.classList.add("active");
+          issueFilter = b.getAttribute("data-f");
+          applyIssueFilter();
+        });
+      });
+      fetchIssues();
+    };
+
+    function applyIssueFilter() {
+      var list = issuesData.filter(function (i) {
+        if (issueFilter === "open") return i.status !== "resolved";
+        if (issueFilter === "resolved") return i.status === "resolved";
+        return true;
+      });
+      renderIssues(list);
+    }
+
+    async function fetchIssues() {
+      var r = await api("/api/admin/issues");
+      if (!r.ok) { showToast(r.data.error || "Could not load issues."); return; }
+      issuesData = r.data.issues || [];
+      applyIssueFilter();
+      setNotif("nIssues", issuesData.filter(function (i) { return i.status !== "resolved"; }).length);
+    }
+
+    async function resolveIssue(id, resolved) {
+      var r = await api("/api/admin/statements/" + encodeURIComponent(id) + "/issue/resolve", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ resolved: resolved }),
+      });
+      if (!r.ok) { showToast(r.data.error || "Could not update issue."); return; }
+      showToast(resolved ? "Issue resolved." : "Issue reopened.");
+
+      // Reflect the new state in the Statements view immediately: a resolved
+      // issue becomes a success (moves out of "Issue raised"), and reopening
+      // moves it back — no page refresh needed.
+      for (var i = 0; i < stmtData.length; i++) {
+        if (stmtData[i].id === id) { stmtData[i].issue_status = resolved ? "resolved" : "open"; break; }
+      }
+      refreshStatements();
+
+      fetchIssues();
+    }
+
+    // =====================================================================
+    // Init
+    // =====================================================================
+    // Which sections each role may use, and where it lands by default.
+    var ROLE_SECTIONS = {
+      super_admin: ["dashboard", "users", "statements", "messages", "issues"],
+      admin:       ["dashboard", "statements", "issues", "messages"],
+      salesperson: ["messages"],
+    };
+
+    (async function init() {
+      var r = await api("/api/me");
+      if (!r.data.authenticated) { showGate(true); return; }
+      if (!r.data.is_admin) { showGate(false); return; }
+
+      window.currentRole = r.data.role || "admin";
+      var allowed = ROLE_SECTIONS[window.currentRole] || ["messages"];
+      window.allowedSections = allowed;
+
+      document.getElementById("gate").style.display = "none";
+      document.getElementById("shell").style.display = "flex";
+      var wn = document.getElementById("whoName");
+      if (r.data.name && wn) wn.textContent = r.data.name;
+
+      // Show only the nav items this role is allowed to open.
+      document.querySelectorAll(".nav-opt[data-tab]").forEach(function (t) {
+        var name = t.getAttribute("data-tab");
+        if (allowed.indexOf(name) === -1) { t.style.display = "none"; return; }
+        t.addEventListener("click", function () { activateTab(name); });
+      });
+
+      // Land on the role's first allowed section (activateTab loads its data).
+      activateTab(allowed[0]);
+    })();
+  </script>
+
+</body>
+</html>

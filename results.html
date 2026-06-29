@@ -13,7 +13,7 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <style>
 
@@ -75,7 +75,7 @@
 
     body {
 
-      font-family: Inter, sans-serif;
+      font-family: "Space Grotesk", Inter, sans-serif;
 
       background: var(--bg-soft);
 
@@ -95,41 +95,76 @@
       padding: 24px;
     }
 
-    .topbar {
-
+    /* ---- header bar: brand on the left, actions on the right ---- */
+    .page-head {
       display: flex;
-
       justify-content: space-between;
-
       align-items: center;
-
       gap: 20px;
-
       flex-wrap: wrap;
+      margin-bottom: 22px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      min-width: 0;
+    }
+    .brand-mark {
+      width: 46px;
+      height: 46px;
+      flex-shrink: 0;
+    }
+    .brand-text h1 {
+      font-family: "Space Grotesk", system-ui, sans-serif;
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--ink);
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+    }
+    .brand-text p {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-top: 3px;
+    }
 
+    /* ---- summary strip: matching cards for counts + balances ---- */
+    .summary {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
       margin-bottom: 24px;
     }
-
-    .title {
-      font-family: "Sora", system-ui, sans-serif;
-      display: inline-flex;
-      align-items: baseline;
-      gap: 10px;
-      font-weight: 700;
+    .stat-card {
+      flex: 1 1 200px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 16px 18px;
+      box-shadow: var(--shadow);
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      transition: background 0.25s ease, border 0.25s ease;
     }
-    .title .t-label {
-      font-size: 1.05rem;
-      font-weight: 600;
-      color: var(--text-muted);
-      letter-spacing: 0.01em;
+    .stat-card.accent { border-color: var(--primary); }
+    .sc-icon {
+      width: 42px; height: 42px; border-radius: 12px;
+      display: grid; place-items: center; flex-shrink: 0;
+      background: var(--primary-soft); color: var(--primary);
     }
-    .title .t-count {
-      font-size: 1.05rem;
-      font-weight: 800;
-      color: var(--primary);
-      letter-spacing: 0.01em;
-      font-variant-numeric: tabular-nums;
+    .sc-icon svg { width: 20px; height: 20px; }
+    .sc-label {
+      font-size: 0.66rem; font-weight: 600; letter-spacing: 0.12em;
+      text-transform: uppercase; color: var(--text-muted); white-space: nowrap;
     }
+    .sc-value {
+      font-size: 1.45rem; font-weight: 700; color: var(--text);
+      font-variant-numeric: tabular-nums; line-height: 1.2; white-space: nowrap;
+      letter-spacing: -0.01em;
+    }
+    .stat-card.accent .sc-value { color: var(--primary); }
 
     .actions {
 
@@ -180,39 +215,218 @@
       background: rgba(37,99,235,0.08);
     }
 
-    /* opening / closing balance — compact cards that sit inline in the topbar */
-    .balances {
-      display: flex;
-      gap: 12px;
+    /* ---- Bank-name modal (replaces the native prompt on download) ---- */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(3, 7, 18, 0.62);
+      backdrop-filter: blur(2px);
+      display: none;
       align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 20px;
     }
-    .balance-card {
+    .modal-overlay.open { display: flex; }
+    .modal-card {
+      position: relative;
+      width: min(420px, 100%);
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 8px 14px;
+      border-radius: 16px;
       box-shadow: var(--shadow);
+      padding: 26px 24px 22px;
+      animation: modalPop 0.16s ease-out;
+    }
+    @keyframes modalPop {
+      from { opacity: 0; transform: translateY(8px) scale(0.98); }
+      to   { opacity: 1; transform: none; }
+    }
+    .modal-title {
+      font-family: "Sora", sans-serif;
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--ink);
+      margin: 0 0 4px;
+    }
+    .modal-sub {
+      font-size: 0.84rem;
+      color: var(--muted);
+      margin: 0 0 16px;
+    }
+    .modal-input {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--bg-soft);
+      color: var(--ink);
+      font-size: 0.95rem;
+      font-family: "Space Grotesk", sans-serif;
+      outline: none;
+      transition: 0.2s ease;
+    }
+    .modal-input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px var(--primary-soft);
+    }
+    .modal-error {
+      color: var(--danger);
+      font-size: 0.8rem;
+      margin: 8px 2px 0;
+      min-height: 1.1em;
+    }
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 16px;
+    }
+    .modal-close {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      width: 32px;
+      height: 32px;
+      border-radius: 9px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text-muted);
+      cursor: pointer;
       display: flex;
       align-items: center;
-      gap: 10px;
-      transition: background 0.25s ease, border 0.25s ease;
+      justify-content: center;
+      transition: 0.2s ease;
     }
-    .balance-card.closing { border-color: var(--primary); }
-    .bc-icon {
-      width: 30px; height: 30px; border-radius: 8px;
-      display: grid; place-items: center; flex-shrink: 0;
-      background: var(--primary-soft); color: var(--primary);
+    .modal-close:hover {
+      background: rgba(248,113,113,0.12);
+      color: var(--danger);
     }
-    .bc-icon svg { width: 16px; height: 16px; }
-    .bc-label {
-      font-size: 0.62rem; font-weight: 600; letter-spacing: 0.05em;
-      text-transform: uppercase; color: var(--text-muted); white-space: nowrap;
+    .modal-field { margin-bottom: 14px; }
+    .modal-label {
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin: 0 2px 6px;
     }
-    .bc-value {
-      font-size: 1.05rem; font-weight: 700; color: var(--text);
-      font-variant-numeric: tabular-nums; line-height: 1.25; white-space: nowrap;
+    .modal-dates {
+      display: flex;
+      gap: 12px;
     }
-    .balance-card.closing .bc-value { color: var(--primary); }
+    .modal-dates .modal-field {
+      flex: 1;
+      margin-bottom: 0;
+    }
+    .modal-input[type="date"] {
+      /* keep the native picker icon visible in dark mode */
+      color-scheme: light dark;
+    }
+
+    .home-btn {
+
+      display: inline-flex;
+
+      align-items: center;
+
+      justify-content: center;
+
+      padding: 12px;
+    }
+
+    .home-btn svg {
+
+      width: 18px;
+
+      height: 18px;
+    }
+
+    #viewPdfBtn svg {
+
+      color: var(--primary);
+    }
+
+    /* segmented light/dark switch — mirrors index.html */
+    .theme-switch {
+      display: inline-flex; align-items: center; gap: 2px;
+      padding: 4px; border-radius: 999px;
+      background: var(--bg-soft); border: 1px solid var(--border);
+      cursor: pointer; transition: border-color 0.18s ease;
+    }
+    .theme-switch:hover { border-color: var(--primary); }
+    .theme-switch .seg {
+      width: 30px; height: 30px; border-radius: 999px;
+      display: grid; place-items: center; color: var(--muted);
+      transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+    }
+    .theme-switch .seg svg { width: 16px; height: 16px; display: block; }
+    /* highlight the active mode */
+    [data-theme="light"] .theme-switch .seg-sun {
+      background: var(--surface); color: #f59e0b; box-shadow: 0 1px 3px rgba(15,23,42,0.12);
+    }
+    [data-theme="dark"] .theme-switch .seg-moon {
+      background: var(--surface); color: #93c5fd; box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+    }
+
+    /* full-screen PDF viewer */
+    .pdf-viewer {
+
+      position: fixed;
+
+      inset: 0;
+
+      z-index: 1000;
+
+      display: flex;
+
+      flex-direction: column;
+
+      background: var(--bg);
+    }
+
+    .pdf-bar {
+
+      display: flex;
+
+      align-items: center;
+
+      gap: 12px;
+
+      padding: 12px 16px;
+
+      border-bottom: 1px solid var(--border);
+
+      background: var(--surface);
+    }
+
+    .pdf-title {
+
+      font-weight: 600;
+
+      color: var(--text);
+
+      overflow: hidden;
+
+      text-overflow: ellipsis;
+
+      white-space: nowrap;
+    }
+
+    .pdf-frame {
+
+      flex: 1;
+
+      width: 100%;
+
+      border: none;
+    }
+
+    /* The opening/closing balance wrapper participates directly in the
+       .summary flex row (its two cards become flex siblings of the count
+       cards) — renderBalances() flips it from none to contents. */
+    #balances { display: contents; }
 
     .table-container {
 
@@ -334,6 +548,20 @@
     }
     tbody tr.editing { background: rgba(37,99,235,0.06); }
 
+    /* the kebab + name inputs sit on the blue header, so make them white */
+    thead .act-btn { color: #fff; }
+    thead .act-btn:hover { background: rgba(255,255,255,0.18); color: #fff; }
+    .head-input {
+      width: 100%; box-sizing: border-box;
+      padding: 6px 8px; font-size: 0.85rem; font-weight: 600; font-family: inherit;
+      color: #fff; background: rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.5); border-radius: 6px;
+    }
+    .head-input::placeholder { color: rgba(255,255,255,0.7); }
+    .head-input:focus {
+      outline: none; border-color: #fff; background: rgba(255,255,255,0.25);
+    }
+
     .empty-state {
 
       padding: 80px 20px;
@@ -356,8 +584,10 @@
         padding: 12px;
       }
 
-      .title .t-count { font-size: 0.95rem; }
-      .title .t-label { font-size: 0.95rem; }
+      .brand-text h1 { font-size: 1.2rem; }
+
+      .stat-card { flex-basis: 150px; padding: 14px; }
+      .sc-value { font-size: 1.2rem; }
 
       .actions {
 
@@ -378,32 +608,40 @@
 
 <div class="container">
 
-  <div class="topbar">
+  <header class="page-head">
 
-    <div class="title" id="title">Total Transactions</div>
+    <div class="brand">
 
-    <div class="balances" id="balances" style="display:none">
-      <div class="balance-card opening">
-        <span class="bc-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
-        </span>
-        <div>
-          <div class="bc-label">Opening Balance</div>
-          <div class="bc-value" id="openingBalance">—</div>
-        </div>
+      <img src="assets/favicon-256.png" alt="Ledgerit" class="brand-mark" />
+
+      <div class="brand-text">
+        <h1>Extracted Transactions</h1>
+        <p>Review, edit and export your statement data</p>
       </div>
-      <div class="balance-card closing">
-        <span class="bc-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
-        </span>
-        <div>
-          <div class="bc-label">Closing Balance</div>
-          <div class="bc-value" id="closingBalance">—</div>
-        </div>
-      </div>
+
     </div>
 
     <div class="actions">
+
+      <button
+        class="btn theme-btn home-btn"
+        onclick="window.location.href='/upload.html'"
+        title="Home"
+        aria-label="Home"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5 12 3l9 6.5"/><path d="M5 10v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V10"/><path d="M9 21v-6h6v6"/></svg>
+      </button>
+
+      <button
+        class="btn theme-btn home-btn"
+        id="viewPdfBtn"
+        onclick="openPdf()"
+        title="View PDF"
+        aria-label="View PDF"
+        style="display:none"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      </button>
 
       <button
         class="btn"
@@ -419,17 +657,63 @@
         Download CSV
       </button>
 
-      <button
-        class="btn theme-btn"
-        onclick="toggleTheme()"
-        id="themeBtn"
-      >
-        🌙 Dark
+      <button class="theme-switch" id="themeToggle" type="button" role="switch" aria-label="Toggle light/dark mode" onclick="toggleTheme()">
+        <span class="seg seg-sun" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+        </span>
+        <span class="seg seg-moon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        </span>
       </button>
 
     </div>
 
-  </div>
+  </header>
+
+  <section class="summary">
+
+    <div class="stat-card accent" id="pagesCard" style="display:none">
+      <span class="sc-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8 12 4l8 4-8 4z"/><path d="m4 12 8 4 8-4"/><path d="m4 16 8 4 8-4"/></svg>
+      </span>
+      <div>
+        <div class="sc-label">Total pages</div>
+        <div class="sc-value" id="pagesValue">—</div>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <span class="sc-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+      </span>
+      <div>
+        <div class="sc-label">Total transactions</div>
+        <div class="sc-value" id="txnValue">—</div>
+      </div>
+    </div>
+
+    <div id="balances" style="display:none">
+      <div class="stat-card">
+        <span class="sc-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+        </span>
+        <div>
+          <div class="sc-label">Opening Balance</div>
+          <div class="sc-value" id="openingBalance">—</div>
+        </div>
+      </div>
+      <div class="stat-card accent">
+        <span class="sc-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+        </span>
+        <div>
+          <div class="sc-label">Closing Balance</div>
+          <div class="sc-value" id="closingBalance">—</div>
+        </div>
+      </div>
+    </div>
+
+  </section>
 
   <div class="table-container">
 
@@ -455,6 +739,20 @@
 
 <!-- shared row-action popup menu (positioned at the clicked row) -->
 <div id="rowMenu" class="act-menu" role="menu"></div>
+
+<!-- full-screen PDF viewer overlay -->
+<div id="pdfViewer" class="pdf-viewer" style="display:none">
+  <div class="pdf-bar">
+    <button class="btn theme-btn home-btn" onclick="closePdf()" title="Back" aria-label="Back">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+    </button>
+    <button class="btn theme-btn home-btn" onclick="window.location.href='/upload.html'" title="Home" aria-label="Home">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5 12 3l9 6.5"/><path d="M5 10v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V10"/><path d="M9 21v-6h6v6"/></svg>
+    </button>
+    <span class="pdf-title" id="pdfTitle">PDF</span>
+  </div>
+  <iframe id="pdfFrame" class="pdf-frame" title="Statement PDF"></iframe>
+</div>
 
 <script>
 
@@ -490,31 +788,201 @@
   const editing = new Set();    // rows currently shown as input fields
   const freshRows = new Set();  // newly added rows (Cancel removes them)
   const snapshots = new Map();  // row -> JSON snapshot, to revert an edit
+  let editingHead = false;      // header row is in column-rename mode
 
-  // Shared helper used by both Download XML and Download CSV. Pops up a
-  // browser prompt asking the user for the bank name; pre-fills it with
-  // a camelCase suggestion derived from the PDF filename, which the user
-  // can accept (just press OK) or overwrite. Returns the trimmed bank
-  // name, or null if the user cancelled or left it blank — callers must
-  // abort their download when null is returned.
-  function askBankName() {
+  // Shared helper used by both Download XML and Download CSV. Opens a centered
+  // in-page modal asking for the bank name (pre-filled with a camelCase
+  // suggestion from the PDF filename) and the export period (pre-filled with
+  // the statement's own first/last transaction dates, and bounded to them).
+  // Returns a Promise resolving to { bankName, startISO, endISO, dateCol }, or
+  // null if the user closed/cancelled — callers must await it and abort when
+  // null is returned.
+  function askExportOptions() {
 
-    const suggestion = toCamel(pdfName);
+    const overlay = document.getElementById("bankModal");
+    const input = document.getElementById("bankModalInput");
+    const startEl = document.getElementById("bankModalStart");
+    const endEl = document.getElementById("bankModalEnd");
+    const errorEl = document.getElementById("bankModalError");
+    const downloadBtn = document.getElementById("bankModalDownload");
+    const closeBtn = document.getElementById("bankModalClose");
 
-    const input = prompt("Bank Name", suggestion);
+    input.value = toCamel(pdfName);
+    errorEl.textContent = "";
 
-    if (input === null) return null;   // user clicked Cancel
+    // Default the period to the statement's own date span, and stop the user
+    // picking dates outside it (there's no data there anyway).
+    const { col, minISO, maxISO } = statementRange(stored.headers, stored.data);
+    const hasDates = !!col;
+    [startEl, endEl].forEach(el => {
+      el.disabled = !hasDates;
+      el.min = minISO;
+      el.max = maxISO;
+    });
+    startEl.value = minISO;
+    endEl.value = maxISO;
 
-    const trimmed = input.trim();
+    return new Promise(resolve => {
 
-    if (!trimmed) {
+      let settled = false;
 
-      alert("Bank name is required.");
+      function cleanup(result) {
+        if (settled) return;
+        settled = true;
+        overlay.classList.remove("open");
+        downloadBtn.removeEventListener("click", onDownload);
+        closeBtn.removeEventListener("click", onCancel);
+        overlay.removeEventListener("mousedown", onOverlay);
+        document.removeEventListener("keydown", onKey);
+        resolve(result);
+      }
 
+      function onDownload() {
+        const trimmed = input.value.trim();
+        if (!trimmed) {
+          errorEl.textContent = "Bank name is required.";
+          input.focus();
+          return;
+        }
+        const startISO = startEl.value;
+        const endISO = endEl.value;
+        if (startISO && endISO && startISO > endISO) {
+          errorEl.textContent = "Start date must be on or before end date.";
+          return;
+        }
+        cleanup({ bankName: trimmed, startISO, endISO, dateCol: col });
+      }
+      function onCancel() { cleanup(null); }
+      // Click on the dimmed backdrop (outside the card) cancels too.
+      function onOverlay(e) { if (e.target === overlay) cleanup(null); }
+      function onKey(e) {
+        if (e.key === "Escape") cleanup(null);
+        else if (e.key === "Enter") onDownload();
+      }
+
+      downloadBtn.addEventListener("click", onDownload);
+      closeBtn.addEventListener("click", onCancel);
+      overlay.addEventListener("mousedown", onOverlay);
+      document.addEventListener("keydown", onKey);
+
+      overlay.classList.add("open");
+      input.focus();
+      input.select();
+    });
+  }
+
+  // Normalise any recognised date to a single display format: dd/mm/yyyy.
+  // Statements arrive in many shapes (2025-06-30, 30-Jun-2025, June30, 2025,
+  // 30.06.2025 ...); this returns dd/mm/yyyy, or null when the value isn't a
+  // date. Indian statements are day-first, matching toTallyDate's assumption.
+  const _DISP_MONTHS = {
+    jan:"01", feb:"02", mar:"03", apr:"04", may:"05", jun:"06",
+    jul:"07", aug:"08", sep:"09", oct:"10", nov:"11", dec:"12"
+  };
+  function toDisplayDate(raw) {
+    if (!raw) return null;
+    const s = String(raw).trim();
+
+    // Textual month anywhere ("June30, 2025", "03-May-2026", "03 May 2026").
+    const monMatch = s.match(/[A-Za-z]{3,}/);
+    if (monMatch) {
+      const mm = _DISP_MONTHS[monMatch[0].slice(0, 3).toLowerCase()];
+      if (!mm) return null;
+      const rest = s.replace(monMatch[0], " ");
+      const y = rest.match(/\b(\d{4})\b/);
+      const d = rest.match(/\b(\d{1,2})\b/);
+      if (y && d) return `${d[1].padStart(2, "0")}/${mm}/${y[1]}`;
       return null;
     }
 
-    return trimmed;
+    // Numeric / delimiter-separated dates.
+    const parts = s.split(/[\-\/.]/);
+    if (parts.length === 3 && parts.every(p => p && /^\d+$/.test(p))) {
+      const [a, b, c] = parts;
+      if (a.length === 4) return `${c.padStart(2,"0")}/${b.padStart(2,"0")}/${a}`;       // YYYY-MM-DD
+      if (c.length === 4) return `${a.padStart(2,"0")}/${b.padStart(2,"0")}/${c}`;       // DD-MM-YYYY
+      if (c.length === 2) return `${a.padStart(2,"0")}/${b.padStart(2,"0")}/20${c}`;     // DD-MM-YY
+    }
+    return null;
+  }
+
+  // Sortable ISO (yyyy-mm-dd) for a date cell, for range comparisons and the
+  // <input type="date"> value. null when the value isn't a date.
+  function dispToISO(raw) {
+    const disp = toDisplayDate(raw);
+    if (!disp) return null;
+    const [d, m, y] = disp.split("/");
+    return `${y}-${m}-${d}`;
+  }
+
+  // The header of the (single) date column, detected by content: the column
+  // whose non-empty cells most often parse as dates. null if none qualifies.
+  function findDateCol(headers, data) {
+    if (!headers || !data) return null;
+    let best = null, bestHits = 0;
+    headers.forEach(h => {
+      let hits = 0, total = 0;
+      data.forEach(r => {
+        const v = String(r[h] ?? "").trim();
+        if (!v) return;
+        total++;
+        if (dispToISO(v)) hits++;
+      });
+      if (total >= 2 && hits / total >= 0.6 && hits > bestHits) {
+        best = h; bestHits = hits;
+      }
+    });
+    return best;
+  }
+
+  // Earliest / latest transaction date (ISO) in the statement, used as the
+  // default export period. Empty strings when there's no date column.
+  function statementRange(headers, data) {
+    const col = findDateCol(headers, data);
+    if (!col) return { col: null, minISO: "", maxISO: "" };
+    let min = null, max = null;
+    data.forEach(r => {
+      const iso = dispToISO(r[col]);
+      if (!iso) return;
+      if (min === null || iso < min) min = iso;
+      if (max === null || iso > max) max = iso;
+    });
+    return { col, minISO: min || "", maxISO: max || "" };
+  }
+
+  // Keep only rows whose date falls inside [startISO, endISO] (inclusive).
+  // Undated rows (continuations / summary lines) are always kept.
+  function filterByPeriod(data, col, startISO, endISO) {
+    if (!col || (!startISO && !endISO)) return data;
+    return data.filter(r => {
+      const iso = dispToISO(r[col]);
+      if (!iso) return true;
+      if (startISO && iso < startISO) return false;
+      if (endISO && iso > endISO) return false;
+      return true;
+    });
+  }
+
+  // Reformat every cell of each date column in place. A column counts as a date
+  // column when most of its non-empty cells parse as dates, so it works no
+  // matter what the header is called (Date / Post Date / Value Date / Txn Dt).
+  function normalizeDates(headers, data) {
+    if (!headers || !data) return;
+    headers.forEach(h => {
+      let hits = 0, total = 0;
+      data.forEach(r => {
+        const v = String(r[h] ?? "").trim();
+        if (!v) return;
+        total++;
+        if (toDisplayDate(v)) hits++;
+      });
+      if (total >= 2 && hits / total >= 0.6) {
+        data.forEach(r => {
+          const d = toDisplayDate(r[h]);
+          if (d) r[h] = d;
+        });
+      }
+    });
   }
 
   if (
@@ -530,10 +998,34 @@
       .style.display = "block";
 
   } else {
+    normalizeDates(stored.headers, stored.data);
     updateCount();
     buildHead();
     renderBody();
     renderBalances(stored.headers, stored.data);
+
+    // The source PDF is only available when the extraction was persisted
+    // (logged-in upload, or a saved statement opened from statements.html).
+    if (stored.statement_id) {
+      document.getElementById("viewPdfBtn").style.display = "";
+    }
+  }
+
+  // ---------- full-screen PDF viewer ----------
+  function openPdf() {
+    if (!stored || !stored.statement_id) return;
+    const frame = document.getElementById("pdfFrame");
+    frame.src =
+      "/api/statements/" +
+      encodeURIComponent(stored.statement_id) +
+      "/pdf?inline=1";
+    document.getElementById("pdfTitle").textContent = pdfName + ".pdf";
+    document.getElementById("pdfViewer").style.display = "flex";
+  }
+
+  function closePdf() {
+    document.getElementById("pdfViewer").style.display = "none";
+    document.getElementById("pdfFrame").src = "";  // stop rendering / free memory
   }
 
   // ---------- editable table rendering ----------
@@ -544,16 +1036,28 @@
   function escAttr(s) { return escHtml(s).replace(/"/g, "&quot;"); }
 
   function updateCount() {
-    document.getElementById("title").innerHTML =
-      `<span class="t-label">Total transactions found</span>` +
-      `<span class="t-count">${Number(stored.data.length).toLocaleString("en-IN")}</span>`;
+    const pages = Number(stored.page_count) || 0;
+    const pagesCard = document.getElementById("pagesCard");
+    if (pages > 0) {
+      document.getElementById("pagesValue").textContent =
+        pages.toLocaleString("en-IN");
+      pagesCard.style.display = "flex";
+    } else {
+      pagesCard.style.display = "none";
+    }
+    document.getElementById("txnValue").textContent =
+      Number(stored.data.length).toLocaleString("en-IN");
   }
 
   function buildHead() {
-    document.getElementById("tableHead").innerHTML =
-      "<tr>" +
-      stored.headers.map(h => `<th>${escHtml(h)}</th>`).join("") +
-      `<th class="act-col">Action</th></tr>`;
+    const ths = stored.headers.map((h, i) => editingHead
+      ? `<th><input class="head-input" data-i="${i}" value="${escAttr(h)}" /></th>`
+      : `<th>${escHtml(h)}</th>`
+    ).join("");
+    const act =
+      `<th class="act-col"><button class="act-btn" type="button" ` +
+      `onclick="openHeadMenu(event)" aria-label="Header actions">&#8942;</button></th>`;
+    document.getElementById("tableHead").innerHTML = "<tr>" + ths + act + "</tr>";
   }
 
   // Classify a column by its header so its edit input can be type-restricted.
@@ -623,6 +1127,66 @@
   }
   document.addEventListener("click", closeMenus);
   window.addEventListener("scroll", closeMenus, true);
+
+  // ---------- header (column-name) actions ----------
+  function openHeadMenu(e) {
+    e.stopPropagation();
+    const menu = document.getElementById("rowMenu");
+    if (menu.style.display === "block" && menu.dataset.row === "head") {
+      closeMenus();
+      return;
+    }
+    menu.dataset.row = "head";
+    menu.innerHTML = editingHead
+      ? `<button type="button" onclick="saveHead()">Save</button>` +
+        `<button type="button" class="danger" onclick="cancelHead()">Cancel</button>`
+      : `<button type="button" onclick="startEditHead()">Edit</button>`;
+    menu.style.display = "block";
+    const b = e.currentTarget.getBoundingClientRect();
+    const mw = menu.offsetWidth, mh = menu.offsetHeight;
+    let top = b.bottom + 4, left = b.right - mw;
+    if (top + mh > window.innerHeight) top = Math.max(8, b.top - mh - 4);
+    if (left < 8) left = 8;
+    menu.style.top = top + "px";
+    menu.style.left = left + "px";
+  }
+
+  function startEditHead() {
+    editingHead = true;
+    closeMenus();
+    buildHead();
+    const inp = document.querySelector("#tableHead input.head-input");
+    if (inp) inp.focus();
+  }
+
+  function saveHead() {
+    const oldHeaders = stored.headers.slice();
+    const newHeaders = oldHeaders.slice();
+    document.querySelectorAll("#tableHead input.head-input").forEach(inp => {
+      const i = parseInt(inp.getAttribute("data-i"), 10);
+      const v = inp.value.trim();
+      if (v) newHeaders[i] = v;        // keep the old name if left blank
+    });
+    // rename the key on every row in place (preserves row identity), so the
+    // table, downloads and balances all follow the new column names.
+    stored.data.forEach(row => {
+      const vals = oldHeaders.map(h => row[h]);
+      oldHeaders.forEach(h => { delete row[h]; });
+      newHeaders.forEach((h, i) => { row[h] = vals[i]; });
+    });
+    stored.headers = newHeaders;
+    editingHead = false;
+    closeMenus();
+    buildHead();
+    renderBody();
+    try { sessionStorage.setItem("transactions", JSON.stringify(stored)); } catch (e) {}
+  }
+
+  function cancelHead() {
+    editingHead = false;       // headers untouched until Save, so just exit
+    closeMenus();
+    buildHead();
+  }
 
   // Live input filtering for edit cells: strip characters that don't belong
   // in date / amount columns (e.g. alphabets) as the user types. Attached once
@@ -740,7 +1304,12 @@
     let debitCol  = findCol("withdrawal", "debit", "dr amount", "dr amt");
     let creditCol = findCol("deposit", "credit", "cr amount", "cr amt");
     let amountCol = null, flagCol = null;
-    if (!debitCol || !creditCol) {
+    if (debitCol && debitCol === creditCol) {
+      // A single combined "Debit / Credit" column holds the amount plus an
+      // embedded DR/CR marker (e.g. "9,331,915.00 CR") — read it as amount+flag.
+      amountCol = flagCol = debitCol;
+      debitCol = creditCol = null;
+    } else if (!debitCol || !creditCol) {
       amountCol = findCol("amount", "amt", "transaction amount");
       flagCol   = findCol("dr / cr", "cr / dr", "dr/cr", "cr/dr", "drcr",
                           "crdr", "type", "txn type", "transaction type");
@@ -782,7 +1351,7 @@
 
     document.getElementById("openingBalance").textContent = fmt(opening);
     document.getElementById("closingBalance").textContent = fmt(closing);
-    document.getElementById("balances").style.display = "flex";
+    document.getElementById("balances").style.display = "contents";
   }
 
   function initializeTheme() {
@@ -794,8 +1363,6 @@
       "data-theme",
       savedTheme
     );
-
-    updateThemeButton(savedTheme);
   }
 
   function toggleTheme() {
@@ -814,31 +1381,23 @@
     );
 
     localStorage.setItem("theme", next);
-
-    updateThemeButton(next);
   }
 
-  function updateThemeButton(theme) {
-
-    document.getElementById("themeBtn").textContent =
-
-      theme === "dark"
-      ? "Light"
-      : "Dark";
-  }
-
-  function downloadXML() {
+  async function downloadXML() {
 
     if (!stored || !stored.data) return;
 
     const headers = stored.headers;
-    const data = stored.data;
 
-    // Ask the user for the bank name via a popup. If they cancel or
-    // leave it blank, abort the download — every voucher needs a real
-    // ledger identifier in <PARTYLEDGERNAME>.
-    const bankName = askBankName();
-    if (!bankName) return;
+    // Ask for the bank name + export period via the modal. If they cancel or
+    // leave the name blank, abort — every voucher needs a real ledger
+    // identifier in <PARTYLEDGERNAME>.
+    const opts = await askExportOptions();
+    if (!opts) return;
+    const { bankName, startISO, endISO, dateCol: periodCol } = opts;
+
+    // Restrict the export to the chosen period.
+    const data = filterByPeriod(stored.data, periodCol, startISO, endISO);
 
     const esc = v => String(v ?? "")
       // strip ASCII control chars (Tally rejects most of these in text nodes)
@@ -873,7 +1432,13 @@
     // ("Amount (INR)" + "DR/CR" — Axis Bank, some ICICI exports).
     let amountCol = null;
     let flagCol   = null;
-    if (!debitCol || !creditCol) {
+    if (debitCol && debitCol === creditCol) {
+      // A single combined "Debit / Credit" column holds the amount plus an
+      // embedded DR/CR marker (e.g. "9,331,915.00 CR") — read it as amount+flag.
+      amountCol = flagCol = debitCol;
+      debitCol = null;
+      creditCol = null;
+    } else if (!debitCol || !creditCol) {
       amountCol = findCol("amount", "amt", "transaction amount");
       flagCol   = findCol("dr / cr", "cr / dr", "dr/cr", "cr/dr", "drcr", "crdr", "type", "txn type", "transaction type");
       if (amountCol && flagCol) {
@@ -1340,19 +1905,21 @@
     a.click();
   }
 
-  function downloadCSV() {
+  async function downloadCSV() {
 
     if (!stored || !stored.data) return;
 
-    // Same prompt flow as XML — keeps the two downloads consistent.
+    // Same modal flow as XML — keeps the two downloads consistent.
     // The CSV uses the bank name as the filename so the user can tell
     // which bank's data each downloaded file belongs to.
-    const bankName = askBankName();
-    if (!bankName) return;
+    const opts = await askExportOptions();
+    if (!opts) return;
+    const { bankName, startISO, endISO, dateCol: periodCol } = opts;
 
     const headers = stored.headers;
 
-    const data = stored.data;
+    // Restrict the export to the chosen period.
+    const data = filterByPeriod(stored.data, periodCol, startISO, endISO);
 
     const csvRows = [];
 
@@ -1388,6 +1955,57 @@
   }
 
 </script>
+
+  <!-- Bank-name prompt for downloads (centered modal, replaces window.prompt) -->
+  <div
+    class="modal-overlay"
+    id="bankModal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="bankModalTitle"
+  >
+    <div class="modal-card">
+      <button
+        class="modal-close"
+        id="bankModalClose"
+        type="button"
+        aria-label="Close"
+      >
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+
+      <h3 class="modal-title" id="bankModalTitle">Download options</h3>
+      <p class="modal-sub">Only transactions in the chosen period are exported.</p>
+
+      <div class="modal-field">
+        <label class="modal-label" for="bankModalInput">Bank name</label>
+        <input
+          class="modal-input"
+          id="bankModalInput"
+          type="text"
+          placeholder="e.g. bandhanBank"
+          autocomplete="off"
+        />
+      </div>
+
+      <div class="modal-dates">
+        <div class="modal-field">
+          <label class="modal-label" for="bankModalStart">Start date</label>
+          <input class="modal-input" id="bankModalStart" type="date" />
+        </div>
+        <div class="modal-field">
+          <label class="modal-label" for="bankModalEnd">End date</label>
+          <input class="modal-input" id="bankModalEnd" type="date" />
+        </div>
+      </div>
+
+      <div class="modal-error" id="bankModalError"></div>
+
+      <div class="modal-actions">
+        <button class="btn" id="bankModalDownload" type="button">Download</button>
+      </div>
+    </div>
+  </div>
 
 </body>
 </html>

@@ -158,7 +158,7 @@ Error responses:
 | `No file uploaded` | Request did not include a `pdf` file |
 | `PASSWORD_REQUIRED` | PDF is encrypted and no password was supplied |
 | `WRONG_PASSWORD` | Supplied PDF password was incorrect |
-| `No tables found in PDF` | Camelot could not detect tables in the PDF |
+| `We couldn't read any transactions from this PDF` | Camelot could not detect tables in the PDF |
 
 ## Processing Flow
 

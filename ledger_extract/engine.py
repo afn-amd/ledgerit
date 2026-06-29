@@ -34,6 +34,24 @@ def _linearize(row):
 
 
 
+def _header_has_role(low, kws):
+    """True if header cell text *low* matches any of role keywords *kws*.
+
+    Two-letter markers ("dr"/"cr") are matched as whole words only -- as bare
+    substrings they hit inside ordinary header words ("cr" in "description",
+    "dr" in "address"), which would mis-map the Debit/Credit columns. Longer
+    keywords keep substring matching so plurals ("deposits", "withdrawals")
+    still match their singular keyword.
+    """
+    for k in kws:
+        if len(k) <= 2:
+            if re.search(r"\b%s\b" % re.escape(k), low):
+                return True
+        elif k in low:
+            return True
+    return False
+
+
 def _build_colmap(header_cells):
     """Map role -> column index by scanning header cells for keywords."""
     colmap = {}
@@ -42,7 +60,7 @@ def _build_colmap(header_cells):
         for role, kws in ROLE_KEYWORDS.items():
             if role in colmap:
                 continue
-            if any(k in low for k in kws):
+            if _header_has_role(low, kws):
                 colmap[role] = idx
     return colmap
 

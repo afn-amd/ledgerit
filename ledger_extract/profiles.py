@@ -96,6 +96,18 @@ PROFILES = {
         "header_keywords": None,
         "drop_code_cells": True,
     },
+    "cbi": {
+        # Central Bank of India: Post Date | Value Date | Branch Code | Cheque
+        # Number | Transaction Description | Debit | Credit | Balance. The
+        # header spans two physical rows ("Value/Date", "Cheque/Number"); the
+        # first line carries all the role words, so it's enough to key on. The
+        # balance cell carries an explicit CR/DR marker ("76.14 CR").
+        # drop_code_cells keeps the all-numeric Branch Code (e.g. "01353") and
+        # Cheque Number columns out of the Description.
+        "engine": "columnar",
+        "header_keywords": ["transaction description", "balance"],
+        "drop_code_cells": True,
+    },
     "generic": {
         "engine": "columnar",
         "header_keywords": None,

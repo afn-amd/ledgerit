@@ -350,6 +350,10 @@ _FOOTER_MARKERS = [
     "page no",
     "account branch",
     "statement of account",
+    # Central Bank of India closing block: "* Statement Downloaded By <name>
+    # on <timestamp>" / "END OF STATEMENT - from Internet Banking."
+    "statement downloaded by",
+    "end of statement",
 ]
 
 

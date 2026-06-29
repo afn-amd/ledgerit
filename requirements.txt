@@ -46,10 +46,12 @@ packaging==26.2
 pandas==2.3.3
 pdfminer.six==20260107
 pillow==12.1.1
+pymongo==4.10.1
 propcache==0.4.1
 psutil==7.2.2
 pyarrow==24.0.0
 pycparser==3.0
+pycryptodome==3.23.0
 Pygments==2.20.0
 PyMuPDF==1.27.2.3
 pypdf==3.17.4
