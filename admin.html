@@ -94,9 +94,10 @@
       background: var(--bg); color: var(--ink);
       -webkit-font-smoothing: antialiased;
       transition: background-color 0.2s ease, color 0.2s ease;
+      height: 100vh; overflow: hidden;   /* the page itself never scrolls */
     }
     a { text-decoration: none; color: inherit; }
-    .shell { display: flex; min-height: 100vh; width: 100%; }
+    .shell { display: flex; height: 100vh; width: 100%; overflow: hidden; }
     svg { display: block; }
 
     /* ===================== Sidebar ===================== */
@@ -189,7 +190,7 @@
     .side-toggle .lbl { font-size: 0.875rem; font-weight: 500; }
 
     /* ===================== Main ===================== */
-    .main { flex: 1; background: var(--bg); padding: 24px; overflow: auto; min-width: 0; }
+    .main { flex: 1; background: var(--bg); padding: 24px; overflow: auto; min-width: 0; min-height: 0; height: 100vh; }
 
     .icon-btn {
       display: grid; place-content: center; height: 40px; width: 40px; border-radius: 10px;
@@ -285,13 +286,16 @@
     #issueFilter button.active[data-f="resolved"] { background: #16a34a; color: #fff; border-color: #16a34a; }
     /* messages filter: selected chip is black in light mode, white in dark mode */
     #msgFilter button.active { background: var(--ink); color: var(--surface); box-shadow: var(--shadow-sm); }
-    /* sales status dropdown — coloured like its current state */
-    .status-select { font-family: inherit; font-size: 0.78rem; font-weight: 700; padding: 5px 10px; border-radius: 999px; border: 1px solid; cursor: pointer; }
-    .status-select:focus { outline: none; }
-    .status-select.st-open { color: var(--open-fg); background: var(--open-bg); border-color: var(--open-fg); }
-    .status-select.st-ok { color: var(--ok-fg); background: var(--ok-bg); border-color: var(--ok-fg); }
-    .status-select.st-off { color: var(--danger-fg); background: var(--danger-bg); border-color: var(--danger-fg); }
-    .status-select option { color: var(--ink); background: var(--surface); font-weight: 600; }
+    /* per-row sales status — a colour-only circle that opens a picker */
+    .status-dot-btn { width: 20px; height: 20px; border-radius: 50%; border: none; cursor: pointer; padding: 0; display: inline-block; margin-left: 16px; transition: box-shadow 0.15s ease; }
+    .status-dot-btn:hover { box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px var(--muted-2); }
+    .status-dot-btn.st-open { background: #d97706; }
+    .status-dot-btn.st-ok { background: #16a34a; }
+    .status-dot-btn.st-off { background: #dc2626; }
+    .stat-menu { position: fixed; z-index: 200; display: flex; gap: 8px; padding: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); }
+    .stat-opt { background: none; border: none; cursor: pointer; padding: 4px; border-radius: 6px; display: inline-grid; place-content: center; }
+    .stat-opt:hover { background: var(--hover); }
+    .stat-opt .st-dot { opacity: 1; cursor: pointer; }
     /* header status-dot filters */
     .st-filter { display: inline-flex; gap: 6px; margin-left: 8px; vertical-align: middle; }
     .st-dot { width: 14px; height: 14px; border-radius: 50%; border: none; cursor: pointer; padding: 0; opacity: 0.55; transition: opacity 0.15s ease, box-shadow 0.15s ease; }
@@ -302,9 +306,38 @@
     .st-dot.st-off { background: #dc2626; }
     /* fixed-width sales table: static column sizes so the full data is always
        visible and headers never shift (scrolls horizontally if it overflows). */
-    .sales-table { table-layout: fixed; width: 100%; min-width: 1200px; }
-    .sales-table th, .sales-table td { white-space: nowrap; }
+    .sales-table { table-layout: fixed; width: 100%; }
+    /* Let long values wrap onto multiple lines within their column instead of
+       overflowing into the next one. */
+    .sales-table th, .sales-table td { white-space: normal; overflow-wrap: anywhere; vertical-align: middle; }
     .sales-table .role-select { width: 100%; }
+    /* sales status donut (below the table, right-aligned) with legend in centre */
+    /* Messages panel fills the content area and never grows the page. The
+       table keeps its fixed height and the donut fills the leftover space. */
+    #panel-messages.active { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+    #msgList { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow-y: auto; }
+    #msgList > .card { flex: 0 0 auto; }   /* table card & message cards keep their height */
+    #msgList .feed { display: flex; flex-direction: column; gap: 14px; }
+    .sales-chart { flex: 1 1 auto; min-height: 0; display: flex; gap: 16px; align-items: stretch; justify-content: space-between; overflow: hidden; margin-top: 16px; }
+    /* card hugs the graph (the bar list is a fixed 300px wide) */
+    .typebars-card { flex: 0 0 auto; width: fit-content; align-self: flex-start; max-height: 100%; padding: 16px 18px; display: flex; flex-direction: column; overflow: hidden; }
+    /* fixed height so the card is the same size with few, many, or no bars */
+    .typebars-card .bank-list { flex: 0 0 auto; height: 230px; max-height: 230px; overflow-y: auto; }
+    .typebars-card .bar-row { cursor: pointer; }
+    /* thin scrollbar for the bar list */
+    /* scrollbar thumb: black in light theme, white in dark theme (var(--ink)) */
+    .typebars-card .bank-list { scrollbar-width: thin; scrollbar-color: var(--ink) transparent; }
+    .typebars-card .bank-list::-webkit-scrollbar { width: 6px; }
+    .typebars-card .bank-list::-webkit-scrollbar-track { background: transparent; }
+    .typebars-card .bank-list::-webkit-scrollbar-thumb { background: var(--ink); border-radius: 3px; }
+    .typebars-card .bank-list::-webkit-scrollbar-thumb:hover { background: var(--ink); }
+    .donut-card { flex: 0 0 auto; height: 100%; max-height: 360px; padding: 12px; display: flex; align-items: center; justify-content: center; }
+    .donut-wrap { position: relative; height: 100%; aspect-ratio: 1 / 1; width: auto; }
+    .donut { width: 100%; height: 100%; }
+    .donut-legend { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; pointer-events: none; }
+    .donut-legend > div { display: flex; align-items: center; gap: 7px; font-size: 0.92rem; color: var(--muted); white-space: nowrap; pointer-events: auto; }
+    .donut-legend b { color: var(--ink); font-variant-numeric: tabular-nums; }
+    .donut-legend .ld { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; }
     /* Type column dropdown filter */
     .th-filter { position: relative; display: inline-flex; align-items: center; margin-left: 4px; vertical-align: middle; }
     .th-arrow { background: none; border: none; cursor: pointer; color: var(--muted-2); padding: 2px; display: inline-grid; place-content: center; border-radius: 4px; }
@@ -1102,10 +1135,17 @@
       tbody.querySelectorAll("tr.filler").forEach(function (f) { f.remove(); });
       var trs = tbody.querySelectorAll("tr");
 
-      // Spinner / empty-state placeholder (single full-width cell): don't
-      // reserve 5 rows — let it size naturally.
+      if (!trs.length) { scroll.style.height = ""; return; }
+
+      // Empty-state placeholder (single full-width cell): still reserve the full
+      // 5-row height so the table (and charts below) stay put.
       var placeholder = trs.length === 1 && trs[0].querySelector("td[colspan]");
-      if (!trs.length || placeholder) { scroll.style.height = ""; return; }
+      if (placeholder) {
+        var rh0 = stmtRowH || 56;
+        trs[0].style.height = (rh0 * VISIBLE_ROWS) + "px";
+        scroll.style.height = (thead.offsetHeight + rh0 * VISIBLE_ROWS + 1) + "px";
+        return;
+      }
 
       // Use one uniform row height for every row, kept as the tallest natural
       // row seen across renders so the table is the SAME size for every filter.
@@ -1382,6 +1422,7 @@
     var salesStatusFilter = "all";   // sales table: "all" | "open" | "purchased" | "not_purchased"
     var salesTypeFilter = "all";     // sales table: "all" | <org_type>
     var salesPersonFilter = "all";   // sales table: "all" | "__unassigned" | <salesperson>
+    var salesRowH = 0;               // uniform sales-row height, shared across filters
     function renderMessages(list) {
       var el = document.getElementById("panel-messages").querySelector("#msgList");
       if (!list.length) {
@@ -1446,22 +1487,81 @@
       else renderMessages(list);
     }
 
+    // Donut of the sales status breakdown, with the legend in its centre.
+    function buildStatusDonut(list) {
+      var open = 0, purchased = 0, notp = 0;
+      list.forEach(function (m) {
+        if (m.status === "purchased") purchased++;
+        else if (m.status === "not_purchased") notp++;
+        else open++;
+      });
+      var total = open + purchased + notp;
+      var segs = [
+        { v: open, color: "#d97706", label: "Open", key: "open" },
+        { v: purchased, color: "#16a34a", label: "Purchased", key: "purchased" },
+        { v: notp, color: "#dc2626", label: "Not purchased", key: "not_purchased" },
+      ];
+      // r=15.915 → circumference ≈ 100, so a segment's % maps straight to the
+      // dash length. Sequential offsets lay the slices end-to-end.
+      var ring = '<circle cx="21" cy="21" r="15.915" fill="none" stroke="var(--track)" stroke-width="3.25"/>';
+      var labels = "";
+      if (total) {
+        var acc = 0, accFrac = 0;
+        segs.forEach(function (s) {
+          if (!s.v) return;
+          var frac = s.v / total;
+          var pct = frac * 100;
+          var active = salesStatusFilter === s.key;
+          var da = pct.toFixed(2) + ' ' + (100 - pct).toFixed(2);
+          var off = (-acc).toFixed(2);
+          // Full-colour band — its exposed edges form the thin segment border.
+          ring += '<circle cx="21" cy="21" r="15.915" fill="none" stroke="' + s.color + '" stroke-width="3.25" stroke-dasharray="' + da + '" stroke-dashoffset="' + off + '" data-statseg="' + s.key + '" style="cursor:pointer"/>';
+          // Lighter interior for non-active segments (leaves a thin colour border);
+          // the active one stays fully coloured (darkened).
+          if (!active) {
+            ring += '<circle cx="21" cy="21" r="15.915" fill="none" stroke="var(--surface)" stroke-width="2.1" stroke-dasharray="' + da + '" stroke-dashoffset="' + off + '" opacity="0.6" style="pointer-events:none"/>';
+          }
+          // percentage label, placed just outside the ring at the slice midpoint
+          var ang = ((accFrac + frac / 2) * 360 - 90) * Math.PI / 180;
+          var lr = 21.5;
+          var x = 21 + lr * Math.cos(ang);
+          var y = 21 + lr * Math.sin(ang);
+          labels += '<text x="' + x.toFixed(2) + '" y="' + y.toFixed(2) + '" text-anchor="middle" dominant-baseline="central" font-size="3" font-weight="700" fill="' + s.color + '">' + Math.round(pct) + '%</text>';
+          acc += pct; accFrac += frac;
+        });
+      }
+      // Legend: colour circle + number only (no labels); clickable to filter.
+      var legend = segs.map(function (s) {
+        var dim = (salesStatusFilter !== "all" && s.key !== salesStatusFilter) ? ";opacity:0.4" : "";
+        return '<div data-statseg="' + s.key + '" style="cursor:pointer' + dim + '"><span class="ld" style="background:' + s.color + '"></span><b>' + s.v + '</b></div>';
+      }).join("");
+      return '<div class="card donut-card"><div class="donut-wrap">' +
+        '<svg class="donut" viewBox="-4 -4 50 50"><g transform="rotate(-90 21 21)">' + ring + '</g>' + labels + '</svg>' +
+        '<div class="donut-legend">' + legend + '</div></div></div>';
+    }
+
+    // Ranked horizontal bars of sales enquiries by organisation type. Clicking a
+    // bar filters the table (and the donut) to that type; clicking it again clears.
+    function buildTypeBars(list) {
+      var counts = {};
+      list.forEach(function (m) { var t = (m.org_type || "").trim() || "—"; counts[t] = (counts[t] || 0) + 1; });
+      var items = rankByCount(counts);
+      var sel = salesTypeFilter === "all" ? null : salesTypeFilter;
+      return '<div class="card typebars-card">' +
+        barListHtml(items, sel, "data-typebar", "No sales enquiries yet.") + '</div>';
+    }
+
     // Sales enquiries as a table with an editable salesperson and toggle status.
     function renderSalesTable(list) {
       var el = document.getElementById("msgList");
-      if (!list.length) {
-        el.innerHTML = '<div class="card card-pad state"><div class="sic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div><h2>No sales enquiries</h2><p>Sales-form submissions show up here.</p></div>';
-        return;
-      }
+      // Always render the table (even with no/few rows) so it keeps its 5-row
+      // height; the empty message shows inside it.
       // 3-state outcome chosen from a dropdown.
       var SALES_STATUS = {
         open:          { cls: "open" },
         purchased:     { cls: "ok" },
         not_purchased: { cls: "off" },
       };
-      function statusOption(val, label, cur) {
-        return '<option value="' + val + '"' + (cur === val ? " selected" : "") + '>' + label + '</option>';
-      }
       var isSuper = window.currentRole === "super_admin";
       // Unique org types for the Type dropdown; salespeople come from the
       // dedicated list (actual salesperson accounts).
@@ -1480,6 +1580,26 @@
         }
         return true;
       });
+      // For the donut: same type/salesperson scope but ALL statuses (so it
+      // always shows the full Open/Purchased/Not-purchased breakdown).
+      var donutList = list.filter(function (m) {
+        if (salesTypeFilter !== "all" && (m.org_type || "") !== salesTypeFilter) return false;
+        if (salesPersonFilter !== "all") {
+          if (salesPersonFilter === "__unassigned" ? !!m.salesperson_id : m.salesperson_id !== salesPersonFilter) return false;
+        }
+        return true;
+      });
+      // For the type bars: reflect the OTHER filters (status + salesperson) but
+      // NOT type itself, so every type stays visible and re-selectable.
+      var typeScope = list.filter(function (m) {
+        var cur = SALES_STATUS[m.status] ? m.status : "open";
+        if (salesStatusFilter !== "all" && cur !== salesStatusFilter) return false;
+        if (salesPersonFilter !== "all") {
+          if (salesPersonFilter === "__unassigned" ? !!m.salesperson_id : m.salesperson_id !== salesPersonFilter) return false;
+        }
+        return true;
+      });
+
       function dot(sf, cls) {
         return '<button type="button" class="st-dot st-' + cls + (salesStatusFilter === sf ? ' active' : '') + '" data-sf="' + sf + '"></button>';
       }
@@ -1516,11 +1636,9 @@
         var name = ((m.first_name || "") + " " + (m.last_name || "")).trim() || "—";
         var cur = SALES_STATUS[m.status] ? m.status : "open";
         var cls = SALES_STATUS[cur].cls;
-        var statusBadge = '<select class="status-select st-' + cls + '" data-status="' + escHtml(m.id) + '">' +
-          statusOption("open", "Open", cur) +
-          statusOption("purchased", "Purchased", cur) +
-          statusOption("not_purchased", "Not Purchased", cur) +
-        '</select>';
+        // Colour-only status: a circle in the current state's colour; clicking
+        // opens a small picker to change it.
+        var statusBadge = '<button type="button" class="status-dot-btn st-' + cls + '" data-statbtn="' + escHtml(m.id) + '"></button>';
         var spCell;
         if (isSuper) {
           spCell = '<select class="role-select" data-spassign="' + escHtml(m.id) + '">' +
@@ -1543,17 +1661,40 @@
           '<td>' + statusBadge + '</td>' +
         '</tr>';
       }).join("");
-      var bodyHtml = rows || '<tr><td colspan="7" class="cell-sub" style="text-align:center;padding:30px;">No enquiries with this status.</td></tr>';
-      el.innerHTML = '<div class="card"><div class="table-scroll"><table class="sales-table">' +
-        '<colgroup><col style="width:170px"><col style="width:260px"><col style="width:190px"><col style="width:90px"><col style="width:140px"><col style="width:180px"><col style="width:170px"></colgroup>' +
+      var emptyMsg = list.length ? "No enquiries match the filters." : "No sales enquiries yet.";
+      var bodyHtml = rows || '<tr class="empty-row"><td colspan="7" class="cell-sub" style="text-align:center;padding:30px;">' + emptyMsg + '</td></tr>';
+      el.innerHTML = '<div class="card"><div class="table-scroll scroll-y" id="salesScroll"><table class="sales-table">' +
+        '<colgroup><col style="width:14%"><col style="width:19%"><col style="width:16%"><col style="width:12%"><col style="width:11%"><col style="width:16%"><col style="width:12%"></colgroup>' +
         '<thead><tr><th>Name</th><th>Email / Number</th><th>Organisation</th><th>' + typeHead + '</th><th>Date</th><th>' + spHead + '</th><th>' + statusHead + '</th></tr></thead>' +
-        '<tbody>' + bodyHtml + '</tbody></table></div></div>';
+        '<tbody>' + bodyHtml + '</tbody></table></div></div>' +
+        '<div class="sales-chart">' + buildTypeBars(typeScope) + buildStatusDonut(donutList) + '</div>';
 
+      fixSalesHeight();
+      if (!window.__salesResize) {
+        window.__salesResize = true;
+        window.addEventListener("resize", function () { fixSalesHeight(); });
+      }
+
+      el.querySelectorAll("[data-typebar]").forEach(function (b) {
+        b.addEventListener("click", function () {
+          var t = b.getAttribute("data-typebar");
+          salesTypeFilter = (salesTypeFilter === t) ? "all" : t;
+          applyMsgFilter();
+        });
+      });
+      // Donut slices & legend filter by status (same as the header dots).
+      el.querySelectorAll("[data-statseg]").forEach(function (e) {
+        e.addEventListener("click", function () {
+          var k = e.getAttribute("data-statseg");
+          salesStatusFilter = (salesStatusFilter === k) ? "all" : k;
+          applyMsgFilter();
+        });
+      });
       el.querySelectorAll("[data-spassign]").forEach(function (sel) {
         sel.addEventListener("change", function () { setSalesperson(sel.getAttribute("data-spassign"), sel.value); });
       });
-      el.querySelectorAll("[data-status]").forEach(function (sel) {
-        sel.addEventListener("change", function () { setSalesStatus(sel.getAttribute("data-status"), sel.value); });
+      el.querySelectorAll("[data-statbtn]").forEach(function (b) {
+        b.addEventListener("click", function (e) { e.stopPropagation(); openStatusPicker(b, b.getAttribute("data-statbtn")); });
       });
       // Header status-dot filters — clicking the active one clears back to all.
       el.querySelectorAll("[data-sf]").forEach(function (d) {
@@ -1602,6 +1743,48 @@
       }
     }
 
+    // The sales table always reserves exactly 5 rows of space — padding with
+    // empty filler rows when there's less data, scrolling when there's more.
+    function fixSalesHeight() {
+      var scroll = document.getElementById("salesScroll");
+      if (!scroll) return;
+      var thead = scroll.querySelector("thead");
+      var tbody = scroll.querySelector("tbody");
+      if (!thead || !tbody) return;
+
+      tbody.querySelectorAll("tr.filler").forEach(function (f) { f.remove(); });
+      var trs = tbody.querySelectorAll("tr");
+      var empty = trs.length === 1 && trs[0].querySelector("td[colspan]");
+      var rh;
+
+      if (empty) {
+        // No matching rows — let the message fill the whole 5-row space.
+        rh = salesRowH || 56;
+        trs[0].style.height = (rh * 5) + "px";
+      } else {
+        // Uniform row height = tallest natural row (kept across renders so the
+        // table is the same size for every filter).
+        var maxH = 0;
+        trs.forEach(function (t) { t.style.height = ""; if (t.offsetHeight > maxH) maxH = t.offsetHeight; });
+        if (maxH > salesRowH) salesRowH = maxH;
+        rh = salesRowH || 56;
+        trs.forEach(function (t) { t.style.height = rh + "px"; });
+        // Pad with empty filler rows to always fill 5 row slots.
+        if (trs.length < 5) {
+          var html = "";
+          for (var k = 0; k < 5 - trs.length; k++) {
+            html += '<tr class="filler" style="height:' + rh + 'px"><td colspan="7"></td></tr>';
+          }
+          tbody.insertAdjacentHTML("beforeend", html);
+        }
+      }
+
+      // Fixed height = header + 5 rows; extra data rows scroll within.
+      scroll.style.height = (thead.offsetHeight + rh * 5 + 2) + "px";
+      scroll.style.maxHeight = "";
+    }
+
+
     async function setSalesStatus(id, status) {
       var r = await api("/api/admin/messages/" + encodeURIComponent(id) + "/status", {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: status }),
@@ -1620,6 +1803,40 @@
       return msgData.filter(function (m) {
         return ["resolved", "purchased", "not_purchased"].indexOf(m.status) === -1;
       }).length;
+    }
+
+    // Small colour picker for a sales enquiry's status (no text — just dots).
+    function closeStatusPicker() {
+      var m = document.getElementById("statPicker");
+      if (m) m.remove();
+    }
+    function openStatusPicker(btn, msgId) {
+      closeStatusPicker();
+      var opts = [["open", "st-open", "Open"], ["purchased", "st-ok", "Purchased"], ["not_purchased", "st-off", "Not Purchased"]];
+      var menu = document.createElement("div");
+      menu.id = "statPicker";
+      menu.className = "stat-menu";
+      menu.innerHTML = opts.map(function (o) {
+        return '<button type="button" class="stat-opt" data-set="' + o[0] + '" data-tip="' + o[2] + '"><span class="st-dot ' + o[1] + '"></span></button>';
+      }).join("");
+      document.body.appendChild(menu);
+      var rect = btn.getBoundingClientRect();
+      menu.style.top = (rect.bottom + 6) + "px";
+      menu.style.left = Math.max(8, Math.min(rect.left, window.innerWidth - 130)) + "px";
+      menu.querySelectorAll("[data-set]").forEach(function (o) {
+        o.addEventListener("click", function (e) {
+          e.stopPropagation();
+          setSalesStatus(msgId, o.getAttribute("data-set"));
+          closeStatusPicker();
+        });
+      });
+      if (!window.__statPickerClose) {
+        window.__statPickerClose = true;
+        document.addEventListener("click", function (ev) {
+          var p = document.getElementById("statPicker");
+          if (p && !p.contains(ev.target)) closeStatusPicker();
+        });
+      }
     }
 
     async function setSalesperson(id, salespersonId) {

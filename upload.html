@@ -22,12 +22,12 @@
   <link rel="icon" type="image/png" href="assets/favicon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700&family=Lora:wght@500;600;700&family=Yellowtail&family=Pacifico&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700&family=Yellowtail&display=swap" rel="stylesheet">
 
   <style>
     :root {
       --bg: #ffffff; --bg-soft: #f6f8fc; --bg-tint: #eef3fb; --surface: #ffffff;
-      --primary: #2563eb; --primary-dark: #1d4ed8; --primary-soft: #e8effd;
+      --primary: #4d5bc0; --primary-dark: #3b48a0; --primary-soft: #ececf8;
       --ink: #0b1220; --ink-soft: #1e293b; --muted: #64748b; --border: #e2e8f0;
       --green: #16a34a; --danger: #dc2626;
       --shadow-sm: 0 1px 2px rgba(15,23,42,0.04);
@@ -40,14 +40,14 @@
     }
     :root[data-theme="dark"] {
       --bg: #090d18; --bg-soft: #0f1424; --bg-tint: #151b30; --surface: #0f1526;
-      --primary: #3b82f6; --primary-dark: #2563eb; --primary-soft: #16213f;
+      --primary: #7280d8; --primary-dark: #4d5bc0; --primary-soft: #1b2240;
       --ink: #e9edf6; --ink-soft: #c4cde0; --muted: #8a96ac; --border: #1f2840;
       --green: #22c55e; --danger: #f87171;
       --shadow-sm: 0 1px 2px rgba(0,0,0,0.4);
       --shadow: 0 14px 38px rgba(0,0,0,0.5);
       --shadow-lg: 0 24px 60px rgba(0,0,0,0.6);
       --header-bg: rgba(9,13,24,0.72);
-      --pill-text: #93c5fd;
+      --pill-text: #b0b9f5;
       --hover-border: #334155;
     }
 
@@ -86,7 +86,7 @@
     }
     .theme-switch .seg svg { width: 16px; height: 16px; display: block; }
     [data-theme="light"] .theme-switch .seg-sun { background: var(--surface); color: #f59e0b; box-shadow: var(--shadow-sm); }
-    [data-theme="dark"] .theme-switch .seg-moon { background: var(--surface); color: #93c5fd; box-shadow: var(--shadow-sm); }
+    [data-theme="dark"] .theme-switch .seg-moon { background: var(--surface); color: #b0b9f5; box-shadow: var(--shadow-sm); }
 
     /* profile dropdown */
     .profile { position: relative; }
@@ -125,7 +125,7 @@
     }
     .btn-ghost { background: transparent; color: var(--ink-soft); border: 1px solid var(--border); }
     .btn-ghost:hover { background: var(--bg-soft); border-color: var(--hover-border); }
-    .btn-primary { background: var(--primary); color: #fff; box-shadow: 0 8px 20px rgba(37,99,235,0.24); }
+    .btn-primary { background: var(--primary); color: #fff; box-shadow: 0 8px 20px rgba(77,91,192,0.24); }
     .btn-primary:hover { background: var(--primary-dark); transform: translateY(-1px); }
     .btn-lg { padding: 15px 26px; font-size: 1rem; border-radius: 14px; }
 
@@ -142,13 +142,14 @@
     /* split layout — fills the viewport below the header, no page scroll */
     .layout {
       height: calc(100vh - 72px);
-      display: flex; gap: 2rem; padding: 2rem;
+      display: flex; align-items: center; justify-content: center;
+      gap: clamp(1.5rem, 4vw, 3.5rem); padding: 1.5rem clamp(1.5rem, 5vw, 4rem);
       background:
-        radial-gradient(900px 420px at 80% -10%, rgba(37,99,235,0.10), transparent 60%),
-        radial-gradient(700px 380px at 10% 10%, rgba(37,99,235,0.06), transparent 55%);
+        radial-gradient(900px 420px at 80% -10%, rgba(77,91,192,0.10), transparent 60%),
+        radial-gradient(700px 380px at 10% 10%, rgba(77,91,192,0.06), transparent 55%);
     }
-    .col-left  { flex: 2 1 0; min-width: 0; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; text-align: left; }
-    .col-right { position: relative; flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; gap: 8px; transform: translateX(-5rem); }
+    .col-left  { flex: 1 1 0; min-width: 0; max-width: 600px; display: flex; flex-direction: column; justify-content: center; align-items: flex-start; text-align: left; }
+    .col-right { position: relative; flex: 0 1 400px; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 16px; }
 
     /* Admin view: no onboarding column — illustration on the left, upload card on the right. */
     .layout.admin-mode { position: relative; justify-content: center; align-items: center; }
@@ -166,22 +167,22 @@
     .layout.admin-mode::before {
       content: ""; position: absolute; top: 2px; left: 50%; transform: translateX(-50%);
       width: 150%; height: 1000px;
-      background: radial-gradient(ellipse 40% 100% at 50% 0%, rgba(56,189,248,0.40), transparent 90%);
+      background: radial-gradient(ellipse 40% 100% at 50% 0%, rgba(99,110,230,0.40), transparent 90%);
       filter: blur(40px); pointer-events: none; z-index: 0;
     }
     .layout.admin-mode::after {
       content: ""; position: absolute; top: 2px; left: 50%; transform: translateX(-50%);
       width: 80%; height: 2px;
-      background: linear-gradient(to right, transparent, #7dd3fc 18%, #e0f7ff 50%, #7dd3fc 82%, transparent);
-      box-shadow: 0 0 18px 1px rgba(125,211,252,0.75);
+      background: linear-gradient(to right, transparent, #a5b4fc 18%, #e0e7ff 50%, #a5b4fc 82%, transparent);
+      box-shadow: 0 0 18px 1px rgba(129,140,248,0.7);
       pointer-events: none; z-index: 2;
     }
     /* Light mode: the near-white centre blends into the light background, so the
        glow reads as off-centre. Use a saturated centre that fades to the edges
        so the bright concentration sits in the middle, like dark mode. */
     :root[data-theme="light"] .layout.admin-mode::after {
-      background: linear-gradient(to right, transparent, #7dd3fc 28%, #0284c7 50%, #7dd3fc 72%, transparent);
-      box-shadow: 0 0 18px 1px rgba(2,132,199,0.45);
+      background: linear-gradient(to right, transparent, #a5b4fc 28%, #6366f1 50%, #a5b4fc 72%, transparent);
+      box-shadow: 0 0 18px 1px rgba(99,102,241,0.45);
     }
     .layout.admin-mode .col-right { z-index: 1; }
     @media (max-width: 860px) {
@@ -193,7 +194,7 @@
       content: "";
       position: absolute; top: -22px; left: 50%; transform: translateX(-50%);
       width: 150%; height: 1150px;
-      background: radial-gradient(ellipse 48% 100% at 50% 0%, rgba(56,189,248,0.45), transparent 90%);
+      background: radial-gradient(ellipse 48% 100% at 50% 0%, rgba(99,110,230,0.45), transparent 90%);
       filter: blur(40px);
       pointer-events: none; z-index: 0;
     }
@@ -201,17 +202,17 @@
       content: "";
       position: absolute; top: -22px; left: 50%; transform: translateX(-50%);
       width: 130%; height: 2px;
-      background: linear-gradient(to right, transparent, #7dd3fc 18%, #e0f7ff 50%, #7dd3fc 82%, transparent);
-      box-shadow: 0 0 18px 1px rgba(125,211,252,0.75);
+      background: linear-gradient(to right, transparent, #a5b4fc 18%, #e0e7ff 50%, #a5b4fc 82%, transparent);
+      box-shadow: 0 0 18px 1px rgba(129,140,248,0.7);
       pointer-events: none; z-index: 2;
     }
     .col-right > * { position: relative; z-index: 1; }
 
     /* left: heading + steps */
     .lead h1 {
-      font-family: "Lora", Georgia, serif;
-      font-size: clamp(2.1rem, 3.7vw, 3.2rem); font-weight: 700;
-      letter-spacing: -0.01em; line-height: 1.12;
+      font-family: "Sora", sans-serif;
+      font-size: clamp(2.1rem, 3.9vw, 3.3rem); font-weight: 800;
+      letter-spacing: -0.03em; line-height: 1.1;
       background: linear-gradient(180deg, var(--ink) 0%, var(--ink-soft) 55%, var(--muted) 120%);
       -webkit-background-clip: text; background-clip: text; color: transparent;
     }
@@ -219,24 +220,17 @@
       background: linear-gradient(100deg, var(--primary), #6366f1 60%, var(--primary-dark));
       -webkit-background-clip: text; background-clip: text; color: transparent;
     }
-    /* cursive script accent for the word "Tally" */
-    .lead h1 .script {
-      font-family: "Yellowtail", cursive; font-weight: 400;
-      font-size: 1.32em; letter-spacing: 0; line-height: 1; padding: 0 0.04em;
-      background: linear-gradient(100deg, var(--primary), #6366f1 60%, var(--primary-dark));
-      -webkit-background-clip: text; background-clip: text; color: transparent;
-    }
-    /* Tally-logo style brush script, themed to our primary colour */
+    /* single cursive script accent — mirrors the front-page headline */
     .lead h1 .tally {
-      font-family: "Pacifico", cursive; font-weight: 400;
-      font-size: 0.89em; letter-spacing: 0; line-height: 1; padding: 0 0.06em;
+      font-family: "Yellowtail", cursive; font-weight: 400;
+      font-size: 1.3em; letter-spacing: 0; line-height: 1; padding: 0 0.06em;
       background: linear-gradient(100deg, var(--primary), #6366f1 60%, var(--primary-dark));
       -webkit-background-clip: text; background-clip: text; color: transparent;
     }
     .lead .sub {
       font-family: "Sora", sans-serif; font-weight: 600;
       font-size: clamp(1rem, 1.6vw, 1.25rem); line-height: 1.2;
-      margin-top: 8px; color: var(--primary);
+      margin-top: 10px; color: var(--primary);
     }
 
     .steps { display: grid; gap: 22px; margin-top: 30px; max-width: 560px; }
@@ -339,7 +333,7 @@
     .hero-status a { color: var(--primary); font-weight: 700; text-decoration: underline; }
 
     /* free-plan page-credit meter */
-    .credit-meter { display: none; margin-bottom: 64px; flex-direction: column; align-items: flex-start; gap: 8px; }
+    .credit-meter { display: none; margin-bottom: 28px; flex-direction: column; align-items: flex-start; gap: 8px; }
     .credit-meter.show { display: flex; }
     .credit-meter .cm-text { font-size: 0.9rem; color: var(--muted); font-weight: 500; }
     .credit-meter .cm-text strong { color: var(--ink); font-weight: 700; }
@@ -358,7 +352,7 @@
     /* ===== upload card (drag & drop) ===== */
     .upload-card {
       position: relative;
-      width: 360px; max-width: 100%; margin-top: -28px;
+      width: 360px; max-width: 100%; margin-top: 0;
       background: var(--surface); border: 1px solid var(--border);
       border-radius: 18px; box-shadow: var(--shadow); padding: 20px;
       display: flex; flex-direction: column; gap: 14px; text-align: left;
@@ -435,20 +429,20 @@
       0% {
         transform: rotate(90deg);
         box-shadow:
-          0 6px 12px 0 #38bdf8 inset, 0 12px 18px 0 #005dff inset, 0 36px 36px 0 #1e40af inset,
-          0 0 3px 1.2px rgba(56,189,248,0.3), 0 0 6px 1.8px rgba(0,93,255,0.2);
+          0 6px 12px 0 #7c8af0 inset, 0 12px 18px 0 #4d5bc0 inset, 0 36px 36px 0 #312e81 inset,
+          0 0 3px 1.2px rgba(99,110,230,0.3), 0 0 6px 1.8px rgba(77,91,192,0.25);
       }
       50% {
         transform: rotate(270deg);
         box-shadow:
-          0 6px 12px 0 #60a5fa inset, 0 12px 6px 0 #0284c7 inset, 0 24px 36px 0 #005dff inset,
-          0 0 3px 1.2px rgba(56,189,248,0.3), 0 0 6px 1.8px rgba(0,93,255,0.2);
+          0 6px 12px 0 #8b96e8 inset, 0 12px 6px 0 #6366f1 inset, 0 24px 36px 0 #4d5bc0 inset,
+          0 0 3px 1.2px rgba(99,110,230,0.3), 0 0 6px 1.8px rgba(77,91,192,0.25);
       }
       100% {
         transform: rotate(450deg);
         box-shadow:
-          0 6px 12px 0 #4dc8fd inset, 0 12px 18px 0 #005dff inset, 0 36px 36px 0 #1e40af inset,
-          0 0 3px 1.2px rgba(56,189,248,0.3), 0 0 6px 1.8px rgba(0,93,255,0.2);
+          0 6px 12px 0 #9aa6f5 inset, 0 12px 18px 0 #4d5bc0 inset, 0 36px 36px 0 #312e81 inset,
+          0 0 3px 1.2px rgba(99,110,230,0.3), 0 0 6px 1.8px rgba(77,91,192,0.25);
       }
     }
     @keyframes loaderLetter {

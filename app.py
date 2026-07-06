@@ -708,6 +708,43 @@ def _to_chronological(records, headers):
     return list(reversed(records)) if desc > asc else records
 
 
+def _drop_empty_date_columns(records, headers):
+    """Remove any date column that is blank in every row.
+
+    Some statements (e.g. SBI) print two date columns — "Txn Date" and
+    "Value Date" — where one is populated and the other is entirely empty.
+    An empty date column is dead weight in the table/CSV and, worse, shadows
+    the real one during Tally XML voucher generation: the exporter picks the
+    first date-like header it finds, so every voucher ends up dated blank and
+    gets skipped ("No vouchers could be generated"). Drop the empty date
+    columns so only the populated one survives, keeping the display, CSV and
+    XML export consistent.
+
+    Scoped to date columns on purpose — dropping *any* all-blank column would
+    remove e.g. an empty "Credit" column from a payments-only statement and
+    break the dual debit/credit detection downstream.
+    """
+    if not records or not headers:
+        return records, headers
+
+    def is_date_header(h):
+        return "date" in str(h).lower()
+
+    def col_all_blank(h):
+        return all(str(r.get(h, "")).strip() == "" for r in records)
+
+    kept = [
+        h for h in headers
+        if not (is_date_header(h) and col_all_blank(h))
+    ]
+
+    if len(kept) == len(headers):
+        return records, headers   # nothing dropped
+
+    new_records = [{h: r.get(h, "") for h in kept} for r in records]
+    return new_records, kept
+
+
 @app.route("/")
 def index():
     return send_from_directory(".", "index.html")
@@ -1782,6 +1819,11 @@ def process():
         # flipped to oldest-first before persisting/returning so the table,
         # balance summary and exports all read chronologically.
         records = _to_chronological(records, headers)
+
+        # Drop any date column that is empty in every row (e.g. SBI's blank
+        # "Txn Date" alongside a populated "Value Date"). Done before persist +
+        # return so the table, CSV and XML export never see the dead column.
+        records, headers = _drop_empty_date_columns(records, headers)
 
         # Persist the extraction for logged-in users so they can revisit it.
         # We also store the original PDF inline as BSON binary so the user can
