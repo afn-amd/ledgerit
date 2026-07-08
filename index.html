@@ -614,6 +614,64 @@
       .hero { padding: 64px 0 76px; }
       .foot-grid { grid-template-columns: 1fr; }
     }
+
+    /* ============ Supported banks logo marquee ============ */
+    .banks {
+      background: var(--bg-soft);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      padding: 60px 0;
+      overflow: hidden;
+    }
+    .banks-head { text-align: center; margin-bottom: 36px; padding: 0 20px; }
+    .banks-eyebrow {
+      display: inline-block; font-size: 0.76rem; font-weight: 700;
+      letter-spacing: 0.09em; text-transform: uppercase;
+      color: var(--primary); background: var(--primary-soft);
+      padding: 6px 14px; border-radius: 999px; margin-bottom: 14px;
+    }
+    .banks-head h2 {
+      font-size: clamp(1.35rem, 3vw, 1.95rem); font-weight: 800;
+      letter-spacing: -0.02em; color: var(--ink); margin: 0;
+    }
+    .banks-head p { color: var(--muted); margin: 10px auto 0; max-width: 580px; font-size: 0.98rem; }
+
+    .marquee {
+      position: relative; width: 100%; overflow: hidden;
+      -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 7%, #000 93%, transparent 100%);
+              mask-image: linear-gradient(90deg, transparent 0, #000 7%, #000 93%, transparent 100%);
+    }
+    .marquee + .marquee { margin-top: 20px; }
+    .marquee-track {
+      display: flex; flex-wrap: nowrap; width: max-content; will-change: transform;
+      animation: bank-scroll var(--dur, 62s) linear infinite;
+    }
+    .marquee:hover .marquee-track { animation-play-state: paused; }
+    /* content is duplicated once, so -50% is exactly one seamless loop */
+    @keyframes bank-scroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+    .bank-chip {
+      flex: 0 0 auto; height: 76px; min-width: 156px; margin-right: 18px; padding: 0 28px;
+      display: flex; align-items: center; justify-content: center;
+      background: #ffffff; border: 1px solid var(--border);
+      border-radius: 14px; box-shadow: var(--shadow-sm);
+    }
+    .bank-chip img { height: 30px; width: auto; max-width: 172px; object-fit: contain; display: block; }
+    [data-theme="dark"] .bank-chip {
+      border-color: rgba(255,255,255,0.09);
+      box-shadow: 0 6px 18px rgba(0,0,0,0.38);
+    }
+
+    @media (max-width: 560px) {
+      .banks { padding: 46px 0; }
+      .banks-head { margin-bottom: 26px; }
+      .bank-chip { height: 62px; min-width: 126px; margin-right: 14px; padding: 0 18px; }
+      .bank-chip img { height: 24px; max-width: 132px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .marquee-track { animation: none; }
+      .marquee { overflow-x: auto; }
+    }
   </style>
 </head>
 <body>
@@ -788,6 +846,91 @@
         </div>
       </div>
     </div>
+  </section>
+
+  <!-- ============ SUPPORTED BANKS ============ -->
+  <section class="banks" id="banks" aria-label="Supported banks">
+    <div class="banks-head">
+      <span class="banks-eyebrow">Works with every major bank</span>
+      <h2>Statements from India's leading banks, out of the box</h2>
+      <p>No templates to set up — Ledgerit reads the layout of any digitally-generated statement from these banks and more.</p>
+    </div>
+        <div class="marquee">
+          <div class="marquee-track" style="--dur:66s">
+            <div class="bank-chip"><img src="assets/banks/sbi.png" alt="State Bank of India" loading="lazy" width="172" height="30"></div>
+            <div class="bank-chip"><img src="assets/banks/icici.png" alt="ICICI Bank" loading="lazy" width="172" height="30"></div>
+            <div class="bank-chip"><img src="assets/banks/pnb.png" alt="Punjab National Bank" loading="lazy" width="172" height="30"></div>
+            <div class="bank-chip"><img src="assets/banks/canara.png" alt="Canara Bank" loading="lazy" width="172" height="30"></div>
+            <div class="bank-chip"><img src="assets/banks/kotak.png" alt="Kotak Mahindra Bank" loading="lazy" width="172" height="30"></div>
+            <div class="bank-chip"><img src="assets/banks/idbi.png" alt="IDBI Bank" loading="lazy" width="172" height="30"></div>
+            <div class="bank-chip"><img src="assets/banks/central-bank.png" alt="Central Bank of India" loading="lazy" width="172" height="30"></div>
+            <div class="bank-chip"><img src="assets/banks/bandhan.png" alt="Bandhan Bank" loading="lazy" width="172" height="30"></div>
+            <div class="bank-chip"><img src="assets/banks/uco.png" alt="UCO Bank" loading="lazy" width="172" height="30"></div>
+            <div class="bank-chip"><img src="assets/banks/idfc.png" alt="IDFC First Bank" loading="lazy" width="172" height="30"></div>
+            <div class="bank-chip"><img src="assets/banks/rbl.png" alt="RBL Bank" loading="lazy" width="172" height="30"></div>
+            <div class="bank-chip"><img src="assets/banks/city-union.png" alt="City Union Bank" loading="lazy" width="172" height="30"></div>
+            <div class="bank-chip"><img src="assets/banks/tmb.png" alt="Tamilnad Mercantile Bank" loading="lazy" width="172" height="30"></div>
+            <div class="bank-chip"><img src="assets/banks/dena.png" alt="Dena Bank" loading="lazy" width="172" height="30"></div>
+            <div class="bank-chip"><img src="assets/banks/hsbc.png" alt="HSBC" loading="lazy" width="172" height="30"></div>
+            <div class="bank-chip"><img src="assets/banks/standard-chartered.png" alt="Standard Chartered" loading="lazy" width="172" height="30"></div>
+            <div class="bank-chip"><img src="assets/banks/dbs.png" alt="DBS Bank" loading="lazy" width="172" height="30"></div>
+            <!-- duplicate set for seamless infinite loop -->
+            <div class="bank-chip"><img src="assets/banks/sbi.png" alt="State Bank of India" loading="lazy" width="172" height="30"></div>
+            <div class="bank-chip"><img src="assets/banks/icici.png" alt="ICICI Bank" loading="lazy" width="172" height="30"></div>
+            <div class="bank-chip"><img src="assets/banks/pnb.png" alt="Punjab National Bank" loading="lazy" width="172" height="30"></div>
+            <div class="bank-chip"><img src="assets/banks/canara.png" alt="Canara Bank" loading="lazy" width="172" height="30"></div>
+            <div class="bank-chip"><img src="assets/banks/kotak.png" alt="Kotak Mahindra Bank" loading="lazy" width="172" height="30"></div>
+            <div class="bank-chip"><img src="assets/banks/idbi.png" alt="IDBI Bank" loading="lazy" width="172" height="30"></div>
+            <div class="bank-chip"><img src="assets/banks/central-bank.png" alt="Central Bank of India" loading="lazy" width="172" height="30"></div>
+            <div class="bank-chip"><img src="assets/banks/bandhan.png" alt="Bandhan Bank" loading="lazy" width="172" height="30"></div>
+            <div class="bank-chip"><img src="assets/banks/uco.png" alt="UCO Bank" loading="lazy" width="172" height="30"></div>
+            <div class="bank-chip"><img src="assets/banks/idfc.png" alt="IDFC First Bank" loading="lazy" width="172" height="30"></div>
+            <div class="bank-chip"><img src="assets/banks/rbl.png" alt="RBL Bank" loading="lazy" width="172" height="30"></div>
+            <div class="bank-chip"><img src="assets/banks/city-union.png" alt="City Union Bank" loading="lazy" width="172" height="30"></div>
+            <div class="bank-chip"><img src="assets/banks/tmb.png" alt="Tamilnad Mercantile Bank" loading="lazy" width="172" height="30"></div>
+            <div class="bank-chip"><img src="assets/banks/dena.png" alt="Dena Bank" loading="lazy" width="172" height="30"></div>
+            <div class="bank-chip"><img src="assets/banks/hsbc.png" alt="HSBC" loading="lazy" width="172" height="30"></div>
+            <div class="bank-chip"><img src="assets/banks/standard-chartered.png" alt="Standard Chartered" loading="lazy" width="172" height="30"></div>
+            <div class="bank-chip"><img src="assets/banks/dbs.png" alt="DBS Bank" loading="lazy" width="172" height="30"></div>
+          </div>
+        </div>
+        <div class="marquee">
+          <div class="marquee-track" style="--dur:82s">
+            <div class="bank-chip"><img src="assets/banks/hdfc.png" alt="HDFC Bank" loading="lazy" width="172" height="30"></div>
+            <div class="bank-chip"><img src="assets/banks/axis.png" alt="Axis Bank" loading="lazy" width="172" height="30"></div>
+            <div class="bank-chip"><img src="assets/banks/bank-of-baroda.png" alt="Bank of Baroda" loading="lazy" width="172" height="30"></div>
+            <div class="bank-chip"><img src="assets/banks/union-bank.png" alt="Union Bank of India" loading="lazy" width="172" height="30"></div>
+            <div class="bank-chip"><img src="assets/banks/indusind.png" alt="IndusInd Bank" loading="lazy" width="172" height="30"></div>
+            <div class="bank-chip"><img src="assets/banks/bank-of-india.png" alt="Bank of India" loading="lazy" width="172" height="30"></div>
+            <div class="bank-chip"><img src="assets/banks/indian-bank.png" alt="Indian Bank" loading="lazy" width="172" height="30"></div>
+            <div class="bank-chip"><img src="assets/banks/indian-overseas.png" alt="Indian Overseas Bank" loading="lazy" width="172" height="30"></div>
+            <div class="bank-chip"><img src="assets/banks/bank-of-maharashtra.png" alt="Bank of Maharashtra" loading="lazy" width="172" height="30"></div>
+            <div class="bank-chip"><img src="assets/banks/federal.png" alt="Federal Bank" loading="lazy" width="172" height="30"></div>
+            <div class="bank-chip"><img src="assets/banks/south-indian.png" alt="South Indian Bank" loading="lazy" width="172" height="30"></div>
+            <div class="bank-chip"><img src="assets/banks/karur-vysya.png" alt="Karur Vysya Bank" loading="lazy" width="172" height="30"></div>
+            <div class="bank-chip"><img src="assets/banks/saraswat.png" alt="Saraswat Bank" loading="lazy" width="172" height="30"></div>
+            <div class="bank-chip"><img src="assets/banks/vijaya.png" alt="Vijaya Bank" loading="lazy" width="172" height="30"></div>
+            <div class="bank-chip"><img src="assets/banks/citibank.png" alt="Citibank" loading="lazy" width="172" height="30"></div>
+            <div class="bank-chip"><img src="assets/banks/deutsche.png" alt="Deutsche Bank" loading="lazy" width="172" height="30"></div>
+            <!-- duplicate set for seamless infinite loop -->
+            <div class="bank-chip"><img src="assets/banks/hdfc.png" alt="HDFC Bank" loading="lazy" width="172" height="30"></div>
+            <div class="bank-chip"><img src="assets/banks/axis.png" alt="Axis Bank" loading="lazy" width="172" height="30"></div>
+            <div class="bank-chip"><img src="assets/banks/bank-of-baroda.png" alt="Bank of Baroda" loading="lazy" width="172" height="30"></div>
+            <div class="bank-chip"><img src="assets/banks/union-bank.png" alt="Union Bank of India" loading="lazy" width="172" height="30"></div>
+            <div class="bank-chip"><img src="assets/banks/indusind.png" alt="IndusInd Bank" loading="lazy" width="172" height="30"></div>
+            <div class="bank-chip"><img src="assets/banks/bank-of-india.png" alt="Bank of India" loading="lazy" width="172" height="30"></div>
+            <div class="bank-chip"><img src="assets/banks/indian-bank.png" alt="Indian Bank" loading="lazy" width="172" height="30"></div>
+            <div class="bank-chip"><img src="assets/banks/indian-overseas.png" alt="Indian Overseas Bank" loading="lazy" width="172" height="30"></div>
+            <div class="bank-chip"><img src="assets/banks/bank-of-maharashtra.png" alt="Bank of Maharashtra" loading="lazy" width="172" height="30"></div>
+            <div class="bank-chip"><img src="assets/banks/federal.png" alt="Federal Bank" loading="lazy" width="172" height="30"></div>
+            <div class="bank-chip"><img src="assets/banks/south-indian.png" alt="South Indian Bank" loading="lazy" width="172" height="30"></div>
+            <div class="bank-chip"><img src="assets/banks/karur-vysya.png" alt="Karur Vysya Bank" loading="lazy" width="172" height="30"></div>
+            <div class="bank-chip"><img src="assets/banks/saraswat.png" alt="Saraswat Bank" loading="lazy" width="172" height="30"></div>
+            <div class="bank-chip"><img src="assets/banks/vijaya.png" alt="Vijaya Bank" loading="lazy" width="172" height="30"></div>
+            <div class="bank-chip"><img src="assets/banks/citibank.png" alt="Citibank" loading="lazy" width="172" height="30"></div>
+            <div class="bank-chip"><img src="assets/banks/deutsche.png" alt="Deutsche Bank" loading="lazy" width="172" height="30"></div>
+          </div>
+        </div>
   </section>
 
   <!-- ============ 2. FEATURES ============ -->

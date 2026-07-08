@@ -22,12 +22,12 @@
   <link rel="icon" type="image/png" href="assets/favicon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700&family=Yellowtail&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700&family=Lora:wght@500;600;700&family=Yellowtail&family=Pacifico&display=swap" rel="stylesheet">
 
   <style>
     :root {
       --bg: #ffffff; --bg-soft: #f6f8fc; --bg-tint: #eef3fb; --surface: #ffffff;
-      --primary: #4d5bc0; --primary-dark: #3b48a0; --primary-soft: #ececf8;
+      --primary: #2563eb; --primary-dark: #1d4ed8; --primary-soft: #e8effd;
       --ink: #0b1220; --ink-soft: #1e293b; --muted: #64748b; --border: #e2e8f0;
       --green: #16a34a; --danger: #dc2626;
       --shadow-sm: 0 1px 2px rgba(15,23,42,0.04);
@@ -40,14 +40,14 @@
     }
     :root[data-theme="dark"] {
       --bg: #090d18; --bg-soft: #0f1424; --bg-tint: #151b30; --surface: #0f1526;
-      --primary: #7280d8; --primary-dark: #4d5bc0; --primary-soft: #1b2240;
+      --primary: #3b82f6; --primary-dark: #2563eb; --primary-soft: #16213f;
       --ink: #e9edf6; --ink-soft: #c4cde0; --muted: #8a96ac; --border: #1f2840;
       --green: #22c55e; --danger: #f87171;
       --shadow-sm: 0 1px 2px rgba(0,0,0,0.4);
       --shadow: 0 14px 38px rgba(0,0,0,0.5);
       --shadow-lg: 0 24px 60px rgba(0,0,0,0.6);
       --header-bg: rgba(9,13,24,0.72);
-      --pill-text: #b0b9f5;
+      --pill-text: #93c5fd;
       --hover-border: #334155;
     }
 
@@ -58,7 +58,7 @@
       background: var(--bg); color: var(--ink); line-height: 1.6;
       -webkit-font-smoothing: antialiased;
       transition: background-color 0.25s ease, color 0.25s ease;
-      height: 100vh; overflow: hidden;
+      min-height: 100vh; overflow-x: hidden;
     }
     h1, h2, h3 { font-family: "Sora", sans-serif; }
     a { text-decoration: none; color: inherit; }
@@ -86,7 +86,7 @@
     }
     .theme-switch .seg svg { width: 16px; height: 16px; display: block; }
     [data-theme="light"] .theme-switch .seg-sun { background: var(--surface); color: #f59e0b; box-shadow: var(--shadow-sm); }
-    [data-theme="dark"] .theme-switch .seg-moon { background: var(--surface); color: #b0b9f5; box-shadow: var(--shadow-sm); }
+    [data-theme="dark"] .theme-switch .seg-moon { background: var(--surface); color: #93c5fd; box-shadow: var(--shadow-sm); }
 
     /* profile dropdown */
     .profile { position: relative; }
@@ -125,7 +125,7 @@
     }
     .btn-ghost { background: transparent; color: var(--ink-soft); border: 1px solid var(--border); }
     .btn-ghost:hover { background: var(--bg-soft); border-color: var(--hover-border); }
-    .btn-primary { background: var(--primary); color: #fff; box-shadow: 0 8px 20px rgba(77,91,192,0.24); }
+    .btn-primary { background: var(--primary); color: #fff; box-shadow: 0 8px 20px rgba(37,99,235,0.24); }
     .btn-primary:hover { background: var(--primary-dark); transform: translateY(-1px); }
     .btn-lg { padding: 15px 26px; font-size: 1rem; border-radius: 14px; }
 
@@ -139,119 +139,78 @@
     .nav { display: flex; align-items: center; justify-content: space-between; height: 72px; }
     .nav-actions { display: flex; align-items: center; gap: 12px; }
 
-    /* split layout — fills the viewport below the header, no page scroll */
+    /* ===== split layout — onboarding copy | upload card ===== */
     .layout {
-      height: calc(100vh - 72px);
-      display: flex; align-items: center; justify-content: center;
-      gap: clamp(1.5rem, 4vw, 3.5rem); padding: 1.5rem clamp(1.5rem, 5vw, 4rem);
+      position: relative;
+      min-height: calc(100vh - 72px);
+      display: grid;
+      grid-template-columns: 1.05fr 0.95fr;
+      gap: clamp(2rem, 5vw, 4.5rem);
+      align-items: center;
+      padding: clamp(2rem, 5vw, 4rem) clamp(1.5rem, 5vw, 4rem);
       background:
-        radial-gradient(900px 420px at 80% -10%, rgba(77,91,192,0.10), transparent 60%),
-        radial-gradient(700px 380px at 10% 10%, rgba(77,91,192,0.06), transparent 55%);
+        radial-gradient(1100px 520px at 80% -12%, rgba(37,99,235,0.16), transparent 60%),
+        radial-gradient(760px 420px at 4% 6%, rgba(99,102,241,0.10), transparent 55%);
     }
-    .col-left  { flex: 1 1 0; min-width: 0; max-width: 600px; display: flex; flex-direction: column; justify-content: center; align-items: flex-start; text-align: left; }
-    .col-right { position: relative; flex: 0 1 400px; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 16px; }
+    .col-left  { min-width: 0; display: flex; flex-direction: column; align-items: flex-start; text-align: left; gap: 22px; }
+    .col-right { position: relative; min-width: 0; display: flex; justify-content: center; }
 
-    /* Admin view: no onboarding column — illustration on the left, upload card on the right. */
-    .layout.admin-mode { position: relative; justify-content: center; align-items: center; }
+    /* Admin view: no onboarding column — center the upload card. */
+    .layout.admin-mode { grid-template-columns: 1fr; justify-items: center; }
     .layout.admin-mode .col-left { display: none; }
-    .layout.admin-mode .col-right {
-      flex: 0 1 auto; flex-direction: row; align-items: center;
-      justify-content: center; gap: 3.5rem; transform: none;
-    }
-    .layout.admin-mode .converter-img { max-height: 42vh; max-width: 460px; }
-    .layout.admin-mode .upload-card { margin-top: 0; }
-    /* The content is centered now, so move the light strip off the card and
-       anchor it to the very top of the page instead. */
-    .layout.admin-mode .col-right::before,
-    .layout.admin-mode .col-right::after { display: none; }
-    .layout.admin-mode::before {
-      content: ""; position: absolute; top: 2px; left: 50%; transform: translateX(-50%);
-      width: 150%; height: 1000px;
-      background: radial-gradient(ellipse 40% 100% at 50% 0%, rgba(99,110,230,0.40), transparent 90%);
-      filter: blur(40px); pointer-events: none; z-index: 0;
-    }
-    .layout.admin-mode::after {
-      content: ""; position: absolute; top: 2px; left: 50%; transform: translateX(-50%);
-      width: 80%; height: 2px;
-      background: linear-gradient(to right, transparent, #a5b4fc 18%, #e0e7ff 50%, #a5b4fc 82%, transparent);
-      box-shadow: 0 0 18px 1px rgba(129,140,248,0.7);
-      pointer-events: none; z-index: 2;
-    }
-    /* Light mode: the near-white centre blends into the light background, so the
-       glow reads as off-centre. Use a saturated centre that fades to the edges
-       so the bright concentration sits in the middle, like dark mode. */
-    :root[data-theme="light"] .layout.admin-mode::after {
-      background: linear-gradient(to right, transparent, #a5b4fc 28%, #6366f1 50%, #a5b4fc 72%, transparent);
-      box-shadow: 0 0 18px 1px rgba(99,102,241,0.45);
-    }
-    .layout.admin-mode .col-right { z-index: 1; }
-    @media (max-width: 860px) {
-      .layout.admin-mode .col-right { flex-direction: column; gap: 1.25rem; }
-      .layout.admin-mode .upload-card { margin-top: -28px; }
-    }
-    /* light spreading downwards from a bright strip above the image */
-    .col-right::before {
-      content: "";
-      position: absolute; top: -22px; left: 50%; transform: translateX(-50%);
-      width: 150%; height: 1150px;
-      background: radial-gradient(ellipse 48% 100% at 50% 0%, rgba(99,110,230,0.45), transparent 90%);
-      filter: blur(40px);
-      pointer-events: none; z-index: 0;
-    }
-    .col-right::after {
-      content: "";
-      position: absolute; top: -22px; left: 50%; transform: translateX(-50%);
-      width: 130%; height: 2px;
-      background: linear-gradient(to right, transparent, #a5b4fc 18%, #e0e7ff 50%, #a5b4fc 82%, transparent);
-      box-shadow: 0 0 18px 1px rgba(129,140,248,0.7);
-      pointer-events: none; z-index: 2;
-    }
-    .col-right > * { position: relative; z-index: 1; }
+    .layout.admin-mode .col-right { width: 100%; max-width: 460px; }
 
-    /* left: heading + steps */
+    /* eyebrow pill */
+    .lead-pill {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--primary-soft); color: var(--pill-text);
+      font-family: "Manrope", sans-serif; font-weight: 700;
+      font-size: 0.72rem; letter-spacing: 0.14em; text-transform: uppercase;
+      padding: 7px 14px; border-radius: 999px;
+      border: 1px solid rgba(37,99,235,0.22);
+    }
+    .lead-pill svg { width: 14px; height: 14px; }
+
+    /* headline */
     .lead h1 {
-      font-family: "Sora", sans-serif;
-      font-size: clamp(2.1rem, 3.9vw, 3.3rem); font-weight: 800;
-      letter-spacing: -0.03em; line-height: 1.1;
-      background: linear-gradient(180deg, var(--ink) 0%, var(--ink-soft) 55%, var(--muted) 120%);
+      font-family: "Sora", sans-serif; font-weight: 800;
+      font-size: clamp(2.2rem, 4.2vw, 3.5rem);
+      letter-spacing: -0.03em; line-height: 1.08;
+      background: linear-gradient(180deg, var(--ink) 0%, var(--ink-soft) 60%, var(--muted) 135%);
       -webkit-background-clip: text; background-clip: text; color: transparent;
+      filter: var(--h1-shadow, none);
     }
-    .lead h1 .grad {
-      background: linear-gradient(100deg, var(--primary), #6366f1 60%, var(--primary-dark));
-      -webkit-background-clip: text; background-clip: text; color: transparent;
-    }
-    /* single cursive script accent — mirrors the front-page headline */
+    /* italic serif accent for the word "Tally" (matches the reference) */
     .lead h1 .tally {
-      font-family: "Yellowtail", cursive; font-weight: 400;
-      font-size: 1.3em; letter-spacing: 0; line-height: 1; padding: 0 0.06em;
+      font-family: "Lora", Georgia, serif; font-style: italic; font-weight: 600;
+      font-size: 1.02em; letter-spacing: -0.01em; padding: 0 0.03em;
       background: linear-gradient(100deg, var(--primary), #6366f1 60%, var(--primary-dark));
       -webkit-background-clip: text; background-clip: text; color: transparent;
     }
     .lead .sub {
-      font-family: "Sora", sans-serif; font-weight: 600;
-      font-size: clamp(1rem, 1.6vw, 1.25rem); line-height: 1.2;
-      margin-top: 10px; color: var(--primary);
+      font-family: "Manrope", sans-serif; font-weight: 500;
+      font-size: clamp(1rem, 1.3vw, 1.12rem); line-height: 1.55;
+      color: var(--muted); max-width: 46ch;
     }
 
-    .steps { display: grid; gap: 22px; margin-top: 30px; max-width: 560px; }
-    .step { display: flex; gap: 16px; align-items: flex-start; }
-    .step-num {
-      flex-shrink: 0; width: 44px; height: 44px; border-radius: 50%;
+    /* compact 3-step row */
+    .steps-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px 26px; max-width: 620px; }
+    .step-mini { min-width: 0; }
+    .step-mini .sm-head { display: flex; align-items: center; gap: 9px; }
+    .step-mini .sm-num {
+      flex-shrink: 0; width: 24px; height: 24px; border-radius: 7px;
       display: grid; place-items: center;
-      font-family: "Sora", sans-serif; font-weight: 800; font-size: 1.1rem;
-      color: var(--primary); background: var(--surface);
-      border: 2px solid var(--border); box-shadow: var(--shadow-sm);
+      font-family: "Sora", sans-serif; font-weight: 800; font-size: 0.78rem;
+      color: var(--primary); background: var(--primary-soft);
+      border: 1px solid rgba(37,99,235,0.20);
     }
-    .step h3 { font-size: 1.1rem; font-weight: 700; color: var(--ink); line-height: 1.3; }
-    .step p { color: var(--muted); font-size: 0.95rem; margin-top: 2px; }
-    .step .notes { list-style: none; margin-top: 6px; display: grid; gap: 4px; }
-    .step .notes li {
-      color: var(--muted); font-weight: 500; font-size: 0.9rem;
-      display: flex; gap: 8px; align-items: center;
-    }
+    .step-mini .sm-title { font-family: "Sora", sans-serif; font-weight: 700; font-size: 0.98rem; color: var(--ink); }
+    .step-mini p { color: var(--muted); font-size: 0.85rem; margin-top: 6px; }
 
-    /* right: converter illustration */
-    .converter-img { max-width: 100%; max-height: 30vh; object-fit: contain; display: block; }
+    /* left actions */
+    .lead-actions { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+    .btn-demo { background: transparent; color: var(--ink-soft); border: 1px solid var(--border); }
+    .btn-demo:hover { background: var(--bg-soft); border-color: var(--hover-border); }
 
     /* upload area (pill from index.html) */
     #pdfInput { display: none; }
@@ -290,6 +249,10 @@
       display: none; flex-direction: column;
     }
     .bank-select.open .bank-menu { display: flex; }
+    /* lift the whole selector above the sibling dropzone/hint/enc-note
+       (they all get z-index:1 from `.upload-card > *`) so the open menu
+       isn't painted under later siblings */
+    .upload-card .bank-select.open { z-index: 50; }
     .bank-search { padding: 10px; border-bottom: 1px solid var(--border); }
     .bank-search input {
       width: 100%; padding: 9px 12px; border-radius: 10px;
@@ -333,7 +296,7 @@
     .hero-status a { color: var(--primary); font-weight: 700; text-decoration: underline; }
 
     /* free-plan page-credit meter */
-    .credit-meter { display: none; margin-bottom: 28px; flex-direction: column; align-items: flex-start; gap: 8px; }
+    .credit-meter { display: none; margin-top: 4px; flex-direction: column; align-items: flex-start; gap: 8px; }
     .credit-meter.show { display: flex; }
     .credit-meter .cm-text { font-size: 0.9rem; color: var(--muted); font-weight: 500; }
     .credit-meter .cm-text strong { color: var(--ink); font-weight: 700; }
@@ -349,15 +312,33 @@
       font-weight: 700; font-size: 0.78rem; padding: 4px 10px; border-radius: 999px;
     }
 
-    /* ===== upload card (drag & drop) ===== */
+    /* ===== upload card ===== */
     .upload-card {
       position: relative;
-      width: 360px; max-width: 100%; margin-top: 0;
+      width: 100%; max-width: 440px;
       background: var(--surface); border: 1px solid var(--border);
-      border-radius: 18px; box-shadow: var(--shadow); padding: 20px;
-      display: flex; flex-direction: column; gap: 14px; text-align: left;
+      border-radius: 22px; box-shadow: var(--shadow-lg);
+      padding: clamp(20px, 2.4vw, 30px);
+      display: flex; flex-direction: column; gap: 16px; text-align: left;
+      overflow: hidden;
     }
-    .uc-title { font-size: 1.05rem; font-weight: 700; color: var(--ink); }
+    /* faint blue glow inside the top of the card */
+    .upload-card::before {
+      content: ""; position: absolute; top: -70px; left: 50%; transform: translateX(-50%);
+      width: 280px; height: 170px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(59,130,246,0.30), transparent 70%);
+      filter: blur(34px); pointer-events: none;
+    }
+    .upload-card > * { position: relative; z-index: 1; }
+    .uc-head { display: flex; flex-direction: column; gap: 3px; }
+    .uc-title { font-family: "Sora", sans-serif; font-size: 1.25rem; font-weight: 700; color: var(--ink); }
+    .uc-sub { font-size: 0.88rem; color: var(--muted); }
+
+    .field-label {
+      font-family: "Manrope", sans-serif; font-weight: 700;
+      font-size: 0.7rem; letter-spacing: 0.12em; text-transform: uppercase;
+      color: var(--muted); margin-bottom: -8px;
+    }
 
     /* bank controls fill the card width */
     .upload-card .bank-select, .upload-card .bank-trigger,
@@ -367,19 +348,38 @@
 
     /* dashed drop zone */
     .dropzone {
-      display: flex; flex-direction: column; align-items: center; gap: 10px;
+      display: flex; flex-direction: column; align-items: center; gap: 12px;
       text-align: center; cursor: pointer;
-      border: 1.5px dashed var(--border); border-radius: 12px;
-      padding: 26px 18px; transition: border-color 0.18s ease, background 0.18s ease;
+      border: 1.5px dashed var(--border); border-radius: 16px;
+      padding: 34px 18px; transition: border-color 0.18s ease, background 0.18s ease;
     }
     .dropzone:hover, .dropzone.drag { border-color: var(--primary); background: var(--primary-soft); }
     .dropzone.hidden { display: none; }
-    .dz-icon { width: 30px; height: 30px; color: var(--muted); transition: color 0.18s ease; }
-    .dropzone:hover .dz-icon, .dropzone.drag .dz-icon { color: var(--primary); }
-    .dz-text { font-size: 0.92rem; color: var(--ink-soft); font-weight: 500; }
-    .dz-link { color: var(--primary); font-weight: 700; }
-    .dz-hint { font-size: 0.78rem; color: var(--muted); margin-top: -4px; }
+    .dz-icon-wrap {
+      width: 46px; height: 46px; border-radius: 12px; display: grid; place-items: center;
+      background: var(--bg-soft); border: 1px solid var(--border); color: var(--muted);
+      transition: color 0.18s ease, border-color 0.18s ease;
+    }
+    .dropzone:hover .dz-icon-wrap, .dropzone.drag .dz-icon-wrap { color: var(--primary); border-color: var(--primary); }
+    .dz-icon { width: 22px; height: 22px; }
+    .dz-text { font-size: 1rem; color: var(--ink-soft); font-weight: 600; }
+    .dz-link { color: var(--primary); font-weight: 700; text-decoration: underline; text-underline-offset: 2px; }
+    .dz-hint { font-size: 0.76rem; color: var(--muted); text-align: center; margin-top: -8px; }
     .dz-hint.hidden { display: none; }
+
+    /* encryption reassurance bar */
+    .enc-note {
+      display: flex; align-items: flex-start; gap: 9px;
+      background: var(--bg-soft); border: 1px solid var(--border);
+      border-radius: 10px; padding: 10px 12px;
+      font-size: 0.76rem; line-height: 1.5; color: var(--muted); font-weight: 500;
+    }
+    /* Pin the lock to the first text line (nudge to match its cap height) so it
+       stays aligned whether the note sits on one line or wraps to two. */
+    .enc-note svg { width: 15px; height: 15px; margin-top: 2px; color: var(--green); flex-shrink: 0; }
+
+    /* proceed button */
+    .proceed-btn { width: 100%; justify-content: center; padding: 14px; font-size: 1rem; }
 
     /* selected-file card */
     .file-card {
@@ -429,20 +429,20 @@
       0% {
         transform: rotate(90deg);
         box-shadow:
-          0 6px 12px 0 #7c8af0 inset, 0 12px 18px 0 #4d5bc0 inset, 0 36px 36px 0 #312e81 inset,
-          0 0 3px 1.2px rgba(99,110,230,0.3), 0 0 6px 1.8px rgba(77,91,192,0.25);
+          0 6px 12px 0 #38bdf8 inset, 0 12px 18px 0 #005dff inset, 0 36px 36px 0 #1e40af inset,
+          0 0 3px 1.2px rgba(56,189,248,0.3), 0 0 6px 1.8px rgba(0,93,255,0.2);
       }
       50% {
         transform: rotate(270deg);
         box-shadow:
-          0 6px 12px 0 #8b96e8 inset, 0 12px 6px 0 #6366f1 inset, 0 24px 36px 0 #4d5bc0 inset,
-          0 0 3px 1.2px rgba(99,110,230,0.3), 0 0 6px 1.8px rgba(77,91,192,0.25);
+          0 6px 12px 0 #60a5fa inset, 0 12px 6px 0 #0284c7 inset, 0 24px 36px 0 #005dff inset,
+          0 0 3px 1.2px rgba(56,189,248,0.3), 0 0 6px 1.8px rgba(0,93,255,0.2);
       }
       100% {
         transform: rotate(450deg);
         box-shadow:
-          0 6px 12px 0 #9aa6f5 inset, 0 12px 18px 0 #4d5bc0 inset, 0 36px 36px 0 #312e81 inset,
-          0 0 3px 1.2px rgba(99,110,230,0.3), 0 0 6px 1.8px rgba(77,91,192,0.25);
+          0 6px 12px 0 #4dc8fd inset, 0 12px 18px 0 #005dff inset, 0 36px 36px 0 #1e40af inset,
+          0 0 3px 1.2px rgba(56,189,248,0.3), 0 0 6px 1.8px rgba(0,93,255,0.2);
       }
     }
     @keyframes loaderLetter {
@@ -528,8 +528,12 @@
     }
 
     @media (max-width: 860px) {
-      .layout { flex-direction: column; gap: 1.5rem; }
-      .col-left, .col-right { flex: none; }
+      .layout { grid-template-columns: 1fr; gap: 2rem; }
+      .col-right { justify-content: stretch; }
+      .upload-card { max-width: 100%; }
+    }
+    @media (max-width: 480px) {
+      .steps-row { grid-template-columns: repeat(2, 1fr); }
     }
   </style>
 </head>
@@ -570,7 +574,7 @@
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
               My Statements
             </button>
-            <button type="button" role="menuitem">
+            <button type="button" role="menuitem" onclick="window.location.href='/statements.html#issues'">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
               My Issues
             </button>
@@ -587,53 +591,55 @@
   <!-- ============ MAIN ============ -->
   <main class="layout">
 
-    <!-- left: heading + steps -->
+    <!-- left: onboarding copy + steps -->
     <div class="col-left stagger">
+
+      <span class="lead-pill">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/></svg>
+        AI-Powered Conversion
+      </span>
+
+      <div class="lead">
+        <h1>PDF to <span class="tally">Tally</span> XML, CSV in 3 simple steps</h1>
+      </div>
+      <p class="sub">Stop manual data entry. Ledgerit uses advanced neural networks to extract transaction data from your bank statements — accurately, in seconds.</p>
+
+      <div class="steps-row">
+        <div class="step-mini">
+          <div class="sm-head"><span class="sm-num">1</span><span class="sm-title">Upload</span></div>
+          <p>Digitally-generated PDFs supported.</p>
+        </div>
+        <div class="step-mini">
+          <div class="sm-head"><span class="sm-num">2</span><span class="sm-title">AI Process</span></div>
+          <p>Automatic transaction structuring.</p>
+        </div>
+        <div class="step-mini">
+          <div class="sm-head"><span class="sm-num">3</span><span class="sm-title">Export</span></div>
+          <p>Tally XML or CSV ready.</p>
+        </div>
+      </div>
+
+      <div class="lead-actions">
+        <a class="btn btn-demo" href="/">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
+          View Demo
+        </a>
+      </div>
 
       <!-- free-plan page-credit meter; filled in by loadCredit() -->
       <div class="credit-meter" id="creditMeter" aria-live="polite"></div>
-
-      <div class="lead">
-        <h1><span class="grad">PDF</span> to <span class="tally">Tally</span> <span class="grad">XML</span>, <span class="grad">CSV</span></h1>
-        <div class="sub">in 3 simple steps</div>
-      </div>
-
-      <div class="steps">
-        <div class="step">
-          <div class="step-num">1</div>
-          <div>
-            <h3>Upload PDF Bank Statement</h3>
-            <ul class="notes">
-              <li>Scanned PDFs are currently not supported</li>
-              <li>Enter password if protected</li>
-            </ul>
-          </div>
-        </div>
-        <div class="step">
-          <div class="step-num">2</div>
-          <div>
-            <h3>Let AI Convert Into Structured Data</h3>
-            <p>Ledgerit's AI identifies and extracts the transactions and structures them automatically.</p>
-          </div>
-        </div>
-        <div class="step">
-          <div class="step-num">3</div>
-          <div>
-            <h3>Download Tally XML or CSV</h3>
-            <p>Download your converted bank statement as Tally-ready XML or a clean CSV file.</p>
-          </div>
-        </div>
-      </div>
     </div>
 
-    <!-- right: illustration + upload pill -->
+    <!-- right: upload card -->
     <div class="col-right stagger">
 
-      <img src="assets/converter.png" alt="PDF to Tally converter" class="converter-img" />
-
       <form class="upload-card" id="uploadCard" onsubmit="return false;">
-        <h3 class="uc-title">Upload Statement</h3>
+        <div class="uc-head">
+          <h3 class="uc-title">Upload Statement</h3>
+          <p class="uc-sub">Secure, encrypted processing.</p>
+        </div>
 
+        <div class="field-label">Select Institution</div>
         <!-- bank selector -->
         <div class="bank-select" id="bankSelect">
           <button type="button" class="bank-trigger placeholder" id="bankTrigger" aria-haspopup="listbox" aria-expanded="false" onclick="toggleBankMenu(event)">
@@ -659,11 +665,13 @@
 
         <!-- dashed drop zone -->
         <label class="dropzone" id="dropzone" for="pdfInput">
-          <svg class="dz-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-          <span class="dz-text">Drag and drop or <span class="dz-link">choose file</span> to upload</span>
+          <span class="dz-icon-wrap">
+            <svg class="dz-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 12 15 15"/></svg>
+          </span>
+          <span class="dz-text">Drag and drop or <span class="dz-link">choose file</span></span>
         </label>
         <input type="file" id="pdfInput" accept=".pdf" onchange="onFileChange(event)" />
-        <p class="dz-hint" id="dzHint">Digitally-generated PDFs only (no scans) · Max size 10&nbsp;MB</p>
+        <p class="dz-hint" id="dzHint">Digitally-generated PDFs only (no scans) · Max 10&nbsp;MB</p>
 
         <!-- selected file -->
         <div class="file-card" id="fileCard">
@@ -681,6 +689,18 @@
             </p>
           </div>
         </div>
+
+        <!-- encryption reassurance -->
+        <div class="enc-note">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          AES-256 encryption active · files auto-deleted after conversion.
+        </div>
+
+        <!-- proceed -->
+        <button type="button" class="btn btn-primary proceed-btn" id="proceedBtn" onclick="proceed()">
+          Proceed to Conversion
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </button>
 
         <div class="hero-status" id="status"></div>
       </form>
@@ -966,7 +986,7 @@
       sel.classList.remove("other");
       document.getElementById("bankOtherInput").value = "";
       document.getElementById("bankTrigger").classList.add("placeholder");
-      document.getElementById("bankLabel").textContent = "Select your bank";
+      document.getElementById("bankLabel").textContent = "Choose your bank";
       selectedBank = "";
     }
 
@@ -1114,7 +1134,28 @@
       pendingFile = file;
       ub("passwordInput").value = "";
       setStatus("", false);
-      processFile();   // start converting as soon as a PDF is selected/dropped
+      showSelectedFile();   // show the picked file; user clicks "Proceed to Conversion"
+    }
+
+    // File chosen (not yet converting): show it in the card and swap out the
+    // drop zone. Conversion starts when the user clicks "Proceed to Conversion".
+    function showSelectedFile() {
+      if (!pendingFile) return;
+      ub("fileName").textContent = pendingFile.name;
+      ub("fileSize").textContent = formatBytes(pendingFile.size);
+      ub("fileState").textContent = "Ready to convert";
+      ub("fileCard").classList.remove("processing");
+      ub("fileCard").classList.add("show");
+      ub("dropzone").classList.add("hidden");
+      ub("dzHint").classList.add("hidden");
+    }
+
+    // Primary CTA. Requires a bank; opens the file picker if nothing is chosen
+    // yet, otherwise kicks off the conversion.
+    function proceed() {
+      if (!getSelectedBank()) { flagBankRequired(); return; }
+      if (!pendingFile) { ub("pdfInput").click(); return; }
+      processFile();
     }
 
     // drag & drop onto the drop zone

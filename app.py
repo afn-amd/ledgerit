@@ -1068,6 +1068,46 @@ def raise_statement_issue(sid):
     return jsonify({"ok": True})
 
 
+@app.route("/api/issues")
+@login_required
+def list_my_issues():
+    # The current user's raised statement issues, for the "My Issues" panel on
+    # statements.html. Mirrors the admin view but scoped to the owner and with
+    # only the fields that page renders. Open issues first, then newest.
+    docs = list(statements.find(
+        {"user_id": current_user(), "issue": {"$exists": True}},
+        {"data": 0, "pdf": 0, "pdf_password": 0},
+    ))
+
+    out = []
+    for d in docs:
+        issue = d.get("issue") or {}
+        out.append({
+            "statement_id": str(d["_id"]),
+            "filename": d.get("filename", ""),
+            "title": issue.get("title", ""),
+            "note": issue.get("note", ""),
+            "status": issue.get("status", "open"),
+            # Screenshots aren't stored on issues yet — always false so the
+            # panel doesn't request a screenshot endpoint that doesn't exist.
+            "has_screenshot": False,
+            "created_at": _iso(issue.get("created_at")),
+            "resolved_at": _iso(issue.get("resolved_at")),
+        })
+
+    # Number by the order raised (oldest = #1) so each issue keeps a stable
+    # label, then present open first and newest within each group.
+    out.sort(key=lambda r: r["created_at"] or "")
+    for i, r in enumerate(out, start=1):
+        r["number"] = "#" + str(i)
+
+    open_first = [r for r in out if r["status"] != "resolved"]
+    resolved = [r for r in out if r["status"] == "resolved"]
+    open_first.sort(key=lambda r: r["created_at"] or "", reverse=True)
+    resolved.sort(key=lambda r: r["created_at"] or "", reverse=True)
+    return jsonify({"issues": open_first + resolved})
+
+
 # ---------------------------------------------------------------------------
 # Contact form API
 # ---------------------------------------------------------------------------
