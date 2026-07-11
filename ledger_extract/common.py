@@ -99,12 +99,18 @@ def first_date(cells):
 # Money
 # --------------------------------------------------------------------------
 
-# Whole cell is a number, optionally with a Dr/Cr marker. Handles:
+# Whole cell is a number, optionally with a currency prefix and/or a Dr/Cr
+# marker. Handles:
 #   "30,700.00"  "667996.16 Dr."  "50,000.00(Cr)"  "35117.37cr"
 #   "443359.49Cr"  "650640.45 (Cr)"  "256.00"  "1499646"  "2022.1"
+#   "INR 40,000.00"  "INR 305,204.75"  "Rs. 5,000.00"  "₹1,200.00"
+# The currency prefix (INR / Rs / ₹) is what Indian Bank prints in front of
+# every amount and balance; without stripping it no cell would parse as money
+# and the whole statement would extract zero transactions.
 _MONEY_RE = re.compile(
     r"""^\s*
         (?P<neg>-)?
+        \s*(?:(?:INR|RS|₹)\.?\s*)?
         (?P<num>\d{1,3}(?:,\d{2,3})*(?:\.\d+)?|\d+(?:\.\d+)?)
         \s*
         (?P<mark>\(?\s*(?:DR|CR)\s*\)?\.?)?
@@ -131,10 +137,16 @@ def parse_money(cell):
     raw = m.group("num")
     has_sep = "." in raw or "," in raw
     digits = raw.replace(",", "")
-    # Bare integers that are really references / account numbers, not money:
-    # leading-zero strings (e.g. 0000452954753350) or very long runs (>=12).
+    # Bare integers that are really references / account / mobile numbers, not
+    # money: leading-zero strings (e.g. 0000452954753350) or long runs (>=10).
+    # A genuine amount or balance in these statements always carries a decimal
+    # (".00") or a Dr/Cr / currency marker, so a 10+ digit run with none of
+    # those is an identifier that belongs in the narration -- e.g. Indian Bank
+    # prints the payee account/mobile number ("7582939659") on its own
+    # narration line, which must survive into the Description, not be dropped as
+    # an amount.
     if not has_sep and m.group("mark") is None:
-        if len(digits) >= 12:
+        if len(digits) >= 10:
             return None, None
         if len(digits) > 1 and digits[0] == "0":
             return None, None

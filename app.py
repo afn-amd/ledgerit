@@ -25,7 +25,10 @@ from PyPDF2 import PdfReader, PdfWriter
 from transformers import DistilBertTokenizerFast, DistilBertForSequenceClassification
 
 # Lattice-vs-stream classifier and the stream (no-ruled-grid) extractor.
-from pdfType import classify_pdf
+# classify_pdf_fast adds a PyMuPDF pre-check that skips the expensive Camelot
+# lattice probe for the confidently-stream majority (deferring only
+# possibly-tabular PDFs to Camelot for an identical verdict).
+from pdfType import classify_pdf_fast, is_scanned_pdf
 from ledger_extract.pipeline import extract_statement
 from ledger_extract.common import parse_date_leading
 
@@ -371,19 +374,41 @@ def _leading_date_rows(df):
     )
 
 
+def _unlock_pdf(reader, password):
+    """Resolve the effective open password for a (possibly) encrypted *reader*.
+
+    Returns ("ok", effective_password), ("need", None) or ("wrong", None).
+
+    Many bank statements are encrypted only to set owner-level permission
+    restrictions (no printing/copying) while leaving the *user* (open) password
+    blank. Normal PDF viewers open those without prompting, yet
+    ``reader.is_encrypted`` is still True — so we must try the empty password
+    before demanding one, otherwise we'd ask for a password the file doesn't have.
+    """
+    if not reader.is_encrypted:
+        return "ok", password
+    # Owner-only encryption: the empty user password opens it.
+    if reader.decrypt("") != 0:
+        return "ok", ""
+    if not password:
+        return "need", None
+    if reader.decrypt(password) == 0:
+        return "wrong", None
+    return "ok", password
+
+
 def process_pdf(pdf_path, password=None):
 
     reader = PdfReader(pdf_path)
 
+    status, password = _unlock_pdf(reader, password)
+
+    if status == "need":
+        return None, None, "PASSWORD_REQUIRED"
+    if status == "wrong":
+        return None, None, "WRONG_PASSWORD"
+
     if reader.is_encrypted:
-
-        if not password:
-            return None, None, "PASSWORD_REQUIRED"
-
-        status = reader.decrypt(password)
-
-        if status == 0:
-            return None, None, "WRONG_PASSWORD"
 
         tables = camelot.read_pdf(
             pdf_path,
@@ -736,6 +761,44 @@ def _drop_empty_date_columns(records, headers):
     kept = [
         h for h in headers
         if not (is_date_header(h) and col_all_blank(h))
+    ]
+
+    if len(kept) == len(headers):
+        return records, headers   # nothing dropped
+
+    new_records = [{h: r.get(h, "") for h in kept} for r in records]
+    return new_records, kept
+
+
+def _drop_empty_optional_columns(records, headers):
+    """Remove an all-blank Reference / cheque / code column from the output.
+
+    Many statements have no dedicated Chq./Ref.No. column, so the extractor's
+    "Reference" column comes back empty for every row (e.g. Indian Bank, whose
+    narration carries the transfer ref inline). An empty identifier column is
+    dead weight in the table, CSV and Tally XML, so drop it.
+
+    Scoped to *identifier* columns (reference / ref / cheque / chq / code) on
+    purpose — like _drop_empty_date_columns, dropping *any* all-blank column
+    would remove an empty "Credit" column from a payments-only statement and
+    break the dual debit/credit view. Date/Description/Debit/Credit/Balance are
+    never dropped even when blank.
+    """
+    if not records or not headers:
+        return records, headers
+
+    def is_optional_header(h):
+        hl = str(h).lower()
+        return any(
+            k in hl for k in ("reference", "ref no", "ref.", "cheque", "chq", "code")
+        )
+
+    def col_all_blank(h):
+        return all(str(r.get(h, "")).strip() == "" for r in records)
+
+    kept = [
+        h for h in headers
+        if not (is_optional_header(h) and col_all_blank(h))
     ]
 
     if len(kept) == len(headers):
@@ -1775,11 +1838,11 @@ def process():
         # stream paths) so the front-end's password pill behaves the same
         # regardless of which extractor ends up running.
         reader = PdfReader(tmp_path)
-        if reader.is_encrypted:
-            if not password:
-                return jsonify({"error": "PASSWORD_REQUIRED"}), 200
-            if reader.decrypt(password) == 0:
-                return jsonify({"error": "WRONG_PASSWORD"}), 200
+        unlock_status, password = _unlock_pdf(reader, password)
+        if unlock_status == "need":
+            return jsonify({"error": "PASSWORD_REQUIRED"}), 200
+        if unlock_status == "wrong":
+            return jsonify({"error": "WRONG_PASSWORD"}), 200
 
         # Total pages in the source PDF — stored alongside the extraction so the
         # statements list can show it. Reading after the decrypt gate ensures
@@ -1793,6 +1856,24 @@ def process():
             app.logger.warning("Could not count PDF pages: %s", exc)
             page_count = 0
 
+        # Scanned/image-only statements have no text layer, so every extractor
+        # would return nothing usable. Detect them up front (cheap PyMuPDF probe,
+        # no OCR) and tell the user plainly instead of running — and being
+        # charged for — an extraction that is doomed to fail.
+        if is_scanned_pdf(tmp_path, password=password):
+            _save_failed_statement(
+                pdf_file, tmp_path, page_count,
+                "This looks like a scanned (image-based) PDF.",
+                password, bank,
+            )
+            saved_ok = True
+            return jsonify({
+                "error": "SCANNED_PDF",
+                "message": "This looks like a scanned (image-based) PDF. We can "
+                           "only read statements with selectable text — please "
+                           "upload a digital PDF exported from your bank."
+            }), 200
+
         # Free-plan page-credit gate. Registered (non-admin) users may extract
         # up to their page_limit; admins are unlimited. Read live from the DB
         # so a limit/usage changed there (or in the admin console) takes effect
@@ -1805,6 +1886,16 @@ def process():
             remaining = max(0, limit - used)
 
             if remaining <= 0:
+                # Save the statement (flagged failed, no rows) so it still
+                # appears in the owner's list and the source PDF can be
+                # re-downloaded — but don't extract or charge any pages.
+                stmt_id = _save_failed_statement(
+                    pdf_file, tmp_path, page_count,
+                    (f"You've used all {limit} free pages. "
+                     f"Upgrade your plan to continue."),
+                    password, bank,
+                )
+                saved_ok = True
                 return jsonify({
                     "error": "PAGE_LIMIT_REACHED",
                     "message": (f"You've used all {limit} free pages. "
@@ -1812,9 +1903,21 @@ def process():
                     "pages_used": used,
                     "page_limit": limit,
                     "pages_remaining": 0,
+                    "statement_id": stmt_id,
                 }), 200
 
             if page_count > remaining:
+                # Statement is too long for the remaining credit: we won't
+                # extract or charge, but still save it (flagged failed) so it
+                # shows in the owner's list and the PDF stays retrievable.
+                stmt_id = _save_failed_statement(
+                    pdf_file, tmp_path, page_count,
+                    (f"This statement has {page_count} pages but you have only "
+                     f"{remaining} of {limit} free pages left. Upgrade your "
+                     f"plan to continue."),
+                    password, bank,
+                )
+                saved_ok = True
                 return jsonify({
                     "error": "INSUFFICIENT_PAGES",
                     "message": (f"This statement has {page_count} pages but you "
@@ -1823,12 +1926,13 @@ def process():
                     "pages_used": used,
                     "page_limit": limit,
                     "pages_remaining": remaining,
+                    "statement_id": stmt_id,
                 }), 200
 
         # Decide how to extract: a ruled tabular grid (lattice) goes through
         # the DistilBERT row-classifier pipeline as before; a structure-less
         # statement (stream) goes through ledger_extract.
-        classification = classify_pdf(tmp_path, password=password)
+        classification = classify_pdf_fast(tmp_path, password=password)
 
         if classification.category == "stream":
             records, headers, error = process_pdf_stream(tmp_path, password)
@@ -1864,6 +1968,11 @@ def process():
         # "Txn Date" alongside a populated "Value Date"). Done before persist +
         # return so the table, CSV and XML export never see the dead column.
         records, headers = _drop_empty_date_columns(records, headers)
+
+        # Likewise drop an all-blank identifier column (e.g. an empty
+        # "Reference" column on statements with no dedicated Chq./Ref. column,
+        # such as Indian Bank) so it never reaches the table, CSV or XML.
+        records, headers = _drop_empty_optional_columns(records, headers)
 
         # Persist the extraction for logged-in users so they can revisit it.
         # We also store the original PDF inline as BSON binary so the user can

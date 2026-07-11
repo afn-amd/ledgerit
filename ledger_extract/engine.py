@@ -104,6 +104,8 @@ def _description(cells, date_idx, balance_idx, ref, drop_code_cells=False):
     for i, c in enumerate(cells):
         if not c or i == date_idx or i == balance_idx:
             continue
+        if not any(ch.isalnum() for ch in c):  # drop empty-column placeholders ("-")
+            continue
         if C.parse_date(c):           # drop value-date columns
             continue
         if C.is_money(c):             # drop amount/balance numbers

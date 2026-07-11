@@ -4,13 +4,46 @@ from __future__ import annotations
 
 import os
 
+import fitz  # PyMuPDF — independent text-layer read used to spot under-capture
 import pandas as pd
 
-from .common import CANONICAL_COLUMNS
+from .common import CANONICAL_COLUMNS, parse_date
 from .detect import detect_bank
 from .engine import _direction_ascending, finalize, parse_rows
 from .extractor import read_tables, resolve_password
 from .profiles import get_profile
+
+
+def _text_layer_txn_estimate(pdf_path, password):
+    """Independent lower-bound on the number of transaction rows, read straight
+    from the PDF text layer with PyMuPDF (bypassing Camelot entirely).
+
+    Every transaction row starts with a leading date, so we count text lines
+    whose first one-to-three whitespace tokens parse as a date. This is used
+    only to detect when Camelot's default stream pass truncated a tall-row
+    layout and silently dropped transactions -- see extract_statement. Returns 0
+    on any error, which simply disables the under-capture retry (never wrong,
+    just no help).
+    """
+    try:
+        doc = fitz.open(pdf_path)
+        try:
+            if doc.needs_pass:
+                doc.authenticate(password or "")
+            n = 0
+            for page in doc:
+                for line in page.get_text("text").splitlines():
+                    w = line.strip().split()
+                    if w and any(
+                        len(w) >= k and parse_date(" ".join(w[:k]))
+                        for k in (3, 2, 1)
+                    ):
+                        n += 1
+            return n
+        finally:
+            doc.close()
+    except Exception:
+        return 0
 
 
 def extract_statement(pdf_path, password_map=None):
@@ -35,6 +68,25 @@ def extract_statement(pdf_path, password_map=None):
     # columns on other layouts).
     if not txns:
         txns, opening, bank = _read_and_parse(500)
+    else:
+        # Under-capture guard. On tall-row layouts with wide vertical gaps
+        # between transactions (e.g. Indian Bank, whose rows carry a multi-line
+        # narration and INR-prefixed amounts), Camelot's default stream table
+        # detection bounds each page's table to just its first transaction and
+        # drops the rest. The running-balance parser still reconciles perfectly
+        # -- each surviving row's amount is derived from the balance delta, so
+        # the skipped transactions are silently absorbed into the next captured
+        # row -- which hides the loss. Compare the parsed count against an
+        # independent text-layer transaction count; if the default pass came up
+        # materially short, retry with the wide edge tolerance and adopt it only
+        # when it genuinely captures more rows. A file that already extracts
+        # fully sits at ~100% of the estimate, so this adds no work and cannot
+        # change its result.
+        expected = _text_layer_txn_estimate(pdf_path, password)
+        if expected and len(txns) < 0.9 * expected:
+            wide = _read_and_parse(500)
+            if len(wide[0]) > len(txns):
+                txns, opening, bank = wide
 
     txns = finalize(txns, opening)
 

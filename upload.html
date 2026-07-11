@@ -482,6 +482,11 @@
     /* page-limit variant */
     .limit-icon { color: var(--danger); background: rgba(220,38,38,0.12); }
     .limit-msg { color: var(--ink-soft); max-width: 320px; line-height: 1.5; }
+    /* "couldn't convert" reasons / resolution detail */
+    .error-detail { width: 100%; text-align: left; display: flex; flex-direction: column; gap: 12px; margin-top: 2px; }
+    .error-detail-group h4 { font-size: 0.82rem; font-weight: 700; color: var(--ink); margin: 0 0 5px; }
+    .error-detail-group ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 3px; }
+    .error-detail-group li { font-size: 0.83rem; color: var(--ink-soft); line-height: 1.45; }
     .pw-modal .pw-field { width: 100%; margin-top: 2px; }
     .pw-modal .pp-error { justify-content: center; }
     .pw-modal-actions { display: flex; width: 100%; margin-top: 6px; }
@@ -783,6 +788,25 @@
       </div>
       <h3 class="pw-modal-title">Couldn't convert this PDF</h3>
       <p class="pw-modal-sub limit-msg" id="errorModalMsg"></p>
+
+      <div class="error-detail" id="errorDetail">
+        <div class="error-detail-group">
+          <h4>Possible Reasons</h4>
+          <ul>
+            <li>This could be a manually altered PDF.</li>
+            <li>Password might have been removed before uploading.</li>
+            <li>May not be a valid bank-generated statement.</li>
+          </ul>
+        </div>
+        <div class="error-detail-group">
+          <h4>How to Resolve</h4>
+          <ul>
+            <li>Upload the original bank-generated PDF statement.</li>
+            <li>Avoid uploading an edited PDF.</li>
+            <li>Ensure the password, if present, remains intact.</li>
+          </ul>
+        </div>
+      </div>
 
       <div class="pw-modal-actions">
         <button type="button" class="btn btn-primary btn-submit" onclick="removeFile()">
@@ -1104,9 +1128,17 @@
     // error — reset to the drop zone, then show the message in a centered
     // modal (same pattern as the password / page-limit boxes) with a close
     // button so the user can dismiss it and try another file.
-    function showError(msg) {
+    function showError(msg, opts) {
+      opts = opts || {};
       resetToIdle();
-      ub("errorModalMsg").textContent = msg || "We couldn't convert this PDF.";
+      const msgEl = ub("errorModalMsg");
+      msgEl.textContent = msg || "";
+      msgEl.style.display = msg ? "" : "none";
+      // Show the "possible reasons / how to resolve" guidance for generic
+      // conversion failures; hide it for errors that already carry their own
+      // specific explanation (e.g. a scanned PDF, a network error), which pass
+      // showReasons:false so the mismatched reasons don't confuse the user.
+      ub("errorDetail").style.display = opts.showReasons === false ? "none" : "";
       ub("errorModal").classList.add("show");
     }
 
@@ -1207,6 +1239,12 @@
           loadCredit();   // reflect the latest usage in the meter
           return;
         }
+        // Scanned (image-only) PDF: show its own specific explanation, not the
+        // generic "possible reasons" list (those don't apply to a scan).
+        if (result.error === "SCANNED_PDF") {
+          showError(result.message, { showReasons: false });
+          return;
+        }
         if (result.error) { showError(result.error); return; }
 
         sessionStorage.setItem("transactions", JSON.stringify(result));
@@ -1216,7 +1254,9 @@
       } catch (err) {
         activeController = null;
         if (err.name === "AbortError") return;
-        showError(err.message);
+        // Network/transport failure — show the raw reason without the
+        // bank-statement "possible reasons" list, which wouldn't apply here.
+        showError(err.message, { showReasons: false });
       }
     }
 
