@@ -7,7 +7,7 @@ import secrets
 import tempfile
 import warnings
 from functools import wraps
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
@@ -326,17 +326,34 @@ def relocate_leading_date(records, headers):
     #
     # Re-home the date so it sits alone in the date column and the full
     # description stays intact, so the row displays and exports correctly.
-    date_col = next(
-        (h for h in headers if _DATE_HDR_KW in str(h).lower()),
-        None
-    )
     desc_col = next(
         (h for h in headers
          if any(kw in str(h).lower() for kw in _DESC_HDR_KW)),
         None
     )
 
-    if not date_col or not desc_col or date_col == desc_col:
+    if not desc_col:
+        return records
+
+    # The misaligned boundary is always between the description and the date
+    # column immediately to its LEFT. On two-date layouts (SBI:
+    # "Txn Date | Value Date | Description") that is "Value Date", NOT the
+    # first "Txn Date" — so search leftward from the description for the
+    # nearest date column, and only fall back to the first date column overall
+    # (single-date layouts like Ujjivan, where the date leads the row).
+    desc_idx = headers.index(desc_col)
+    date_col = next(
+        (h for h in reversed(headers[:desc_idx])
+         if _DATE_HDR_KW in str(h).lower()),
+        None
+    )
+    if not date_col:
+        date_col = next(
+            (h for h in headers if _DATE_HDR_KW in str(h).lower()),
+            None
+        )
+
+    if not date_col or date_col == desc_col:
         return records
 
     for rec in records:
@@ -877,6 +894,53 @@ FREE_PAGE_LIMIT = 100
 
 
 # ---------------------------------------------------------------------------
+# Brute-force lockout
+# ---------------------------------------------------------------------------
+# After MAX_FAILED_LOGINS wrong passwords in a row, the account is locked for
+# LOCKOUT_DURATION. The counter lives on the user document (not the session), so
+# an attacker can't reset it by clearing cookies or switching browsers.
+MAX_FAILED_LOGINS = 3
+LOCKOUT_DURATION = timedelta(minutes=3)
+
+
+def _lock_seconds_left(user):
+    # Seconds until the account unlocks; 0 when it isn't locked. Mongo hands back
+    # naive datetimes, so pin them to UTC before comparing.
+    until = user.get("lock_until")
+    if not until:
+        return 0
+    if until.tzinfo is None:
+        until = until.replace(tzinfo=timezone.utc)
+    left = (until - datetime.now(timezone.utc)).total_seconds()
+    return max(0, int(left))
+
+
+def _humanize(seconds):
+    # "2 hours 45 minutes" / "12 minutes" — for the message shown on the login
+    # page. Rounds *up* to the next whole minute so we never tell someone to come
+    # back sooner than the lock actually lifts (a 3-minute lock with 2m01s left
+    # reads "3 minutes", not "2").
+    hours, minutes = divmod(-(-seconds // 60), 60)
+    parts = []
+    if hours:
+        parts.append(f"{hours} hour{'s' if hours != 1 else ''}")
+    if minutes:
+        parts.append(f"{minutes} minute{'s' if minutes != 1 else ''}")
+    return " ".join(parts) if parts else "under a minute"
+
+
+def _locked_response(seconds_left):
+    return jsonify({
+        "error": (
+            "Too many failed attempts. This account is locked for security — "
+            f"try again in {_humanize(seconds_left)}."
+        ),
+        "locked": True,
+        "retry_after": seconds_left,
+    }), 423  # 423 Locked
+
+
+# ---------------------------------------------------------------------------
 # Auth API
 # ---------------------------------------------------------------------------
 @app.route("/api/register", methods=["POST"])
@@ -926,8 +990,54 @@ def login():
 
     user = users.find_one({"mobile": mobile})
 
-    if not user or not check_password_hash(user["password_hash"], password):
-        return jsonify({"error": "Invalid mobile number or password"}), 401
+    # Unknown mobile: there's no account to lock, so point them at registration
+    # instead of a generic failure. The `unregistered` flag lets the login page
+    # turn "Register" into a link.
+    if not user:
+        return jsonify({"error": "New User? Register.", "unregistered": True}), 401
+
+    # A locked account is refused before the password is even checked — so the
+    # lock holds even if the attacker eventually guesses right.
+    seconds_left = _lock_seconds_left(user)
+    if seconds_left:
+        return _locked_response(seconds_left)
+
+    if not check_password_hash(user["password_hash"], password):
+        # The lock window has passed if we got here, so a stale lock_until from a
+        # previous lockout is cleared as we count this attempt.
+        failed = int(user.get("failed_logins", 0)) + 1
+
+        if failed >= MAX_FAILED_LOGINS:
+            users.update_one(
+                {"_id": user["_id"]},
+                {"$set": {
+                    "failed_logins": 0,
+                    "lock_until": datetime.now(timezone.utc) + LOCKOUT_DURATION,
+                }},
+            )
+            return _locked_response(int(LOCKOUT_DURATION.total_seconds()))
+
+        users.update_one(
+            {"_id": user["_id"]},
+            {"$set": {"failed_logins": failed}, "$unset": {"lock_until": ""}},
+        )
+        left = MAX_FAILED_LOGINS - failed
+        return jsonify({
+            "error": (
+                "Invalid mobile number or password. "
+                f"{left} attempt{'s' if left != 1 else ''} left before this "
+                f"account is locked for {_humanize(int(LOCKOUT_DURATION.total_seconds()))}."
+            ),
+            "attempts_left": left,
+        }), 401
+
+    # Correct password — wipe the failure streak so the count only ever tracks
+    # *consecutive* failures.
+    if user.get("failed_logins") or user.get("lock_until"):
+        users.update_one(
+            {"_id": user["_id"]},
+            {"$unset": {"failed_logins": "", "lock_until": ""}},
+        )
 
     session["user_id"] = str(user["_id"])
     session["name"] = user.get("name", "")

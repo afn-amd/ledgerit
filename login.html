@@ -141,6 +141,9 @@
       display: none;
     }
     .err.show { display: block; }
+    /* The "New User? Register." message links straight to the sign-up page. */
+    .err a { color: var(--primary); font-weight: 700; text-decoration: none; }
+    .err a:hover { text-decoration: underline; }
 
     .btn-submit {
       width: 100%; margin-top: 8px; padding: 15px;
@@ -278,6 +281,16 @@
         } else {
           var el = document.getElementById("errPass");
           el.textContent = out.error || "Sign in failed. Please try again.";
+          if (out.unregistered) {
+            // No account for this number — make "Register" a link they can click
+            // straight through. Built with DOM nodes, not innerHTML, so the
+            // server's text is never treated as markup.
+            el.textContent = "New User? ";
+            var a = document.createElement("a");
+            a.href = "/register.html";
+            a.textContent = "Register";
+            el.appendChild(a);
+          }
           el.classList.add("show");
           btn.disabled = false;
         }
