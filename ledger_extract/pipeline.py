@@ -8,7 +8,7 @@ import fitz  # PyMuPDF — independent text-layer read used to spot under-captur
 import pandas as pd
 
 from .common import CANONICAL_COLUMNS, parse_date
-from .detect import detect_bank
+from .detect import detect_bank, detect_bank_by_labeled_ifsc
 from .engine import _direction_ascending, finalize, parse_rows
 from .extractor import read_tables, resolve_password
 from .profiles import get_profile
@@ -46,16 +46,56 @@ def _text_layer_txn_estimate(pdf_path, password):
         return 0
 
 
+def _page1_text(pdf_path, password):
+    """Page-1 text layer, read directly with PyMuPDF.
+
+    Feeds detect_bank_by_labeled_ifsc: read_tables' full_text only contains the
+    cells of the tables Camelot found — on layouts where the account-info
+    header sits outside the table area (e.g. Kotak current account, whose
+    branding is a logo image and whose own IFSC lives in that header block),
+    the owner bank is invisible to detect_bank and the first counterparty IFSC
+    in a narration wins (that Kotak file detected as "hdfc" off a beneficiary's
+    HDFC0000001). The page-1 text layer always carries the header block, and
+    the labeled-IFSC scan is order-independent, so it doesn't matter that
+    PyMuPDF emits content order rather than visual order. Returns "" on any
+    error so a probe failure never changes the old behaviour.
+    """
+    try:
+        doc = fitz.open(pdf_path)
+        try:
+            if doc.needs_pass:
+                doc.authenticate(password or "")
+            return doc[0].get_text("text") if doc.page_count else ""
+        finally:
+            doc.close()
+    except Exception:
+        return ""
+
+
 def extract_statement(pdf_path, password_map=None):
     """Process one PDF. Returns (df, meta) where meta carries diagnostics."""
     password = resolve_password(pdf_path, password_map)
+    # Owner bank from the labeled IFSC in the page-1 header, when present.
+    # This outranks detect_bank's earliest-substring scan, which a counterparty
+    # IFSC can hijack when the account-info header is missing from full_text.
+    header_bank = detect_bank_by_labeled_ifsc(_page1_text(pdf_path, password))
 
     def _read_and_parse(edge_tol):
         tables_rows, full_text = read_tables(
             pdf_path, password=password, edge_tol=edge_tol
         )
-        bank = detect_bank(full_text)
+        bank = header_bank or detect_bank(full_text)
         txns, opening = parse_rows(tables_rows, get_profile(bank))
+        # Profile-mismatch guard: a bank profile is tuned to one layout, and
+        # the same bank ships others (Kotak current-account says "Description"
+        # where the profile's header keyword expects "Narration"), so a correct
+        # detection can still parse nothing. Zero rows today means a guaranteed
+        # "couldn't convert", so falling back to the layout-agnostic generic
+        # profile can only rescue files, never change a working one.
+        if not txns and bank != "generic":
+            g_txns, g_opening = parse_rows(tables_rows, get_profile("generic"))
+            if g_txns:
+                txns, opening = g_txns, g_opening
         return txns, opening, bank
 
     txns, opening, bank = _read_and_parse(None)

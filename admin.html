@@ -697,26 +697,26 @@
       if (isNaN(d)) return "—";
       return fmtDate(iso) + ", " + d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
     }
-    // Secondary "uploaded" line shown beneath the date: a relative time
-    // ("2 hours ago") when the upload happened today, otherwise the exact
-    // clock time ("2:32 PM") once the day has passed.
-    function fmtUploadTime(iso) {
+    // "Uploaded" column: the exact upload date and clock time, pinned to IST
+    // (Asia/Kolkata) regardless of the viewer's browser timezone. No relative
+    // times ("5.7 hours ago") — the admin needs the precise moment.
+    function fmtISTDate(iso) {
+      if (!iso) return "—";
+      var d = new Date(iso);
+      if (isNaN(d)) return "—";
+      return d.toLocaleDateString("en-IN", {
+        timeZone: "Asia/Kolkata",
+        day: "numeric", month: "short", year: "numeric"
+      });
+    }
+    function fmtISTTime(iso) {
       if (!iso) return "";
       var d = new Date(iso);
       if (isNaN(d)) return "";
-      var now = new Date();
-      var sameDay = d.getFullYear() === now.getFullYear() &&
-                    d.getMonth() === now.getMonth() &&
-                    d.getDate() === now.getDate();
-      if (sameDay) {
-        var mins = Math.max(0, now - d) / 60000;
-        if (mins < 1) return "just now";
-        if (mins < 60) { var m = Math.round(mins); return m + (m === 1 ? " minute ago" : " minutes ago"); }
-        var hours = Math.round((mins / 60) * 10) / 10;            // one decimal, e.g. 2.5
-        var hStr = (hours % 1 === 0) ? String(hours) : hours.toFixed(1);
-        return hStr + (hours === 1 ? " hour ago" : " hours ago");
-      }
-      return d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+      return d.toLocaleTimeString("en-IN", {
+        timeZone: "Asia/Kolkata",
+        hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true
+      }).toUpperCase() + " IST";
     }
     function fmtNum(n) { return (n || 0).toLocaleString(); }
 
@@ -1106,8 +1106,8 @@
           '<td>' + (s.bank ? escHtml(s.bank) : '<span class="cell-sub">—</span>') + '</td>' +
           '<td class="num">' + fmtNum(s.row_count) + '</td>' +
           '<td class="num">' + fmtNum(s.page_count) + '</td>' +
-          '<td><div class="cell-sub">' + escHtml(fmtDate(s.created_at)) + '</div>' +
-            '<div class="upload-time">' + escHtml(fmtUploadTime(s.created_at)) + '</div></td>' +
+          '<td><div class="cell-sub">' + escHtml(fmtISTDate(s.created_at)) + '</div>' +
+            '<div class="upload-time">' + escHtml(fmtISTTime(s.created_at)) + '</div></td>' +
           '<td><div class="row-actions">' + viewAct + '</div></td>' +
         '</tr>';
       }).join("");

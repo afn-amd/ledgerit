@@ -137,20 +137,48 @@ def parse_rows(tables_rows, profile):
     opening = None
     in_footer = False
 
-    for table in tables_rows:
+    def _prep(raw):
+        if explode:
+            # HDFC packs several logical columns into one cell separated by
+            # '\n' (e.g. "Date\nNarration", "Ref\nValueDt\nWithdrawal").
+            # Split them back out so each field becomes its own cell.
+            cells = []
+            for c in raw:
+                cells.extend(str(c).split("\n"))
+        elif engine == "linear":
+            cells = _linearize(raw)
+        else:
+            cells = list(raw)
+        return C.split_money_cells([C.clean(c) for c in cells])
+
+    def _has_txn(table):
+        # True when *table* holds at least one genuine transaction row (the
+        # same date/balance rule the main loop applies below). A table with
+        # none is a non-transaction page — the "Account Summary" / legend /
+        # disclaimer blocks after the last transaction (e.g. Kotak's trailing
+        # pages) — and must not donate continuation lines, else its text gets
+        # appended to the final transaction's narration. Genuine wrapped
+        # narrations that spill onto the next page always sit in a table that
+        # also carries transactions, so those still attach.
         for raw in table:
-            if explode:
-                # HDFC packs several logical columns into one cell separated by
-                # '\n' (e.g. "Date\nNarration", "Ref\nValueDt\nWithdrawal").
-                # Split them back out so each field becomes its own cell.
-                cells = []
-                for c in raw:
-                    cells.extend(str(c).split("\n"))
-            elif engine == "linear":
-                cells = _linearize(raw)
-            else:
-                cells = list(raw)
-            cells = C.split_money_cells([C.clean(c) for c in cells])
+            cells = _prep(raw)
+            date_idx, iso = C.first_date(cells)
+            bal_idx, bal = C.last_balance(cells)
+            if engine == "linear":
+                if iso and date_idx is not None and all(
+                    not cells[i] for i in range(date_idx)
+                ):
+                    return True
+            elif (iso is not None and bal is not None
+                    and date_idx is not None and bal_idx is not None
+                    and date_idx < bal_idx):
+                return True
+        return False
+
+    for table in tables_rows:
+        table_txn = _has_txn(table)
+        for raw in table:
+            cells = _prep(raw)
             joined = " ".join(cells).strip()
             if not joined:
                 continue
@@ -243,7 +271,7 @@ def parse_rows(tables_rows, profile):
             elif in_footer:
                 # inside a footer block -> drop the line entirely
                 continue
-            elif current is not None and not leading_date:
+            elif current is not None and not leading_date and table_txn:
                 # continuation line -> extend description; pick up the balance,
                 # the explicit Dr/Cr marker amount and Debit/Credit columns when
                 # they were carried over to a wrapped line (e.g. JK Bank).

@@ -1329,7 +1329,15 @@ def contact():
 # Every route here is admin_required: it exposes data across ALL users, so the
 # server-side guard is the real enforcement (the hidden nav link is cosmetic).
 def _iso(dt):
-    return dt.isoformat() if dt else None
+    # Mongo hands back naive datetimes that are really UTC (we always store
+    # datetime.now(timezone.utc)). Emit them WITH the +00:00 offset — a bare
+    # "2026-07-16T05:30:00" is parsed by browsers as *local* time, which
+    # shifted every admin-page timestamp by the viewer's UTC offset.
+    if not dt:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.isoformat()
 
 
 def _user_statement_counts():
