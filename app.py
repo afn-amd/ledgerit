@@ -214,16 +214,65 @@ def split_header_row(row):
 
             for part in parts[1:]:
 
+                placed = False
+
                 while next_index < len(new_row):
 
                     if str(new_row[next_index]).strip() == "":
                         new_row[next_index] = part
                         next_index += 1
+                        placed = True
                         break
 
                     next_index += 1
 
+                if not placed:
+                    # No empty column to the right — keep the wrapped word in
+                    # its own cell instead of dropping it ("Running\nBalance"
+                    # -> "Running Balance", Yes Bank). The balance summary and
+                    # the Tally export locate the balance column by the word
+                    # "balance", so losing it broke both.
+                    new_row[i] = (new_row[i] + " " + part).strip()
+
     return new_row
+
+
+# Pairs of opposite amount-column words that some layouts print inside ONE
+# header cell. Yes Bank draws "Withdrawals" and "Deposits" as two ruled columns
+# but Camelot reads both words into the Withdrawals header cell (they sit on a
+# single text line spanning the boundary), leaving the Deposits header cell
+# empty -> "UNKNOWN". The data cells underneath are split correctly, so only
+# the header names need re-homing.
+_OPPOSITE_HEADER_PAIRS = [
+    {"withdrawal", "deposit"},
+    {"debit", "credit"},
+    {"dr", "cr"},
+]
+
+
+def _norm_header_word(word):
+    # lowercase, letters only, singular: "Withdrawals" -> "withdrawal".
+    w = re.sub(r"[^a-z]", "", str(word).lower())
+    return w[:-1] if w.endswith("s") else w
+
+
+def split_merged_opposite_headers(headers):
+    """Split a two-word opposite-pair header cell across itself and the next
+    empty ("UNKNOWN") column: ["Withdrawals Deposits", "UNKNOWN"] ->
+    ["Withdrawals", "Deposits"]. Fires only when the cell holds exactly two
+    words forming a known debit/credit-style pair AND the following header is
+    blank, so ordinary headers are never touched."""
+    headers = list(headers)
+    for i in range(len(headers) - 1):
+        if str(headers[i + 1]).strip().upper() != "UNKNOWN":
+            continue
+        words = str(headers[i]).split()
+        if len(words) != 2:
+            continue
+        pair = {_norm_header_word(words[0]), _norm_header_word(words[1])}
+        if pair in _OPPOSITE_HEADER_PAIRS:
+            headers[i], headers[i + 1] = words[0], words[1]
+    return headers
 
 
 def clean_entry_row(row):
@@ -580,6 +629,10 @@ def process_pdf(pdf_path, password=None):
             str(v).strip() or "UNKNOWN"
             for v in header_row[:-1]
         ]
+
+        # "Withdrawals Deposits" read into one cell with the next header left
+        # "UNKNOWN" (Yes Bank) -> put each word over its own data column.
+        headers = split_merged_opposite_headers(headers)
 
     else:
 
