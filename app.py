@@ -343,6 +343,43 @@ def looks_like_header(row_values):
     return has_date and groups_matched >= 2
 
 
+def _recover_header_via_stream(pdf_path, password, num_cols, is_encrypted):
+    """Recover a header row that the lattice grid missed.
+
+    Some statements print the column header in a coloured band that sits
+    OUTSIDE the ruled table grid. Camelot's lattice flavor only reads cells
+    bounded by ruling lines, so it never captures that header and the caller is
+    left with anonymous columns (falling back to generic placeholder names).
+    Camelot's *stream* flavor reads by text alignment instead, so it does see
+    the band. Re-run the page in stream mode, find the header row with the same
+    ``looks_like_header`` guard used elsewhere, and return it only when its
+    column count matches the lattice table (so the labels line up
+    positionally). Returns ``None`` on any failure so the caller falls back to
+    default_headers.
+    """
+    try:
+        kwargs = dict(pages="all", flavor="stream", suppress_stdout=True)
+        if is_encrypted:
+            kwargs["password"] = password
+        tables = camelot.read_pdf(pdf_path, **kwargs)
+    except Exception:
+        return None
+
+    for t in tables:
+        sdf = t.df
+        for i in range(len(sdf)):
+            cells = [str(c).strip() for c in sdf.iloc[i].tolist()]
+            if not looks_like_header(cells):
+                continue
+            # The rupee glyph often mis-decodes to whitespace/newline, leaving
+            # an empty "(...)" (e.g. "Amount(\n)" -> "Amount"); drop it.
+            cells = [re.sub(r"\(\s*\)", "", c).strip() for c in cells]
+            if len(cells) == num_cols:
+                return [c or "UNKNOWN" for c in cells]
+            # Column counts differ -> can't map safely; keep looking.
+    return None
+
+
 # Matches a date token at the very START of a string, covering the formats
 # seen across Indian bank statements:
 #   04-04-25, 04/04/2025, 04.04.2025   (DD-MM-YY[YY])
@@ -636,22 +673,33 @@ def process_pdf(pdf_path, password=None):
 
     else:
 
-        default_headers = [
-            "Value Date",
-            "Post Date",
-            "Details",
-            "Ref No/Cheque No",
-            "Debit",
-            "Credit",
-            "Balance"
-        ]
-
         num_cols = len(df.columns) - 1
 
-        headers = default_headers[:num_cols]
+        # The lattice grid yielded no header row: the ML classifier tagged none
+        # and the keyword rescue found none to promote. On some statements the
+        # header is drawn in a band OUTSIDE the ruled grid, so lattice never
+        # sees it -- try to recover it with a stream pass before falling back to
+        # generic placeholder names.
+        headers = _recover_header_via_stream(
+            pdf_path, password, num_cols, reader.is_encrypted
+        )
 
-        while len(headers) < num_cols:
-            headers.append(f"UNKNOWN_{len(headers)+1}")
+        if headers is None:
+
+            default_headers = [
+                "Value Date",
+                "Post Date",
+                "Details",
+                "Ref No/Cheque No",
+                "Debit",
+                "Credit",
+                "Balance"
+            ]
+
+            headers = default_headers[:num_cols]
+
+            while len(headers) < num_cols:
+                headers.append(f"UNKNOWN_{len(headers)+1}")
 
     records = []
 
@@ -876,6 +924,89 @@ def _drop_empty_optional_columns(records, headers):
 
     new_records = [{h: r.get(h, "") for h in kept} for r in records]
     return new_records, kept
+
+
+# Matches an amount cell that carries its direction inline: a number followed
+# by a Dr/Cr marker, with or without parentheses/dot/spacing:
+#   "2500.00(Dr)", "67.00 (Cr)", "1,800.00 DR", "9,331.00 Cr."
+# Group 1 is the number (kept verbatim, commas and all), group 2 the flag.
+_AMT_FLAG_RE = re.compile(
+    r"^\s*([\d,]+(?:\.\d+)?)\s*\(?\s*(dr|cr)\s*\)?\.?\s*$", re.IGNORECASE
+)
+
+
+def _split_amount_dr_cr_column(records, headers):
+    """Split a single "Amount" column that embeds a Dr/Cr marker into two.
+
+    Some statements print one Amount column with the direction inside the cell
+    ("2500.00(Dr)", "67.00(Cr)") instead of separate Withdrawal/Deposit
+    columns. Downstream consumers -- the opening/closing balance summary and
+    the Tally XML voucher export -- key off dedicated Debit/Credit headers, so
+    without this split they can't tell a debit from a credit: the opening
+    balance is left unadjusted (it reads the first row's balance as-is) and no
+    vouchers are generated. Splitting here fixes both at once, and the table +
+    CSV gain the clearer two-column view.
+
+    A debit cell -> Debit = amount, Credit = blank; a credit cell -> the
+    reverse. The Balance column (also flagged "...(Cr)") is left untouched.
+    No-op unless exactly one such combined column is found and the statement
+    doesn't already carry a Debit/Credit pair.
+    """
+    if not records or not headers:
+        return records, headers
+
+    norm = lambda s: str(s).lower().replace(" ", "")
+
+    # Already have explicit debit AND credit columns -> nothing to do.
+    has_debit = any(k in norm(h) for h in headers for k in ("debit", "withdrawal"))
+    has_credit = any(k in norm(h) for h in headers for k in ("credit", "deposit"))
+    if has_debit and has_credit:
+        return records, headers
+
+    def is_amt_flag(v):
+        return bool(_AMT_FLAG_RE.match(str(v or "").strip()))
+
+    # Candidate = a column whose non-empty cells are mostly "<number>(Dr|Cr)".
+    # Skip balance/date columns by name (balance also carries a Cr/Dr marker).
+    candidate = None
+    for h in headers:
+        nh = norm(h)
+        if "balance" in nh or "date" in nh:
+            continue
+        nonempty = [r.get(h, "") for r in records if str(r.get(h, "")).strip()]
+        if not nonempty:
+            continue
+        if sum(is_amt_flag(v) for v in nonempty) / len(nonempty) >= 0.6:
+            candidate = h
+            break
+
+    if candidate is None:
+        return records, headers
+
+    idx = headers.index(candidate)
+    new_headers = headers[:idx] + ["Debit", "Credit"] + headers[idx + 1:]
+
+    new_records = []
+    for r in records:
+        m = _AMT_FLAG_RE.match(str(r.get(candidate, "")).strip())
+        debit_val = credit_val = ""
+        if m:
+            number, flag = m.group(1), m.group(2).lower()
+            if flag == "dr":
+                debit_val = number
+            else:
+                credit_val = number
+        nr = {}
+        for h in new_headers:
+            if h == "Debit":
+                nr[h] = debit_val
+            elif h == "Credit":
+                nr[h] = credit_val
+            else:
+                nr[h] = r.get(h, "")
+        new_records.append(nr)
+
+    return new_records, new_headers
 
 
 @app.route("/")
@@ -2144,6 +2275,12 @@ def process():
         # "Reference" column on statements with no dedicated Chq./Ref. column,
         # such as Indian Bank) so it never reaches the table, CSV or XML.
         records, headers = _drop_empty_optional_columns(records, headers)
+
+        # Split a single "Amount" column carrying an inline Dr/Cr marker
+        # (e.g. "2500.00(Dr)") into separate Debit/Credit columns so the
+        # balance summary and Tally XML voucher export can distinguish debits
+        # from credits. No-op for statements that already split the two.
+        records, headers = _split_amount_dr_cr_column(records, headers)
 
         # Persist the extraction for logged-in users so they can revisit it.
         # We also store the original PDF inline as BSON binary so the user can
