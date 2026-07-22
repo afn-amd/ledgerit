@@ -7,7 +7,7 @@ from PyPDF2 import PdfReader
 # PDF FILE PATH
 # ----------------------------------------
 
-pdf_path = r"D:\ledgerit\latticePDF\ICICI Bank2.pdf"
+pdf_path = r"C:\Users\ahmed\Desktop\66077703001.pdf"
 
 # ----------------------------------------
 # OUTPUT FOLDER

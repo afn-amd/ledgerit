@@ -5,13 +5,13 @@ import pandas as pd
 # INPUT CSV
 # ----------------------------------------
 
-input_csv = r"C:\Users\ahmed\Desktop\ledgerit\output\ICICI Bank2.csv"
+input_csv = r"C:\Users\ahmed\Desktop\ledgerit\output\110005500732_2025-10-01_2025-12-31_20072026151340.csv"
 
 # ----------------------------------------
 # OUTPUT CSV
 # ----------------------------------------
 
-output_csv = r"C:\Users\ahmed\Desktop\ledgerit\output\single_column.csv"
+output_csv = r"C:\Users\ahmed\Desktop\ledgerit\output\110005500732_2025-10-01_2025-12-31_20072026151340.csv"
 
 # ----------------------------------------
 # LOAD CSV

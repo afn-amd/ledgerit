@@ -249,6 +249,9 @@ _OPPOSITE_HEADER_PAIRS = [
     {"dr", "cr"},
 ]
 
+WRONG_HEADER_PAIRS = [
+    {"chqno", "withdrawal"}
+]
 
 def _norm_header_word(word):
     # lowercase, letters only, singular: "Withdrawals" -> "withdrawal".
@@ -274,6 +277,18 @@ def split_merged_opposite_headers(headers):
             headers[i], headers[i + 1] = words[0], words[1]
     return headers
 
+def split_merged_headers_after(headers):
+    headers = list(headers)
+    for i in range(len(headers) - 1, 0, -1):  # Reverse loop
+        if str(headers[i - 1]).strip().upper() != "UNKNOWN":
+            continue
+        words = str(headers[i]).split()
+        if len(words) != 2:
+            continue
+        pair = {_norm_header_word(words[0]), _norm_header_word(words[1])}
+        if pair in WRONG_HEADER_PAIRS:
+            headers[i - 1], headers[i] = words[0], words[1]
+    return headers
 
 def clean_entry_row(row):
     cleaned = []
@@ -462,6 +477,97 @@ def relocate_leading_date(records, headers):
                 if trailing and re.search(r"[A-Za-z]", trailing):
                     rec[date_col] = match.group(1)
                     rec[desc_col] = (trailing + " " + desc_val).strip()
+
+    return records
+
+# Same alternatives as LEADING_DATE_RE plus the month-first shape some banks
+# print (Bandhan: "September30, 2025", "October01, 2025"). Kept SEPARATE from
+# LEADING_DATE_RE on purpose: widening that one would also change what
+# relocate_leading_date does to every other bank's rows, which this repair has
+# no reason to touch.
+_COLLAPSED_DATE_RE = re.compile(
+    r"^\s*("
+    r"\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4}"            # 04-04-25 / 04/04/2025
+    r"|\d{4}[-/.]\d{1,2}[-/.]\d{1,2}"             # 2025-04-04
+    r"|\d{1,2}[-/\s][A-Za-z]{3,9}[-/\s]\d{2,4}"   # 01-MAR-2024 / 03 May 2026
+    r"|[A-Za-z]{3,9}\s*\d{1,2},\s*\d{2,4}"        # September30, 2025 / Sep 3, 25
+    r")\b"
+)
+
+
+def repair_collapsed_leading_dates(records, headers):
+    """Re-home dates that Camelot collapsed into a single cell.
+
+    Sibling of relocate_leading_date, for the case where the boundary loss runs
+    the OTHER way: instead of one date bleeding across one column edge, the
+    whole run of leading columns collapses into one cell, leaving the
+    transaction-date column empty:
+
+        Transaction Date : ""
+        Value Date       : "September30, 2025 September30, 2025 UPI/DR/D427.../"
+        Description      : "RUPA DEVI..."      <- first narration line is missing
+
+    Seen on Bandhan (224 of 618 rows on one statement), but nothing here is
+    Bandhan-specific: the cause is Camelot's column boundary, not the bank or
+    the date format. So rather than matching one bank's month-first pattern, we
+    peel leading dates off the collapsed cell one at a time, fill the empty date
+    columns left-to-right, and prepend whatever text remains to the description
+    (it is that row's first narration line).
+
+    Requires at least TWO dates in the cell: a single leading date is the
+    ordinary case relocate_leading_date already handles, and re-processing it
+    here would double-move it.
+    """
+    desc_col = next(
+        (h for h in headers
+         if any(kw in str(h).lower() for kw in _DESC_HDR_KW)),
+        None
+    )
+
+    if not desc_col:
+        return records
+
+    # Every date column left of the description, in statement order.
+    desc_idx = headers.index(desc_col)
+    date_cols = [h for h in headers[:desc_idx] if _DATE_HDR_KW in str(h).lower()]
+
+    if not date_cols:
+        return records
+
+    for rec in records:
+        # Only rows whose FIRST date column came back empty are candidates.
+        if str(rec.get(date_cols[0], "")).strip():
+            continue
+
+        # The collapsed cell is the next populated date column to the right.
+        src = next(
+            (c for c in date_cols[1:] if str(rec.get(c, "")).strip()),
+            None
+        )
+        if src is None:
+            continue
+
+        rest = str(rec.get(src, "")).strip()
+
+        found = []
+        while True:
+            match = _COLLAPSED_DATE_RE.match(rest)
+            if not match:
+                break
+            found.append(match.group(1))
+            rest = rest[match.end():].lstrip()
+
+        if len(found) < 2:
+            continue
+
+        # Fill the date columns in order; blank any the row didn't supply.
+        for i, col in enumerate(date_cols):
+            rec[col] = found[i] if i < len(found) else ""
+
+        # The tail is the description's first line — put it back in front.
+        if rest:
+            old_desc = str(rec.get(desc_col, "")).strip()
+            rec[desc_col] = (rest + " " + old_desc).strip()
 
     return records
 
@@ -670,6 +776,7 @@ def process_pdf(pdf_path, password=None):
         # "Withdrawals Deposits" read into one cell with the next header left
         # "UNKNOWN" (Yes Bank) -> put each word over its own data column.
         headers = split_merged_opposite_headers(headers)
+        headers = split_merged_headers_after(headers)
 
     else:
 
@@ -730,7 +837,17 @@ def process_pdf(pdf_path, password=None):
                     current_record[h] += " " + v
 
     # Re-home any date that leaked into the description column.
-    relocate_leading_date(records, headers)
+    #relocate_leading_date(records, headers)
+
+    #gc.collect()
+
+    #return records, headers, None
+    # Re-home any date that leaked into the description column.
+    records = relocate_leading_date(records, headers)
+
+    # Re-split rows where Camelot collapsed the leading columns into one cell
+    # (Transaction Date + Value Date + the first description line).
+    records = repair_collapsed_leading_dates(records, headers)
 
     gc.collect()
 
