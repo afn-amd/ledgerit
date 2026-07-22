@@ -249,7 +249,7 @@
       display: none; flex-direction: column;
     }
     .bank-select.open .bank-menu { display: flex; }
-    /* lift the whole selector above the sibling dropzone/hint/enc-note
+    /* lift the whole selector above the sibling dropzone/hint
        (they all get z-index:1 from `.upload-card > *`) so the open menu
        isn't painted under later siblings */
     .upload-card .bank-select.open { z-index: 50; }
@@ -366,17 +366,6 @@
     .dz-link { color: var(--primary); font-weight: 700; text-decoration: underline; text-underline-offset: 2px; }
     .dz-hint { font-size: 0.76rem; color: var(--muted); text-align: center; margin-top: -8px; }
     .dz-hint.hidden { display: none; }
-
-    /* encryption reassurance bar */
-    .enc-note {
-      display: flex; align-items: flex-start; gap: 9px;
-      background: var(--bg-soft); border: 1px solid var(--border);
-      border-radius: 10px; padding: 10px 12px;
-      font-size: 0.76rem; line-height: 1.5; color: var(--muted); font-weight: 500;
-    }
-    /* Pin the lock to the first text line (nudge to match its cap height) so it
-       stays aligned whether the note sits on one line or wraps to two. */
-    .enc-note svg { width: 15px; height: 15px; margin-top: 2px; color: var(--green); flex-shrink: 0; }
 
     /* proceed button */
     .proceed-btn { width: 100%; justify-content: center; padding: 14px; font-size: 1rem; }
@@ -676,7 +665,7 @@
           <span class="dz-text">Drag and drop or <span class="dz-link">choose file</span></span>
         </label>
         <input type="file" id="pdfInput" accept=".pdf" onchange="onFileChange(event)" />
-        <p class="dz-hint" id="dzHint">Digitally-generated PDFs only (no scans) · Max 10&nbsp;MB</p>
+        <p class="dz-hint" id="dzHint">Digitally-generated PDFs only (no scans) · Max 35&nbsp;MB</p>
 
         <!-- selected file -->
         <div class="file-card" id="fileCard">
@@ -693,12 +682,6 @@
               <span class="fc-state" id="fileState"></span>
             </p>
           </div>
-        </div>
-
-        <!-- encryption reassurance -->
-        <div class="enc-note">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-          AES-256 encryption active · files auto-deleted after conversion.
         </div>
 
         <!-- proceed -->
@@ -1239,9 +1222,10 @@
           loadCredit();   // reflect the latest usage in the meter
           return;
         }
-        // Scanned (image-only) PDF: show its own specific explanation, not the
-        // generic "possible reasons" list (those don't apply to a scan).
-        if (result.error === "SCANNED_PDF") {
+        // Scanned (image-only) PDF, or one whose embedded fonts carry no
+        // character mapping: both already explain themselves, so show that
+        // message alone rather than the generic "possible reasons" list.
+        if (result.error === "SCANNED_PDF" || result.error === "UNREADABLE_TEXT") {
           showError(result.message, { showReasons: false });
           return;
         }

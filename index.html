@@ -1261,7 +1261,10 @@
         }
         if (result.error) {
           showUploadButton();
-          setStatus(result.error, true);
+          // Prefer the human-readable explanation when the server sends one
+          // (SCANNED_PDF, UNREADABLE_TEXT, page-limit errors all do); the bare
+          // `error` field is a machine code and reads as noise on its own.
+          setStatus(result.message || result.error, true);
           return;
         }
 

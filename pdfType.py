@@ -29,6 +29,7 @@ from __future__ import annotations
 import os
 import re
 import sys
+import unicodedata
 import warnings
 from dataclasses import dataclass
 
@@ -433,6 +434,71 @@ def is_scanned_pdf(path: str, password: str | None = None) -> bool:
             # No usable text; scanned only if the page is a big raster image
             # (guards against a genuinely blank/near-empty first page).
             return _page_is_image_scan(page)
+        finally:
+            doc.close()
+    except Exception:
+        return False
+
+
+# ===========================================================================
+# Undecodable-text detection (PyMuPDF) — reject PDFs whose text layer is glyph
+# codes rather than characters.
+# ===========================================================================
+#
+# Some statements embed their fonts as Type3 (or a subset with a custom
+# encoding) and ship NO ToUnicode CMap. The page then has a perfectly real text
+# layer, but nothing maps those glyph ids back to characters: pdfminer/Camelot
+# emit "(cid:17)(cid:16)" and PyMuPDF hands back raw control bytes. Extraction
+# "succeeds" and produces a full table of junk like
+#
+#     {"Value Date": "//,*(cid:17),(cid:16)*(cid:16)- N+12(cid:18)//(cid:18)"}
+#
+# is_scanned_pdf does NOT catch these: the page reports plenty of characters, so
+# it looks like a normal digital PDF. Only their *content* gives it away, hence
+# this separate probe.
+#
+# The measure is the share of non-whitespace characters that are control codes
+# (< U+0020) or sit in a private-use / unassigned Unicode category — exactly what
+# an unmapped glyph decodes to, and essentially zero on a healthy statement.
+
+_UNDECODABLE_RATIO = 0.10   # >= this share of junk characters => unreadable
+_UNDECODABLE_MIN_CHARS = 200  # need this much text before the ratio means anything
+
+
+def _undecodable_ratio(text: str) -> float:
+    """Share of non-whitespace characters that decode to nothing meaningful."""
+    total = bad = 0
+    for ch in text:
+        if ch.isspace():
+            continue
+        total += 1
+        if ord(ch) < 32 or unicodedata.category(ch) in ("Co", "Cn"):
+            bad += 1
+    return (bad / total) if total else 0.0
+
+
+def has_undecodable_text(path: str, password: str | None = None) -> bool:
+    """True when the PDF's text layer can't be decoded into real characters.
+
+    Samples the same leading pages as the other probes and returns False on any
+    error, or when there simply isn't enough text to judge — a probe failure
+    must never block an upload that would otherwise have worked.
+    """
+    if not os.path.isfile(path):
+        raise FileNotFoundError(path)
+    try:
+        pw = _resolve_password(path, password)
+        doc = fitz.open(path)
+        try:
+            if doc.needs_pass:
+                doc.authenticate(pw or "")
+            parts = []
+            for i in range(min(SAMPLE_PAGES, doc.page_count)):
+                parts.append(doc[i].get_text("text"))
+            text = "".join(parts)
+            if len(text.strip()) < _UNDECODABLE_MIN_CHARS:
+                return False        # too little text to call — let it through
+            return _undecodable_ratio(text) >= _UNDECODABLE_RATIO
         finally:
             doc.close()
     except Exception:

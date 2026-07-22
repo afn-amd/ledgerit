@@ -7,7 +7,7 @@ from PyPDF2 import PdfReader
 # PDF FILE PATH
 # ----------------------------------------
 
-pdf_path = r"C:\Users\ahmed\Desktop\66077703001.pdf"
+pdf_path = r"C:\Users\ahmed\Downloads\MOKID_SAVING_2025-26.pdf"
 
 # ----------------------------------------
 # OUTPUT FOLDER

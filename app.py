@@ -16,6 +16,8 @@ from flask import (
 )
 from werkzeug.security import generate_password_hash, check_password_hash
 from pymongo import MongoClient
+import bson
+import gridfs
 from bson import ObjectId
 from bson.errors import InvalidId
 import camelot
@@ -28,7 +30,7 @@ from transformers import DistilBertTokenizerFast, DistilBertForSequenceClassific
 # classify_pdf_fast adds a PyMuPDF pre-check that skips the expensive Camelot
 # lattice probe for the confidently-stream majority (deferring only
 # possibly-tabular PDFs to Camelot for an identical verdict).
-from pdfType import classify_pdf_fast, is_scanned_pdf
+from pdfType import classify_pdf_fast, is_scanned_pdf, has_undecodable_text
 from ledger_extract.pipeline import extract_statement
 from ledger_extract.common import parse_date_leading
 
@@ -75,6 +77,13 @@ db = mongo_client[os.environ.get("MONGO_DB", "ledgerit")]
 users = db["users"]              # registered accounts
 statements = db["statements"]    # saved extraction results, per user
 messages = db["messages"]        # contact-form submissions
+
+# Source PDFs that are too big to sit inline in their statement document (Mongo
+# caps a single document at 16 MB) are chunked into GridFS instead. Small files
+# stay inline — that's the overwhelming majority, it costs one fewer round trip,
+# and it means every statement saved before GridFS existed keeps working with no
+# migration.
+pdf_bucket = gridfs.GridFSBucket(db, bucket_name="statement_pdfs")
 
 # Mobile number is the login identifier, so it must be unique. Guard the call
 # so the app still starts (with a clear warning) when mongod isn't running yet;
@@ -836,18 +845,16 @@ def process_pdf(pdf_path, password=None):
                 if v:
                     current_record[h] += " " + v
 
-    # Re-home any date that leaked into the description column.
-    #relocate_leading_date(records, headers)
-
-    #gc.collect()
-
-    #return records, headers, None
-    # Re-home any date that leaked into the description column.
-    records = relocate_leading_date(records, headers)
-
     # Re-split rows where Camelot collapsed the leading columns into one cell
-    # (Transaction Date + Value Date + the first description line).
+    # (Txn Date + Value Date, sometimes plus the first description line).
+    # MUST run before relocate_leading_date: that pass peels only ONE leading
+    # date off a cell and pushes the remainder into the description, which on a
+    # two-date collapse (SBI: "15 Oct 2025 15 Oct 2025") consumes the very
+    # second date this repair needs to see, leaving Txn Date empty for good.
     records = repair_collapsed_leading_dates(records, headers)
+
+    # Re-home any single date that leaked across the description boundary.
+    records = relocate_leading_date(records, headers)
 
     gc.collect()
 
@@ -1487,14 +1494,18 @@ def download_statement_pdf(sid):
 
     doc = statements.find_one(
         {"_id": oid, "user_id": current_user()},
-        {"pdf": 1, "filename": 1, "content_type": 1, "pdf_password": 1}
+        {"pdf": 1, "pdf_file_id": 1, "filename": 1, "content_type": 1,
+         "pdf_password": 1}
     )
-    if not doc or not doc.get("pdf"):
+    if not doc:
+        return jsonify({"error": "Not found"}), 404
+
+    pdf_bytes = _load_pdf_bytes(doc)
+    if pdf_bytes is None:
         return jsonify({"error": "Not found"}), 404
 
     # Decrypt with the stored password (if any) before serving, so the user is
     # never asked for the password again when viewing or downloading.
-    pdf_bytes = bytes(doc["pdf"])
     if doc.get("pdf_password"):
         pdf_bytes = _decrypt_pdf_bytes(pdf_bytes, doc["pdf_password"])
 
@@ -1947,12 +1958,16 @@ def admin_statement_pdf(sid):
 
     doc = statements.find_one(
         {"_id": oid},
-        {"pdf": 1, "filename": 1, "content_type": 1, "pdf_password": 1},
+        {"pdf": 1, "pdf_file_id": 1, "filename": 1, "content_type": 1,
+         "pdf_password": 1},
     )
-    if not doc or not doc.get("pdf"):
+    if not doc:
         return jsonify({"error": "Not found"}), 404
 
-    pdf_bytes = bytes(doc["pdf"])
+    pdf_bytes = _load_pdf_bytes(doc)
+    if pdf_bytes is None:
+        return jsonify({"error": "Not found"}), 404
+
     if doc.get("pdf_password"):
         pdf_bytes = _decrypt_pdf_bytes(pdf_bytes, doc["pdf_password"])
 
@@ -2182,6 +2197,79 @@ def admin_resolve_issue(sid):
     return jsonify({"ok": True})
 
 
+# MongoDB caps a single document at 16 MB. We store the source PDF inline, so a
+# large statement can push the document past that cap and make insert_one raise
+# DocumentTooLarge — which reached the user as a generic "something went wrong"
+# even though the extraction itself had succeeded (seen with a 27 MB, 43-page
+# statement). The margin leaves room for the extracted rows and metadata, which
+# are part of the same document.
+MONGO_DOC_LIMIT = 16 * 1024 * 1024
+MONGO_DOC_MARGIN = 512 * 1024
+
+
+def _store_pdf(doc, pdf_bytes, filename=""):
+    """Attach the source PDF to *doc*: inline when it fits, GridFS when it doesn't.
+
+    Returns True when the PDF was stored either way. Mongo caps a single
+    document at 16 MB, so a large statement can't carry its PDF inline — those
+    go to GridFS, which chunks the file across a separate collection, and the
+    document keeps only a `pdf_file_id` reference.
+
+    `content_type` is set ONLY when the bytes were actually stored: every list
+    view derives `has_pdf` from it, so leaving it off is what makes the UI hide
+    the view/download action when storage failed.
+
+    Must be called BEFORE insert_one — it sets fields on *doc*.
+    """
+    try:
+        overhead = len(bson.encode(doc))
+    except Exception:
+        # Can't measure (unencodable field) — assume worst case and use GridFS.
+        overhead = MONGO_DOC_LIMIT
+
+    if overhead + len(pdf_bytes) <= MONGO_DOC_LIMIT - MONGO_DOC_MARGIN:
+        doc["pdf"] = pdf_bytes
+        doc["content_type"] = "application/pdf"
+        return True
+
+    try:
+        doc["pdf_file_id"] = pdf_bucket.upload_from_stream(
+            filename or "statement.pdf",
+            pdf_bytes,
+            metadata={"user_id": doc.get("user_id"), "contentType": "application/pdf"},
+        )
+    except Exception as exc:
+        # Storage failed — never let it cost the user their extraction.
+        app.logger.warning("Could not store PDF in GridFS: %s", exc)
+        doc["pdf_omitted"] = "store_failed"
+        return False
+
+    doc["content_type"] = "application/pdf"
+    return True
+
+
+def _load_pdf_bytes(doc):
+    """Source PDF bytes for *doc*, wherever they live, or None.
+
+    Reads the inline `pdf` field when present (every statement saved before
+    GridFS existed, plus all small ones today) and falls back to the GridFS
+    reference for the large ones.
+    """
+    if doc.get("pdf"):
+        return bytes(doc["pdf"])
+
+    file_id = doc.get("pdf_file_id")
+    if not file_id:
+        return None
+
+    try:
+        with pdf_bucket.open_download_stream(file_id) as stream:
+            return stream.read()
+    except Exception as exc:
+        app.logger.warning("Could not read PDF %s from GridFS: %s", file_id, exc)
+        return None
+
+
 def _save_failed_statement(pdf_file, tmp_path, page_count, reason, password=None, bank=None):
     # Record a failed conversion so it still shows up in the owner's statements
     # list (flagged as failed) and the source PDF can be re-downloaded. Mirrors
@@ -2201,7 +2289,6 @@ def _save_failed_statement(pdf_file, tmp_path, page_count, reason, password=None
         "user_id": current_user(),
         "filename": getattr(pdf_file, "filename", "") or "",
         "bank": bank,
-        "content_type": "application/pdf",
         "status": "failed",
         "error": reason,
         "headers": [],
@@ -2210,10 +2297,10 @@ def _save_failed_statement(pdf_file, tmp_path, page_count, reason, password=None
         "page_count": page_count or 0,
         "created_at": datetime.now(timezone.utc),
     }
-    if pdf_bytes is not None:
-        doc["pdf"] = pdf_bytes
     if password:
         doc["pdf_password"] = password
+    if pdf_bytes is not None:
+        _store_pdf(doc, pdf_bytes, getattr(pdf_file, "filename", "") or "")
 
     try:
         result = statements.insert_one(doc)
@@ -2291,6 +2378,28 @@ def process():
                 "message": "This looks like a scanned (image-based) PDF. We can "
                            "only read statements with selectable text — please "
                            "upload a digital PDF exported from your bank."
+            }), 200
+
+        # Some statements embed Type3/subset fonts with no ToUnicode map: the
+        # page has a real text layer, but it decodes to glyph codes rather than
+        # characters ("(cid:17)"), so extraction "succeeds" and returns a full
+        # table of junk. is_scanned_pdf can't see this (the page reports plenty
+        # of characters), so it needs its own check — done here, before the
+        # credit gate, so the user is never charged for an unreadable file.
+        if has_undecodable_text(tmp_path, password=password):
+            _save_failed_statement(
+                pdf_file, tmp_path, page_count,
+                "This PDF's text can't be read (unmapped embedded fonts).",
+                password, bank,
+            )
+            saved_ok = True
+            return jsonify({
+                "error": "UNREADABLE_TEXT",
+                "message": "This PDF's text is stored in a format we can't read "
+                           "— its embedded fonts carry no character mapping, so "
+                           "the text comes out as symbols. Try downloading the "
+                           "statement again from your bank, choosing PDF export "
+                           "rather than print-to-PDF."
             }), 200
 
         # Free-plan page-credit gate. Registered (non-admin) users may extract
@@ -2413,8 +2522,6 @@ def process():
                 "user_id": current_user(),
                 "filename": pdf_file.filename,
                 "bank": bank,
-                "pdf": pdf_bytes,
-                "content_type": "application/pdf",
                 "status": "success",
                 "headers": headers,
                 "data": records,
@@ -2430,6 +2537,14 @@ def process():
             # implies: anyone with DB access can open the statement.
             if password:
                 stmt_doc["pdf_password"] = password
+
+            # Store the source PDF: inline when it fits inside Mongo's 16 MB
+            # document cap, otherwise chunked into GridFS.
+            if not _store_pdf(stmt_doc, pdf_bytes, pdf_file.filename):
+                app.logger.warning(
+                    "Source PDF not stored (%.1f MB): %s",
+                    len(pdf_bytes) / 1048576, pdf_file.filename,
+                )
 
             result = statements.insert_one(stmt_doc)
             statement_id = str(result.inserted_id)
