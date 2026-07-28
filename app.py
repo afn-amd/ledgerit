@@ -1782,6 +1782,11 @@ def admin_users():
             "statement_count": counts.get(uid, 0),
             "issue_count": issue_counts.get(uid, 0),
             "message_count": msg_counts.get(d.get("mobile"), 0),
+            # Page credit for the console's Usage column: pages extracted so
+            # far against the account's cap. Staff have no cap (see /api/me),
+            # so the UI shows them as unlimited rather than a ratio.
+            "pages_used": int(d.get("pages_used", 0)),
+            "page_limit": limit,
             "created_at": _iso(d.get("created_at")),
         })
 
@@ -1816,6 +1821,51 @@ def admin_set_role(uid):
         {"$set": {"role": new_role, "is_admin": new_role == "admin"}},
     )
     return jsonify({"ok": True, "role": new_role})
+
+
+@app.route("/api/admin/users/<uid>/credit", methods=["POST"])
+@super_admin_required
+def admin_set_user_credit(uid):
+    # Adjust an account's page credit from the console: `page_limit` (total
+    # pages allotted) and/or `pages_used` (pages consumed so far). Either may be
+    # sent alone. Only the super admin can change these — the same guard that
+    # protects role assignment — and the main admin's account is off-limits.
+    oid = _to_oid(uid)
+    if not oid:
+        return jsonify({"error": "Not found"}), 404
+
+    target = users.find_one({"_id": oid})
+    if not target:
+        return jsonify({"error": "Not found"}), 404
+
+    if user_role(target) == "super_admin" or target.get("is_super_admin"):
+        return jsonify({"error": "The main admin's credit can't be changed."}), 403
+
+    data = request.get_json(silent=True) or {}
+    update = {}
+    for field in ("page_limit", "pages_used"):
+        if field not in data:
+            continue
+        # Accept only a whole, non-negative count. A bool is an int in Python,
+        # so reject it explicitly rather than silently storing True as 1.
+        raw = data[field]
+        if isinstance(raw, bool):
+            return jsonify({"error": "Enter a whole number."}), 400
+        try:
+            value = int(str(raw).strip())
+        except (TypeError, ValueError):
+            return jsonify({"error": "Enter a whole number."}), 400
+        if value < 0:
+            return jsonify({"error": "The value can't be negative."}), 400
+        if value > 10_000_000:
+            return jsonify({"error": "That value is too large."}), 400
+        update[field] = value
+
+    if not update:
+        return jsonify({"error": "Nothing to update"}), 400
+
+    users.update_one({"_id": oid}, {"$set": update})
+    return jsonify({"ok": True, **update})
 
 
 @app.route("/api/admin/users/<uid>", methods=["DELETE"])
