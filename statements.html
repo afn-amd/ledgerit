@@ -28,32 +28,41 @@
     :root {
       --bg: #ffffff; --bg-soft: #f6f8fc; --bg-tint: #eef3fb; --surface: #ffffff;
       --primary: #2563eb; --primary-dark: #1d4ed8; --primary-soft: #e8effd;
-      --ink: #0b1220; --ink-soft: #1e293b; --muted: #64748b; --border: #e2e8f0;
+      --ink: #0b1220; --ink-soft: #1e293b; --muted: #64748b; --border: #ccd6e4;
       --green: #16a34a; --danger: #dc2626;
       --shadow-sm: 0 1px 2px rgba(15,23,42,0.04);
       --shadow: 0 12px 34px rgba(15,23,42,0.07);
       --shadow-lg: 0 24px 60px rgba(15,23,42,0.12);
       --radius: 18px; --maxw: 1180px;
       --header-bg: rgba(255,255,255,0.82);
-      --hover-border: #cbd5e1;
+      --hover-border: #aebbcc;
+      /* statement cards sit on white, so they need a stronger outline than --border */
+      --card-border: #c3cddc; --card-border-hover: #94a3b8;
+      /* form fields and modal rules — darker still, so they read clearly */
+      --field-border: #b3c0d4;
     }
     :root[data-theme="dark"] {
       --bg: #090d18; --bg-soft: #0f1424; --bg-tint: #151b30; --surface: #0f1526;
       --primary: #3b82f6; --primary-dark: #2563eb; --primary-soft: #16213f;
-      --ink: #e9edf6; --ink-soft: #c4cde0; --muted: #8a96ac; --border: #1f2840;
+      --ink: #e9edf6; --ink-soft: #c4cde0; --muted: #8a96ac; --border: #2c3752;
       --green: #22c55e; --danger: #f87171;
       --shadow-sm: 0 1px 2px rgba(0,0,0,0.4);
       --shadow: 0 14px 38px rgba(0,0,0,0.5);
       --shadow-lg: 0 24px 60px rgba(0,0,0,0.6);
       --header-bg: rgba(9,13,24,0.72);
-      --hover-border: #334155;
+      --hover-border: #445270;
+      --card-border: #33405e; --card-border-hover: #4a5a7d;
+      --field-border: #3d4c6e;
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { height: 100%; overflow: hidden; }
     body {
       font-family: "Manrope", system-ui, sans-serif;
       background: var(--bg); color: var(--ink); line-height: 1.6;
-      min-height: 100vh; display: flex; flex-direction: column;
+      /* The page is pinned to the viewport — it never scrolls as a whole. */
+      height: 100vh; overflow: hidden;
+      display: flex; flex-direction: column;
       -webkit-font-smoothing: antialiased;
       transition: background-color 0.25s ease, color 0.25s ease;
     }
@@ -96,6 +105,13 @@
     .btn-ghost:hover { background: var(--bg-soft); border-color: var(--hover-border); }
     .btn-primary { background: var(--primary); color: #fff; box-shadow: 0 8px 20px rgba(37,99,235,0.24); }
     .btn-primary:hover { background: var(--primary-dark); transform: translateY(-1px); }
+    .btn-logout {
+      background: transparent; color: var(--danger);
+      border: 1px solid var(--danger); border-radius: 10px;
+    }
+    .btn-logout svg { width: 18px; height: 18px; display: block; }
+    .btn-logout:hover { background: rgba(220,38,38,0.08); transform: translateY(-1px); }
+    .btn-logout:focus-visible { outline: 2px solid var(--danger); outline-offset: 2px; }
     .btn-sm { padding: 9px 16px; font-size: 0.9rem; border-radius: 10px; }
     .btn-icon { padding: 10px; }
     .btn-icon svg { width: 19px; height: 19px; display: block; }
@@ -114,40 +130,100 @@
     .nav { display: flex; align-items: center; justify-content: space-between; height: 72px; }
     .nav-actions { display: flex; align-items: center; gap: 12px; }
 
-    /* page */
-    main { flex: 1 0 auto; padding: 32px 0 64px; }
-    .page-head { margin-bottom: 28px; }
+    /* page — main fills whatever height is left under the header */
+    main { flex: 1 1 auto; min-height: 0; padding: 26px 0 22px; display: flex; }
+    main > .wrap { display: flex; flex-direction: column; min-height: 0; }
+    .page-head {
+      margin-bottom: 30px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: space-between; gap: 18px; flex-wrap: wrap;
+    }
     .page-head h1 { font-family: "Lora", Georgia, serif; font-size: 1.9rem; font-weight: 700; letter-spacing: -0.01em; }
-    .page-head p { color: var(--muted); margin-top: 6px; font-size: 0.95rem; }
 
-    /* statement list */
-    .stmt-list { display: flex; flex-direction: column; gap: 14px; }
+    /* file-name search */
+    .search { position: relative; flex-shrink: 0; }
+    .search > svg {
+      position: absolute; left: 13px; top: 50%; transform: translateY(-50%);
+      width: 17px; height: 17px; color: var(--muted); pointer-events: none;
+    }
+    .search input {
+      width: 300px; max-width: 100%; padding: 10px 38px 10px 38px;
+      border-radius: 12px; border: 1px solid var(--card-border); background: var(--surface);
+      font-family: inherit; font-size: 0.92rem; color: var(--ink); outline: none;
+      transition: border-color 0.16s ease, box-shadow 0.16s ease;
+    }
+    .search input::placeholder { color: var(--muted); }
+    .search input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,0.13); }
+    .search input::-webkit-search-cancel-button, .search input::-webkit-search-decoration { -webkit-appearance: none; }
+    .search-clear {
+      position: absolute; right: 7px; top: 50%; transform: translateY(-50%);
+      width: 24px; height: 24px; border-radius: 7px; border: none; cursor: pointer;
+      background: var(--bg-soft); color: var(--muted); display: none; place-items: center;
+    }
+    .search-clear.show { display: grid; }
+    .search-clear:hover { color: var(--danger); }
+    .search-clear svg { width: 14px; height: 14px; }
+
+    #content { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+
+    /* statement list — the 5 cards divide the leftover height between them,
+       so the list never needs a scrollbar of its own. */
+    .stmt-list {
+      display: flex; flex-direction: column; gap: 12px;
+      flex: 1 1 auto; min-height: 0; overflow: hidden;
+      /* Breathing room so the hover lift + shadow aren't clipped by overflow:hidden.
+         The negative margin keeps the cards at their full width. */
+      padding: 4px; margin: -4px -4px 0;
+    }
+
+    /* pager */
+    .pager {
+      flex-shrink: 0; margin-top: auto; padding-top: 20px;
+      display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap;
+    }
+    .pager-info { color: var(--muted); font-size: 0.88rem; font-weight: 600; }
     .stmt-card {
       display: flex; align-items: center; gap: 18px;
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: var(--radius); padding: 18px 20px;
+      flex: 1 1 0; min-height: 0; max-height: 82px; overflow: hidden;
+      background: var(--surface); border: 1px solid var(--card-border);
+      border-radius: var(--radius); padding: 12px 18px;
       box-shadow: var(--shadow-sm); transition: border-color 0.16s, box-shadow 0.16s, transform 0.16s;
     }
-    .stmt-card:hover { border-color: var(--hover-border); box-shadow: var(--shadow); transform: translateY(-1px); }
+    .stmt-card:hover { border-color: var(--card-border-hover); box-shadow: var(--shadow); transform: translateY(-1px); }
     /* failed conversions: not clickable, with a danger-tinted icon */
     .stmt-card.failed { cursor: default; }
     .stmt-card.failed:hover { transform: none; }
     .stmt-ic {
-      width: 46px; height: 46px; border-radius: 13px; flex-shrink: 0;
+      width: 42px; height: 42px; border-radius: 13px; flex-shrink: 0;
       background: var(--primary-soft); color: var(--primary);
       display: grid; place-items: center;
     }
     .stmt-ic.failed { background: rgba(220,38,38,0.12); color: var(--danger); }
     .stmt-ic svg { width: 22px; height: 22px; }
     .stmt-badge {
-      display: inline-block; vertical-align: middle; margin-left: 8px;
+      display: inline-block; vertical-align: middle; flex-shrink: 0;
       font-size: 0.72rem; font-weight: 700; letter-spacing: 0.02em;
       color: var(--danger); background: rgba(220,38,38,0.12);
       padding: 2px 8px; border-radius: 999px;
     }
+    /* bank chip — neutral, so it reads apart from the status badges */
+    .stmt-bank {
+      display: inline-block; vertical-align: middle; flex-shrink: 0;
+      font-size: 0.72rem; font-weight: 700; letter-spacing: 0.02em;
+      color: var(--ink-soft); background: var(--bg-tint);
+      border: 1px solid var(--border);
+      padding: 2px 9px; border-radius: 999px;
+    }
     .stmt-body { flex: 1; min-width: 0; }
     .stmt-name {
+      display: flex; align-items: center; gap: 8px; min-width: 0;
       font-weight: 700; color: var(--ink); font-size: 1.02rem;
+    }
+    /* file name shrinks first; the chips keep their size */
+    .stmt-name .fname { flex: 0 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    /* why a conversion failed, shown right after the bank chip */
+    .stmt-reason {
+      flex: 1 1 auto; min-width: 0;
+      color: var(--danger); font-size: 0.86rem; font-weight: 600;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .stmt-meta { color: var(--muted); font-size: 0.88rem; margin-top: 3px; }
@@ -159,8 +235,20 @@
       color: var(--muted); transition: color 0.16s ease, transform 0.16s ease;
     }
     .btn-issue:hover { color: var(--primary); transform: translateY(-1px); }
+    /* Already flagged — red while open, green once resolved. Neither opens the
+       report form; they show the existing report instead. */
+    .btn-issue.raised, .btn-issue.raised:hover { color: var(--danger); }
+    .btn-issue.resolved, .btn-issue.resolved:hover { color: var(--green); }
     .btn-issue:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 8px; }
     .btn-issue svg { width: 24px; height: 24px; }
+    .btn-view {
+      background: none; border: none; cursor: pointer; padding: 4px;
+      display: inline-flex; align-items: center; justify-content: center;
+      color: var(--primary); transition: transform 0.16s ease, opacity 0.16s ease;
+    }
+    .btn-view:hover { transform: translateY(-1px); opacity: 0.85; }
+    .btn-view:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 8px; }
+    .btn-view svg { width: 23px; height: 23px; }
     .btn-pdf {
       background: none; border: none; cursor: pointer; padding: 4px;
       display: inline-flex; align-items: center; justify-content: center;
@@ -183,6 +271,12 @@
       transition: opacity 0.1s ease; z-index: 50;
     }
     [data-tip]:hover::after, [data-tip]:focus-visible::after { opacity: 1; }
+    /* Cards clip their overflow, so tips on the card buttons sit to the left,
+       inside the card, rather than above it where they'd be cut off. */
+    .stmt-actions [data-tip]::after {
+      bottom: auto; left: auto; right: calc(100% + 8px); top: 50%;
+      transform: translateY(-50%);
+    }
 
     /* states (loading / empty / auth / error) */
     .state {
@@ -235,14 +329,14 @@
     .modal-overlay.show { display: flex; }
     .modal {
       width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto;
-      background: var(--surface); border: 1px solid var(--border);
+      background: var(--surface); border: 1px solid var(--field-border);
       border-radius: 18px; box-shadow: var(--shadow-lg);
       animation: modalPop 0.22s cubic-bezier(0.22,1,0.36,1);
     }
     @keyframes modalPop { from { opacity: 0; transform: translateY(12px) scale(0.98); } to { opacity: 1; transform: none; } }
     .modal-head {
       display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
-      padding: 20px 22px 14px; border-bottom: 1px solid var(--border);
+      padding: 20px 22px 14px; border-bottom: 1px solid var(--field-border);
     }
     .modal-head h2 { font-size: 1.15rem; }
     .modal-head p { font-size: 0.85rem; color: var(--muted); margin-top: 3px; }
@@ -260,11 +354,11 @@
     .form-field { margin-bottom: 16px; }
     .form-field label {
       display: block; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em;
-      text-transform: uppercase; color: var(--muted); margin-bottom: 7px;
+      text-transform: uppercase; color: var(--ink); margin-bottom: 7px;
     }
     .form-field input[type="text"], .form-field textarea {
       width: 100%; padding: 11px 13px; border-radius: 11px;
-      border: 1px solid var(--border); background: var(--bg-soft);
+      border: 1px solid var(--field-border); background: var(--bg-soft);
       font-family: inherit; font-size: 0.95rem; color: var(--ink); outline: none;
       transition: border-color 0.16s ease;
     }
@@ -276,25 +370,33 @@
     .shot-drop {
       display: flex; flex-direction: column; align-items: center; gap: 8px;
       text-align: center; cursor: pointer; padding: 20px 14px;
-      border: 1.5px dashed var(--border); border-radius: 13px;
+      border: 1.5px dashed var(--field-border); border-radius: 13px;
       color: var(--muted); transition: border-color 0.16s ease, background 0.16s ease;
     }
     .shot-drop:hover, .shot-drop.drag { border-color: var(--primary); background: var(--primary-soft); color: var(--primary); }
     .shot-drop svg { width: 26px; height: 26px; }
     .shot-drop .sd-text { font-size: 0.88rem; font-weight: 600; color: var(--ink-soft); }
     .shot-drop .sd-sub { font-size: 0.74rem; }
-    .shot-preview { display: none; position: relative; margin-top: 4px; }
-    .shot-preview.show { display: block; }
-    .shot-preview img {
-      width: 100%; max-height: 220px; object-fit: contain;
-      border-radius: 12px; border: 1px solid var(--border); background: var(--bg-soft);
+    /* attached images: thumbnail + file name, up to 4 */
+    .shot-grid { display: none; grid-template-columns: repeat(4, 1fr); gap: 9px; margin-top: 10px; }
+    .shot-grid.show { display: grid; }
+    .shot-item { min-width: 0; }
+    .shot-thumb {
+      position: relative; aspect-ratio: 1 / 1; border-radius: 11px; overflow: hidden;
+      border: 1px solid var(--field-border); background: var(--bg-soft);
+    }
+    .shot-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .shot-name {
+      font-size: 0.68rem; color: var(--muted); margin-top: 4px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .shot-remove {
-      position: absolute; top: 8px; right: 8px; width: 30px; height: 30px;
-      border-radius: 8px; cursor: pointer; display: grid; place-items: center;
-      background: rgba(8,12,22,0.7); color: #fff; border: none;
+      position: absolute; top: 4px; right: 4px; width: 22px; height: 22px;
+      border-radius: 7px; cursor: pointer; display: grid; place-items: center;
+      background: rgba(8,12,22,0.72); color: #fff; border: none; padding: 0;
     }
-    .shot-remove svg { width: 16px; height: 16px; }
+    .shot-remove:hover { background: var(--danger); }
+    .shot-remove svg { width: 13px; height: 13px; }
     .form-error { display: none; color: var(--danger); font-size: 0.83rem; font-weight: 600; margin-bottom: 12px; }
     .form-error.show { display: block; }
     .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 6px; }
@@ -316,12 +418,47 @@
     }
 
     /* ---- My Issues list ---- */
+    /* All / Open / Resolved filter */
+    .ii-tabs { display: flex; gap: 7px; margin-bottom: 14px; }
+    .ii-tab {
+      font-family: inherit; font-size: 0.8rem; font-weight: 700; cursor: pointer;
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 7px 13px; border-radius: 10px;
+      color: var(--ink-soft); background: var(--surface);
+      border: 1px solid var(--field-border);
+      transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+    }
+    .ii-tab-count {
+      font-size: 0.7rem; font-weight: 700; padding: 1px 7px; border-radius: 999px;
+      background: var(--bg-tint); color: var(--muted);
+    }
+    .ii-tab.active .ii-tab-count { background: rgba(255,255,255,0.22); color: #fff; }
+    .ii-tab:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+
+    /* Open reads blue, Resolved green — filled once selected. */
+    .ii-tab.t-open { color: var(--primary); border-color: rgba(37,99,235,0.4); }
+    .ii-tab.t-open:hover { border-color: var(--primary); }
+    .ii-tab.t-open.active { color: #fff; background: var(--primary); border-color: var(--primary); }
+    .ii-tab.t-resolved { color: var(--green); border-color: rgba(22,163,74,0.4); }
+    .ii-tab.t-resolved:hover { border-color: var(--green); }
+    .ii-tab.t-resolved.active { color: #fff; background: var(--green); border-color: var(--green); }
     .issue-item {
       border: 1px solid var(--border); border-radius: 13px; padding: 14px 15px;
       margin-bottom: 11px; background: var(--bg-soft);
     }
     .issue-item:last-child { margin-bottom: 0; }
     .ii-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
+    .ii-right { display: flex; align-items: center; gap: 9px; }
+    .ii-edit {
+      font-family: inherit; font-size: 0.74rem; font-weight: 700; letter-spacing: 0.04em;
+      text-transform: uppercase; cursor: pointer; padding: 4px 11px; border-radius: 8px;
+      color: var(--ink-soft); background: var(--surface); border: 1px solid var(--border);
+      transition: color 0.15s ease, border-color 0.15s ease;
+    }
+    .ii-edit:hover { color: var(--primary); border-color: var(--primary); }
+    .ii-edit.reopen { color: var(--danger); border-color: rgba(220,38,38,0.4); }
+    .ii-edit.reopen:hover { color: var(--danger); border-color: var(--danger); }
+    .ii-edit:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
     .ii-num { font-family: "Sora", sans-serif; font-weight: 700; font-size: 0.9rem; color: var(--primary); }
     .ii-status {
       font-size: 0.68rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
@@ -333,8 +470,17 @@
     .ii-title { font-weight: 600; font-size: 0.9rem; color: var(--ink-soft); margin-top: 3px; }
     .ii-note { font-size: 0.86rem; color: var(--muted); margin-top: 5px; white-space: pre-wrap; }
     .ii-date { font-size: 0.76rem; color: var(--muted); margin-top: 7px; }
-    .ii-shot { margin-top: 10px; }
-    .ii-shot img { max-width: 100%; max-height: 180px; border-radius: 10px; border: 1px solid var(--border); cursor: zoom-in; }
+    .ii-file { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+    /* attached image names, shown next to the statement's file name */
+    .ii-shot-name {
+      display: inline-flex; align-items: center; gap: 5px; max-width: 250px;
+      font-size: 0.72rem; font-weight: 600; color: var(--primary);
+      background: var(--primary-soft); border: 1px solid rgba(37,99,235,0.24);
+      padding: 2px 9px; border-radius: 999px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .ii-shot-name:hover { border-color: var(--primary); }
+    .ii-shot-name svg { width: 12px; height: 12px; flex-shrink: 0; }
     .issues-empty { text-align: center; color: var(--muted); padding: 30px 10px; font-size: 0.92rem; }
 
     /* footer */
@@ -342,11 +488,26 @@
     .foot-row { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px; font-size: 0.9rem; }
     .foot-row a:hover { text-decoration: underline; }
 
+    /* Short windows: tighten everything so 5 cards still fit without scrolling. */
+    @media (max-height: 700px) {
+      main { padding: 16px 0 14px; }
+      .page-head { margin-bottom: 20px; }
+      .page-head h1 { font-size: 1.55rem; }
+      .stmt-list { gap: 9px; }
+      .stmt-card { padding: 10px 16px; gap: 14px; }
+      .stmt-ic { width: 36px; height: 36px; border-radius: 11px; }
+      .stmt-ic svg { width: 19px; height: 19px; }
+      .pager { padding-top: 12px; }
+    }
+
     @media (max-width: 560px) {
       .nav { height: 64px; }
       .nav-actions { gap: 8px; }
       .nav-actions .btn { padding: 9px 14px; font-size: 0.9rem; }
       .stmt-card { padding: 15px 16px; gap: 14px; }
+      .page-head { gap: 12px; }
+      .search { width: 100%; }
+      .search input { width: 100%; }
     }
   </style>
 </head>
@@ -362,10 +523,13 @@
         <button class="btn btn-ghost btn-icon" onclick="window.location.href='/upload.html'" title="Home" aria-label="Home">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5 12 3l9 6.5"/><path d="M5 10v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V10"/><path d="M9 21v-6h6v6"/></svg>
         </button>
-        <button class="btn btn-ghost" onclick="openMyIssues()" title="My Issues">My Issues</button>
+        <button class="btn btn-ghost" onclick="openMyIssues()">My Issues</button>
         <button class="btn btn-primary" onclick="window.location.href='/plans.html'">Upgrade Plan</button>
         <a class="btn btn-ghost" id="adminLink" href="/admin.html" style="display:none;">Admin</a>
-        <button class="btn btn-ghost" id="logoutBtn" onclick="logout()">Logout</button>
+        <button class="btn btn-logout" id="logoutBtn" onclick="logout()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h9"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          Logout
+        </button>
         <button class="theme-switch" id="themeToggle" type="button" role="switch" aria-label="Toggle light/dark mode" onclick="toggleTheme()">
           <span class="seg seg-sun" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
@@ -382,7 +546,14 @@
     <div class="wrap">
       <div class="page-head">
         <h1>My Statements</h1>
-        <p>Your previously extracted bank statements. Open one to view, edit, or download it again.</p>
+        <!-- Filters the already-loaded list by file/bank name; hidden until there's something to search. -->
+        <div class="search" id="searchWrap" style="display:none;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="search" id="searchInput" placeholder="Search by file or bank name…" autocomplete="off" aria-label="Search statements by file name or bank" />
+          <button class="search-clear" type="button" id="searchClear" aria-label="Clear search">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
       </div>
 
       <div id="content">
@@ -426,19 +597,14 @@
         </div>
 
         <div class="form-field">
-          <label>Screenshot <span style="font-weight:500;text-transform:none;letter-spacing:0;">(optional)</span></label>
+          <label>Screenshots <span style="font-weight:500;text-transform:none;letter-spacing:0;">(optional · up to 4)</span></label>
           <label class="shot-drop" id="shotDrop" for="shotInput">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-            <span class="sd-text">Add a screenshot</span>
-            <span class="sd-sub">PNG, JPG, WEBP or GIF · up to 5 MB</span>
+            <span class="sd-text">Add screenshots</span>
+            <span class="sd-sub" id="shotSub">PNG, JPG, WEBP or GIF · up to 5 MB each</span>
           </label>
-          <input type="file" id="shotInput" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none;" onchange="onShotChange(event)" />
-          <div class="shot-preview" id="shotPreview">
-            <img id="shotImg" alt="Screenshot preview" />
-            <button type="button" class="shot-remove" aria-label="Remove screenshot" onclick="clearShot()">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            </button>
-          </div>
+          <input type="file" id="shotInput" multiple accept="image/png,image/jpeg,image/webp,image/gif" style="display:none;" onchange="onShotChange(event)" />
+          <div class="shot-grid" id="shotGrid"></div>
         </div>
 
         <div class="modal-actions">
@@ -452,9 +618,9 @@
         <div class="ok-ic">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
         </div>
-        <h3>Issue submitted</h3>
-        <p>Thanks — our team will look into it. Track it under <strong>My Issues</strong>.</p>
-        <div class="ticket-chip" id="issueTicket">ISS-00000</div>
+        <h3 id="issueSuccessTitle">Issue submitted</h3>
+        <p id="issueSuccessNote">Thanks — our team will look into it. Track it under My Issues.</p>
+        <div class="ticket-chip" id="issueTicket"></div>
         <div class="modal-actions" style="justify-content:center;margin-top:18px;">
           <button type="button" class="btn btn-ghost" onclick="closeIssueModal()">Done</button>
           <button type="button" class="btn btn-primary" onclick="closeIssueModal(); openMyIssues();">View my issues</button>
@@ -469,7 +635,7 @@
       <div class="modal-head">
         <div>
           <h2 id="issuesModalTitle">My Issues</h2>
-          <p>Issues you've raised on your statements.</p>
+          <p id="issuesModalSub">Issues you've raised on your statements.</p>
         </div>
         <button class="modal-close" type="button" aria-label="Close" onclick="closeMyIssues()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -532,12 +698,25 @@
     // Raised hand — looks like someone raising their hand to flag an issue.
     var HAND_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 11V6a2 2 0 0 0-2-2 2 2 0 0 0-2 2"/><path d="M14 10V4a2 2 0 0 0-2-2 2 2 0 0 0-2 2v2"/><path d="M10 10.5V6a2 2 0 0 0-2-2 2 2 0 0 0-2 2v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></svg>';
 
+    // Small image icon used on the attached-screenshot name chips.
+    var IMG_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>';
+
+    // Eye icon — opens the extracted result for the statement.
+    var EYE_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 12S5 5.5 12 5.5 22.5 12 22.5 12 19 18.5 12 18.5 1.5 12 1.5 12z"/><circle cx="12" cy="12" r="3.2"/></svg>';
+
     // PDF document icon — same as the "View PDF" icon on results.html.
     var PDF_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
 
     var WARN_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
 
+    // The search box only makes sense next to an actual list.
+    function hideSearch() {
+      var w = document.getElementById("searchWrap");
+      if (w) w.style.display = "none";
+    }
+
     function showAuthGate() {
+      hideSearch();
       content.innerHTML =
         '<div class="state">' +
           '<div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>' +
@@ -548,6 +727,7 @@
     }
 
     function showEmpty() {
+      hideSearch();
       content.innerHTML =
         '<div class="state">' +
           '<div class="ic">' + DOC_SVG + '</div>' +
@@ -558,6 +738,7 @@
     }
 
     function showError(msg) {
+      hideSearch();
       content.innerHTML =
         '<div class="state">' +
           '<div class="ic" style="background:rgba(220,38,38,0.12);color:var(--danger);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>' +
@@ -567,7 +748,54 @@
         '</div>';
     }
 
+    // ---- Search + pagination: 5 statements per screen, First/Prev/Next/Last below ----
+    var PAGE_SIZE = 5;
+    var allItems = [];
+    var curPage = 0;
+    var searchQ = "";
+
+    // The visible set = every statement whose file name or bank contains the query.
+    function currentItems() {
+      if (!searchQ) return allItems;
+      var q = searchQ.toLowerCase();
+      return allItems.filter(function (s) {
+        return String(s.filename || "").toLowerCase().indexOf(q) !== -1 ||
+               String(s.bank || "").toLowerCase().indexOf(q) !== -1;
+      });
+    }
+
     function renderList(items) {
+      allItems = items || [];
+      document.getElementById("searchWrap").style.display = "";
+      renderPage();
+    }
+
+    function gotoPage(n) {
+      var pages = Math.max(1, Math.ceil(currentItems().length / PAGE_SIZE));
+      curPage = Math.min(Math.max(n, 0), pages - 1);
+      renderPage();
+    }
+
+    function renderPage() {
+      var list = currentItems();
+      var pages = Math.max(1, Math.ceil(list.length / PAGE_SIZE));
+      if (curPage > pages - 1) curPage = pages - 1;   // list shrank (refresh or new search)
+      if (curPage < 0) curPage = 0;
+
+      if (!list.length) {
+        content.innerHTML =
+          '<div class="state">' +
+            '<div class="ic">' + DOC_SVG + '</div>' +
+            '<h2>No matches</h2>' +
+            '<p>No statement file or bank name contains “' + escHtml(searchQ) + '”.</p>' +
+            '<button class="btn btn-ghost" onclick="clearSearch()">Clear search</button>' +
+          '</div>';
+        return;
+      }
+
+      var start = curPage * PAGE_SIZE;
+      var items = list.slice(start, start + PAGE_SIZE);
+
       var rows = items.map(function (s) {
         var pageLabel = (s.page_count === 1 ? "1 page" : (s.page_count || 0) + " pages");
 
@@ -581,22 +809,41 @@
         }
         var fnAttr = ' data-filename="' + escHtml(s.filename || "") + '"';
 
-        // Failed conversions: no rows to view, so show a "Couldn't convert"
-        // badge with the reason. The source PDF can still be downloaded and the
-        // statement flagged — but the card itself isn't clickable to open.
+        // Bank chosen at upload time. Older statements may not have one.
+        var bankChip = s.bank ? '<span class="stmt-bank">' + escHtml(s.bank) + '</span>' : "";
+
+        // One issue per statement: once raised, the hand turns red and clicking
+        // it opens My Issues instead of the report form.
+        var raised = !!s.issue_status;
+        var isResolved = s.issue_status === "resolved";
+        var issueBtn =
+          '<button class="btn-issue' + (isResolved ? " resolved" : (raised ? " raised" : "")) + '" type="button" ' +
+            'data-issue="' + escHtml(s.id) + '"' + fnAttr +
+            (raised ? ' data-raised="1"' : "") +
+            ' data-tip="' + (raised
+              ? (s.issue_status === "resolved" ? "Issue resolved" : "Issue already raised")
+              : "Raise an issue") + '"' +
+            ' aria-label="' + (raised ? "Issue already raised" : "Raise an issue") + '">' + HAND_SVG + '</button>';
+
+        // Failed conversions: no rows to view, so the warning icon plus the
+        // reason in the meta line carry the message. The source PDF can still be
+        // downloaded and the statement flagged — but the card isn't clickable.
         if (s.status === "failed") {
           var reason = s.error || "We couldn't read any transactions from this PDF";
           return '' +
             '<div class="stmt-card failed" data-id="' + escHtml(s.id) + '">' +
               '<div class="stmt-ic failed">' + WARN_SVG + '</div>' +
               '<div class="stmt-body">' +
-                '<div class="stmt-name">' + escHtml(s.filename || "Untitled statement") +
-                  '<span class="stmt-badge">Couldn\'t convert</span>' + reportedBadge + '</div>' +
-                '<div class="stmt-meta">' + escHtml(pageLabel) + '<span class="dot">·</span>' + escHtml(reason) + '<span class="dot">·</span>' + escHtml(fmtDate(s.created_at)) + '</div>' +
+                '<div class="stmt-name">' +
+                  '<span class="fname">' + escHtml(s.filename || "Untitled statement") + '</span>' + bankChip +
+                  '<span class="stmt-reason" title="' + escHtml(reason) + '">' + escHtml(reason) + '</span>' +
+                  reportedBadge +
+                '</div>' +
+                '<div class="stmt-meta">' + escHtml(pageLabel) + '<span class="dot">·</span>' + escHtml(fmtDate(s.created_at)) + '</div>' +
               '</div>' +
               '<div class="stmt-actions">' +
-                '<button class="btn-pdf" type="button" data-download="' + escHtml(s.id) + '" data-tip="Download PDF" aria-label="Download PDF">' + PDF_SVG + '</button>' +
-                '<button class="btn-issue" type="button" data-issue="' + escHtml(s.id) + '"' + fnAttr + ' data-tip="Raise an issue" aria-label="Raise an issue">' + HAND_SVG + '</button>' +
+                '<button class="btn-pdf" type="button" data-pdf="' + escHtml(s.id) + '" data-tip="View PDF" aria-label="View PDF">' + PDF_SVG + '</button>' +
+                issueBtn +
               '</div>' +
             '</div>';
         }
@@ -606,29 +853,44 @@
           '<div class="stmt-card" data-id="' + escHtml(s.id) + '">' +
             '<div class="stmt-ic">' + DOC_SVG + '</div>' +
             '<div class="stmt-body">' +
-              '<div class="stmt-name">' + escHtml(s.filename || "Untitled statement") + reportedBadge + '</div>' +
+              '<div class="stmt-name">' +
+                '<span class="fname">' + escHtml(s.filename || "Untitled statement") + '</span>' + bankChip + reportedBadge +
+              '</div>' +
               '<div class="stmt-meta">' + escHtml(pageLabel) + '<span class="dot">·</span>' + escHtml(rowLabel) + '<span class="dot">·</span>' + escHtml(fmtDate(s.created_at)) + '</div>' +
             '</div>' +
             '<div class="stmt-actions">' +
-              '<button class="btn btn-primary btn-sm" type="button" data-view="' + escHtml(s.id) + '">View</button>' +
-              '<button class="btn-pdf" type="button" data-download="' + escHtml(s.id) + '" data-tip="Download PDF" aria-label="Download PDF">' + PDF_SVG + '</button>' +
-              '<button class="btn-issue" type="button" data-issue="' + escHtml(s.id) + '"' + fnAttr + ' data-tip="Raise an issue" aria-label="Raise an issue">' + HAND_SVG + '</button>' +
+              '<button class="btn-view" type="button" data-view="' + escHtml(s.id) + '" data-tip="View result" aria-label="View result">' + EYE_SVG + '</button>' +
+              '<button class="btn-pdf" type="button" data-pdf="' + escHtml(s.id) + '" data-tip="View PDF" aria-label="View PDF">' + PDF_SVG + '</button>' +
+              issueBtn +
             '</div>' +
           '</div>';
       }).join("");
 
-      content.innerHTML = '<div class="stmt-list">' + rows + '</div>';
+      content.innerHTML =
+        '<div class="stmt-list">' + rows + '</div>' +
+        '<div class="pager">' +
+          '<button class="btn btn-ghost btn-sm" type="button" id="firstPageBtn"' + (curPage === 0 ? " disabled" : "") + '>First</button>' +
+          '<button class="btn btn-ghost btn-sm" type="button" id="prevPageBtn"' + (curPage === 0 ? " disabled" : "") + '>Previous</button>' +
+          '<span class="pager-info">Page ' + (curPage + 1) + ' of ' + pages + '</span>' +
+          '<button class="btn btn-ghost btn-sm" type="button" id="nextPageBtn"' + (curPage >= pages - 1 ? " disabled" : "") + '>Next</button>' +
+          '<button class="btn btn-ghost btn-sm" type="button" id="lastPageBtn"' + (curPage >= pages - 1 ? " disabled" : "") + '>Last</button>' +
+        '</div>';
+
+      document.getElementById("firstPageBtn").addEventListener("click", function () { gotoPage(0); });
+      document.getElementById("prevPageBtn").addEventListener("click", function () { gotoPage(curPage - 1); });
+      document.getElementById("nextPageBtn").addEventListener("click", function () { gotoPage(curPage + 1); });
+      document.getElementById("lastPageBtn").addEventListener("click", function () { gotoPage(pages - 1); });
 
       // Only successful cards open the statement on click.
       content.querySelectorAll(".stmt-card:not(.failed)").forEach(function (card) {
         card.addEventListener("click", function () { viewStatement(card.getAttribute("data-id")); });
       });
 
-      // Download the source PDF — don't let the click open the statement.
-      content.querySelectorAll("[data-download]").forEach(function (btn) {
+      // Open the source PDF in a new tab — don't let the click open the statement.
+      content.querySelectorAll("[data-pdf]").forEach(function (btn) {
         btn.addEventListener("click", function (e) {
           e.stopPropagation();
-          downloadPdf(btn.getAttribute("data-download"));
+          viewPdf(btn.getAttribute("data-pdf"));
         });
       });
 
@@ -636,38 +898,96 @@
       content.querySelectorAll("[data-issue]").forEach(function (btn) {
         btn.addEventListener("click", function (e) {
           e.stopPropagation();
+          // Already flagged: show that statement's existing report, not a fresh form.
+          if (btn.hasAttribute("data-raised")) {
+            openMyIssues(btn.getAttribute("data-issue"), btn.getAttribute("data-filename"));
+            return;
+          }
           raiseIssue(btn.getAttribute("data-issue"), btn.getAttribute("data-filename"));
         });
       });
     }
 
-    // Hit the owner-scoped download endpoint; it responds with the PDF as an
-    // attachment, so the browser downloads it without navigating away.
-    function downloadPdf(id) {
-      if (!id) return;
-      showToast("Downloading…");
-      window.location.href = "/api/statements/" + encodeURIComponent(id) + "/pdf";
+    // ---- Search box ----
+    function setSearch(q) {
+      searchQ = String(q || "").trim();
+      document.getElementById("searchClear").classList.toggle("show", !!searchQ);
+      curPage = 0;                       // a new query always starts at page 1
+      if (allItems.length) renderPage();
     }
 
-    // ---- Raise an issue (modal form) ----
-    var MAX_SHOT_BYTES = 5 * 1024 * 1024;
-    var issueCtx = { id: null, shot: null };   // shot = base64 data URL
+    function clearSearch() {
+      var input = document.getElementById("searchInput");
+      input.value = "";
+      setSearch("");
+      input.focus();
+    }
 
-    function openIssueModal(id, filename) {
-      issueCtx = { id: id, shot: null };
+    document.getElementById("searchInput").addEventListener("input", function () { setSearch(this.value); });
+    document.getElementById("searchClear").addEventListener("click", clearSearch);
+
+    // Owner-scoped PDF endpoint; ?inline=1 makes it render in the browser's
+    // viewer instead of downloading, so it opens cleanly in a new tab.
+    function viewPdf(id) {
+      if (!id) return;
+      showToast("Opening PDF…");
+      window.open("/api/statements/" + encodeURIComponent(id) + "/pdf?inline=1", "_blank", "noopener");
+    }
+
+    // ---- Raise / edit an issue (modal form) ----
+    var MAX_SHOT_BYTES = 5 * 1024 * 1024;
+    var MAX_SHOTS = 4;
+    // shots: [{ url, name, isNew, idx }] — isNew entries are base64 data URLs
+    // waiting to upload; the rest are images already stored on the issue, where
+    // `idx` is their server-side position so an edit can say which to keep.
+    var issueCtx = { id: null, shots: [], existing: null };
+
+    // `existing` (an item from /api/issues) switches the form into edit mode:
+    // the fields come prefilled and saving PATCHes the report instead of
+    // raising a new one.
+    function openIssueModal(id, filename, existing, reopen) {
+      issueCtx = { id: id, shots: [], existing: existing || null, reopen: !!reopen };
+      var editing = !!existing;
+
+      // Screenshots already on the issue show as thumbnails the user can
+      // remove, alongside any new ones they add.
+      if (editing) {
+        (existing.screenshots || []).forEach(function (s) {
+          issueCtx.shots.push({
+            url: "/api/statements/" + encodeURIComponent(id) + "/issue/screenshot/" + s.index,
+            name: s.name || "", isNew: false, idx: s.index,
+          });
+        });
+      }
+
+      document.getElementById("issueModalTitle").textContent =
+        reopen ? "Reopen issue" : (editing ? "Edit issue" : "Raise an issue");
       document.getElementById("issueModalStmt").textContent =
-        filename ? ("Statement: " + filename) : "Tell us what went wrong with this statement.";
-      // reset the form to a clean state each time
-      document.getElementById("issueTitle").value = "";
-      document.getElementById("issueNote").value = "";
-      clearShot();
+        reopen ? "Update the report and save to reopen it" + (filename ? " · " + filename : "")
+               : (filename ? ("Statement: " + filename)
+                           : (editing ? "Update the report you raised." : "Tell us what went wrong with this statement."));
+
+      document.getElementById("issueTitle").value = editing ? (existing.title || "") : "";
+      document.getElementById("issueNote").value = editing ? (existing.note || "") : "";
+      renderShots();
       hideIssueError();
       document.getElementById("issueFormView").style.display = "";
       document.getElementById("issueSuccessView").style.display = "none";
       var btn = document.getElementById("issueSubmitBtn");
-      btn.disabled = false; btn.textContent = "Submit issue";
+      btn.disabled = false;
+      btn.textContent = reopen ? "Reopen issue" : (editing ? "Save changes" : "Submit issue");
       document.getElementById("issueModal").classList.add("show");
       setTimeout(function () { document.getElementById("issueNote").focus(); }, 60);
+    }
+
+    // Opened from the Edit / Reopen issue button in the My Issues panel.
+    // Reopening goes through the same form: the user updates the report, and
+    // saving puts it back to "open".
+    function editIssue(sid, reopen) {
+      var it = myIssues[sid];
+      if (!it) return;
+      closeMyIssues();
+      openIssueModal(sid, it.filename, it, reopen);
     }
 
     function closeIssueModal() {
@@ -683,31 +1003,66 @@
     }
 
     function onShotChange(ev) {
-      var file = ev.target.files && ev.target.files[0];
-      if (file) loadShot(file);
+      var files = ev.target.files ? Array.prototype.slice.call(ev.target.files) : [];
+      addShots(files);
       ev.target.value = "";   // allow re-picking the same file
     }
 
-    function loadShot(file) {
-      if (!/^image\//.test(file.type)) { showIssueError("Please choose an image file."); return; }
-      if (file.size > MAX_SHOT_BYTES) { showIssueError("Screenshot is too large (max 5 MB)."); return; }
-      hideIssueError();
-      var reader = new FileReader();
-      reader.onload = function () {
-        issueCtx.shot = reader.result;   // data:...;base64,....
-        document.getElementById("shotImg").src = reader.result;
-        document.getElementById("shotPreview").classList.add("show");
-        document.getElementById("shotDrop").style.display = "none";
-      };
-      reader.readAsDataURL(file);
+    // Reads each picked image into issueCtx.shots, stopping at MAX_SHOTS.
+    function addShots(files) {
+      var room = MAX_SHOTS - issueCtx.shots.length;
+      if (room <= 0) { showIssueError("You can attach up to " + MAX_SHOTS + " screenshots."); return; }
+      if (files.length > room) {
+        showIssueError("Only " + room + " more screenshot" + (room === 1 ? "" : "s") + " can be attached.");
+        files = files.slice(0, room);
+      } else {
+        hideIssueError();
+      }
+
+      files.forEach(function (file) {
+        if (!/^image\//.test(file.type)) { showIssueError("Please choose image files only."); return; }
+        if (file.size > MAX_SHOT_BYTES) { showIssueError('"' + file.name + '" is too large (max 5 MB).'); return; }
+        var reader = new FileReader();
+        reader.onload = function () {
+          if (issueCtx.shots.length >= MAX_SHOTS) return;
+          issueCtx.shots.push({ url: reader.result, name: file.name, isNew: true });
+          renderShots();
+        };
+        reader.readAsDataURL(file);
+      });
     }
 
-    function clearShot() {
-      issueCtx.shot = null;
-      document.getElementById("shotImg").removeAttribute("src");
-      document.getElementById("shotPreview").classList.remove("show");
-      var d = document.getElementById("shotDrop");
-      if (d) d.style.display = "";
+    function removeShot(i) {
+      issueCtx.shots.splice(i, 1);
+      hideIssueError();
+      renderShots();
+    }
+
+    function renderShots() {
+      var grid = document.getElementById("shotGrid");
+      grid.innerHTML = issueCtx.shots.map(function (s, i) {
+        return '<div class="shot-item">' +
+            '<div class="shot-thumb">' +
+              '<img src="' + escHtml(s.url) + '" alt="' + escHtml(s.name || ("Screenshot " + (i + 1))) + '" />' +
+              '<button type="button" class="shot-remove" data-shot="' + i + '" aria-label="Remove screenshot">' +
+                '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' +
+              '</button>' +
+            '</div>' +
+            '<div class="shot-name" title="' + escHtml(s.name || "") + '">' + escHtml(s.name || ("Screenshot " + (i + 1))) + '</div>' +
+          '</div>';
+      }).join("");
+      grid.classList.toggle("show", issueCtx.shots.length > 0);
+
+      grid.querySelectorAll("[data-shot]").forEach(function (b) {
+        b.addEventListener("click", function () { removeShot(Number(b.getAttribute("data-shot"))); });
+      });
+
+      // Hide the picker once full, and keep the hint counting down.
+      var left = MAX_SHOTS - issueCtx.shots.length;
+      document.getElementById("shotDrop").style.display = left > 0 ? "" : "none";
+      document.getElementById("shotSub").textContent = issueCtx.shots.length
+        ? left + " more can be added · up to 5 MB each"
+        : "PNG, JPG, WEBP or GIF · up to 5 MB each";
     }
 
     async function submitIssue() {
@@ -716,27 +1071,51 @@
       if (!note) { showIssueError("Please describe the issue before submitting."); return; }
       hideIssueError();
 
+      var editing = !!issueCtx.existing;
+      var reopening = editing && !!issueCtx.reopen;
+      var idleLabel = reopening ? "Reopen issue" : (editing ? "Save changes" : "Submit issue");
       var btn = document.getElementById("issueSubmitBtn");
-      btn.disabled = true; btn.textContent = "Submitting…";
+      btn.disabled = true;
+      btn.textContent = reopening ? "Reopening…" : (editing ? "Saving…" : "Submitting…");
       try {
         var res = await fetch("/api/statements/" + encodeURIComponent(issueCtx.id) + "/issue", {
-          method: "POST",
+          method: editing ? "PATCH" : "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title: title, note: note, screenshot: issueCtx.shot || undefined }),
+          body: JSON.stringify({
+            title: title,
+            note: note,
+            // New uploads, plus (when editing) which stored ones to keep.
+            screenshots: issueCtx.shots
+              .filter(function (s) { return s.isNew; })
+              .map(function (s) { return { name: s.name, url: s.url }; }),
+            keep: editing
+              ? issueCtx.shots.filter(function (s) { return !s.isNew; }).map(function (s) { return s.idx; })
+              : undefined,
+            reopen: reopening || undefined,   // puts a resolved report back to open
+          }),
         });
         var out = await res.json().catch(function () { return {}; });
         if (res.ok) {
-          document.getElementById("issueTicket").textContent = out.number || "ISS-—";
+          document.getElementById("issueSuccessTitle").textContent =
+            reopening ? "Issue reopened" : (editing ? "Issue updated" : "Issue submitted");
+          document.getElementById("issueSuccessNote").textContent = reopening
+            ? "It's open again — our team will take another look. Track it under My Issues."
+            : (editing
+                ? "Your report has been updated. Track it under My Issues."
+                : "Thanks — our team will look into it. Track it under My Issues.");
+          var chip = document.getElementById("issueTicket");
+          chip.textContent = out.number || (editing ? (issueCtx.existing.number || "") : "");
+          chip.style.display = chip.textContent ? "" : "none";   // no empty pill
           document.getElementById("issueFormView").style.display = "none";
           document.getElementById("issueSuccessView").style.display = "";
-          load();   // refresh the list so the card shows its Reported badge
+          load();   // refresh the list so the card's hand icon reflects the report
         } else {
-          showIssueError(out.error || "Could not submit your report.");
-          btn.disabled = false; btn.textContent = "Submit issue";
+          showIssueError(out.error || (editing ? "Could not save your changes." : "Could not submit your report."));
+          btn.disabled = false; btn.textContent = idleLabel;
         }
       } catch (e) {
         showIssueError("Could not reach the server. Please try again.");
-        btn.disabled = false; btn.textContent = "Submit issue";
+        btn.disabled = false; btn.textContent = idleLabel;
       }
     }
 
@@ -747,11 +1126,43 @@
     }
 
     // ---- My Issues panel ----
-    function openMyIssues() {
-      var m = document.getElementById("issuesModal");
-      m.classList.add("show");
+    // When opened from a statement's hand icon we show only that statement's
+    // issue; the header nav button opens the panel unfiltered.
+    var issuesFilter = null;
+    var issuesData = [];     // last fetched list, filtered client-side by the tabs
+    var issuesTab = "open";  // open | resolved
+    var myIssues = {};       // statement_id -> issue, so Edit can prefill the form
+
+    function openMyIssues(statementId, filename) {
+      issuesFilter = statementId || null;
+      issuesTab = "open";      // always land on open issues
+      setIssuesHead(filename);
+      document.getElementById("issuesModal").classList.add("show");
       loadMyIssues();
     }
+
+    function setIssuesHead(filename) {
+      document.getElementById("issuesModalTitle").textContent = issuesFilter ? "Issue raised" : "My Issues";
+
+      // Only the single-statement view needs a subtitle (which statement it is);
+      // the full list speaks for itself.
+      var sub = document.getElementById("issuesModalSub");
+      if (issuesFilter) {
+        sub.textContent = filename ? "On " + filename : "The issue you raised on this statement.";
+        sub.style.display = "";
+      } else {
+        sub.textContent = "";
+        sub.style.display = "none";
+      }
+    }
+
+    function showAllIssues() {
+      issuesFilter = null;
+      issuesTab = "open";
+      setIssuesHead();
+      loadMyIssues();
+    }
+
     function closeMyIssues() {
       document.getElementById("issuesModal").classList.remove("show");
       // Drop the #issues hash so a refresh doesn't re-open it.
@@ -765,35 +1176,111 @@
         var res = await fetch("/api/issues");
         if (res.status === 401) { body.innerHTML = '<div class="issues-empty">Please sign in to view your issues.</div>'; return; }
         var out = await res.json();
-        var items = out.issues || [];
-        if (!items.length) {
-          body.innerHTML = '<div class="issues-empty">You haven\'t raised any issues yet.<br>Use the flag button on a statement to report a problem.</div>';
-          return;
-        }
-        body.innerHTML = items.map(renderIssueItem).join("");
+        issuesData = out.issues || [];
+        myIssues = {};
+        issuesData.forEach(function (it) { myIssues[it.statement_id] = it; });
+        renderIssuesBody();
       } catch (e) {
         body.innerHTML = '<div class="issues-empty">Could not load your issues. Please try again.</div>';
       }
     }
 
+    function isResolvedIssue(it) { return it.status === "resolved"; }
+
+    // Switches the All / Open / Resolved tab.
+    function setIssuesTab(tab) {
+      issuesTab = tab;
+      renderIssuesBody();
+    }
+
+    function renderIssuesBody() {
+      var body = document.getElementById("issuesBody");
+
+      // Opened from a statement's hand icon: that one issue only, no tabs.
+      if (issuesFilter) {
+        var one = issuesData.filter(function (it) { return String(it.statement_id) === String(issuesFilter); });
+        body.innerHTML = one.length
+          ? one.map(renderIssueItem).join("") +
+            '<div style="text-align:center;margin-top:14px;">' +
+              '<button type="button" class="btn btn-ghost btn-sm" onclick="showAllIssues()">View all issues</button>' +
+            '</div>'
+          : '<div class="issues-empty">We couldn\'t find the issue for this statement.</div>';
+        wireIssueButtons(body);
+        return;
+      }
+
+      if (!issuesData.length) {
+        body.innerHTML = '<div class="issues-empty">You haven\'t raised any issues yet.<br>Use the hand button on a statement to report a problem.</div>';
+        return;
+      }
+
+      var resolvedCount = issuesData.filter(isResolvedIssue).length;
+      var openCount = issuesData.length - resolvedCount;
+      var tabs = [
+        { key: "open", label: "Open", count: openCount },
+        { key: "resolved", label: "Resolved", count: resolvedCount },
+      ];
+      var tabsHtml = '<div class="ii-tabs">' + tabs.map(function (t) {
+        return '<button type="button" class="ii-tab t-' + t.key + (issuesTab === t.key ? " active" : "") + '" data-tab="' + t.key + '">' +
+          t.label + '<span class="ii-tab-count">' + t.count + '</span></button>';
+      }).join("") + '</div>';
+
+      var items = issuesData.filter(function (it) {
+        return issuesTab === "resolved" ? isResolvedIssue(it) : !isResolvedIssue(it);
+      });
+
+      body.innerHTML = tabsHtml + (items.length
+        ? items.map(renderIssueItem).join("")
+        : '<div class="issues-empty">' +
+            (issuesTab === "resolved" ? "None of your issues have been resolved yet." : "You have no open issues.") +
+          '</div>');
+
+      body.querySelectorAll("[data-tab]").forEach(function (b) {
+        b.addEventListener("click", function () { setIssuesTab(b.getAttribute("data-tab")); });
+      });
+      wireIssueButtons(body);
+    }
+
+    function wireIssueButtons(body) {
+      body.querySelectorAll("[data-edit]").forEach(function (b) {
+        b.addEventListener("click", function () {
+          editIssue(b.getAttribute("data-edit"), b.hasAttribute("data-reopen"));
+        });
+      });
+    }
+
     function renderIssueItem(it) {
       var status = it.status === "resolved" ? "resolved" : "open";
       var statusLabel = status === "resolved" ? "Resolved" : "Open";
-      var shot = it.has_screenshot
-        ? '<div class="ii-shot"><a href="/api/statements/' + encodeURIComponent(it.statement_id) + '/issue/screenshot" target="_blank" rel="noopener">' +
-            '<img src="/api/statements/' + encodeURIComponent(it.statement_id) + '/issue/screenshot" alt="Issue screenshot" loading="lazy" /></a></div>'
-        : "";
+      var shots = it.screenshots || [];
+      var shotUrl = function (s) {
+        return "/api/statements/" + encodeURIComponent(it.statement_id) + "/issue/screenshot/" + s.index;
+      };
+
+      // Attached images are listed by name beside the statement's file name;
+      // clicking one opens the full image in a new tab.
+      var shotNames = shots.map(function (s) {
+        return '<a class="ii-shot-name" href="' + shotUrl(s) + '" target="_blank" rel="noopener" title="' + escHtml(s.name) + '">' +
+          IMG_SVG + escHtml(s.name) + '</a>';
+      }).join("");
       return '' +
         '<div class="issue-item">' +
           '<div class="ii-top">' +
             '<span class="ii-num">' + escHtml(it.number) + '</span>' +
-            '<span class="ii-status ' + status + '">' + statusLabel + '</span>' +
+            '<div class="ii-right">' +
+              '<span class="ii-status ' + status + '">' + statusLabel + '</span>' +
+              '<button type="button" class="ii-edit' + (status === "resolved" ? " reopen" : "") + '"' +
+                ' data-edit="' + escHtml(it.statement_id) + '"' +
+                (status === "resolved" ? ' data-reopen="1"' : "") + '>' +
+                (status === "resolved" ? "Reopen issue" : "Edit") +
+              '</button>' +
+            '</div>' +
           '</div>' +
-          '<div class="ii-file">' + escHtml(it.filename || "Untitled statement") + '</div>' +
+          '<div class="ii-file">' + escHtml(it.filename || "Untitled statement") + shotNames + '</div>' +
           (it.title ? '<div class="ii-title">' + escHtml(it.title) + '</div>' : "") +
           (it.note ? '<div class="ii-note">' + escHtml(it.note) + '</div>' : "") +
-          shot +
           '<div class="ii-date">Raised ' + escHtml(fmtDate(it.created_at)) +
+            (it.updated_at ? ' · Edited ' + escHtml(fmtDate(it.updated_at)) : "") +
             (it.resolved_at ? ' · Resolved ' + escHtml(fmtDate(it.resolved_at)) : "") + '</div>' +
         '</div>';
     }

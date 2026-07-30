@@ -1,6 +1,7 @@
 import os
 import re
 import io
+import base64
 import json
 import gc
 import secrets
@@ -15,7 +16,7 @@ from flask import (
     Flask, request, jsonify, send_from_directory, send_file, session
 )
 from werkzeug.security import generate_password_hash, check_password_hash
-from pymongo import MongoClient
+from pymongo import MongoClient, ReturnDocument
 import bson
 import gridfs
 from bson import ObjectId
@@ -84,6 +85,11 @@ messages = db["messages"]        # contact-form submissions
 # and it means every statement saved before GridFS existed keeps working with no
 # migration.
 pdf_bucket = gridfs.GridFSBucket(db, bucket_name="statement_pdfs")
+
+# Screenshots attached to a raised issue. Always chunked into GridFS rather than
+# inlined: several images per issue would otherwise threaten the 16 MB document
+# cap that the statement's own rows and PDF already eat into.
+shot_bucket = gridfs.GridFSBucket(db, bucket_name="issue_screenshots")
 
 # Mobile number is the login identifier, so it must be unique. Guard the call
 # so the app still starts (with a clear warning) when mongod isn't running yet;
@@ -1409,9 +1415,15 @@ def list_statements():
 
     out = []
     for d in docs:
+        issue = d.get("issue") or {}
         out.append({
             "id": str(d["_id"]),
             "filename": d.get("filename", ""),
+            # Bank picked on the upload page; older docs may not have one.
+            "bank": d.get("bank") or "",
+            # "open" / "resolved" when the owner has already flagged this
+            # statement; empty when no issue has been raised.
+            "issue_status": issue.get("status", "open") if issue else "",
             "row_count": d.get("row_count", 0),
             "page_count": d.get("page_count", 0),
             # Older docs predate the status field — treat them as successes.
@@ -1521,6 +1533,117 @@ def download_statement_pdf(sid):
     )
 
 
+# --- Issue screenshots -----------------------------------------------------
+# The report form sends each image as a base64 data URL plus its file name.
+# They're decoded here, validated, and chunked into GridFS; the issue document
+# keeps only the references.
+MAX_ISSUE_SHOTS = 4
+MAX_SHOT_BYTES = 5 * 1024 * 1024
+ALLOWED_SHOT_TYPES = {"image/png", "image/jpeg", "image/webp", "image/gif"}
+
+_DATA_URL_RE = re.compile(r"^data:(image/[a-z+]+);base64,(.+)$", re.I | re.S)
+
+
+def _decode_data_url(value):
+    """(bytes, content_type) for a base64 image data URL, or None if unusable."""
+    if not isinstance(value, str):
+        return None
+
+    m = _DATA_URL_RE.match(value.strip())
+    if not m:
+        return None
+
+    content_type = m.group(1).lower()
+    if content_type not in ALLOWED_SHOT_TYPES:
+        return None
+
+    try:
+        raw = base64.b64decode(m.group(2), validate=False)
+    except Exception:
+        return None
+
+    if not raw or len(raw) > MAX_SHOT_BYTES:
+        return None
+    return raw, content_type
+
+
+def _store_issue_shots(items, user_id):
+    """Upload each image to GridFS; return the refs to store on the issue.
+
+    Each item is either a bare data URL or {"name": ..., "url": ...} — the name
+    is what the UI shows next to the statement, so it's kept alongside the file.
+    """
+    out = []
+    for item in (items or [])[:MAX_ISSUE_SHOTS]:
+        if isinstance(item, dict):
+            url, name = item.get("url"), (item.get("name") or "").strip()[:120]
+        else:
+            url, name = item, ""
+
+        decoded = _decode_data_url(url)
+        if not decoded:
+            continue
+        raw, content_type = decoded
+
+        try:
+            file_id = shot_bucket.upload_from_stream(
+                name or "issue-screenshot",
+                raw,
+                metadata={"user_id": user_id, "contentType": content_type},
+            )
+        except Exception as exc:
+            # A failed upload must never cost the user their report.
+            app.logger.warning("Could not store issue screenshot: %s", exc)
+            continue
+
+        out.append({"file_id": file_id, "content_type": content_type, "name": name})
+    return out
+
+
+def _delete_issue_shots(entries):
+    for e in entries or []:
+        fid = e.get("file_id")
+        if not fid:
+            continue
+        try:
+            shot_bucket.delete(fid)
+        except Exception as exc:
+            app.logger.warning("Could not delete issue screenshot %s: %s", fid, exc)
+
+
+def _next_issue_number(user_id):
+    """Ticket number for a new issue: last 3 digits of the owner's mobile plus
+    their issue count, e.g. mobile 9876543784 raising a 2nd issue -> "7842".
+
+    The sequence lives on the user document and is bumped atomically, so two
+    reports raised at once can't land on the same number, and deleting an old
+    issue never makes a later one reuse a number.
+    """
+    oid = _to_oid(user_id)
+    if not oid:
+        return ""
+
+    doc = users.find_one_and_update(
+        {"_id": oid},
+        {"$inc": {"issue_seq": 1}},
+        projection={"mobile": 1, "issue_seq": 1},
+        return_document=ReturnDocument.AFTER,
+    )
+    if not doc:
+        return ""
+
+    digits = re.sub(r"\D", "", str(doc.get("mobile") or ""))
+    return (digits[-3:] or "000") + str(doc.get("issue_seq") or 1)
+
+
+def _shots_payload(issue):
+    """The screenshot list as the UI needs it: name + position, no bytes."""
+    return [
+        {"index": i, "name": e.get("name") or ("Screenshot " + str(i + 1))}
+        for i, e in enumerate(issue.get("screenshots") or [])
+    ]
+
+
 @app.route("/api/statements/<sid>/issue", methods=["POST"])
 @login_required
 def raise_statement_issue(sid):
@@ -1534,9 +1657,28 @@ def raise_statement_issue(sid):
 
     data = request.get_json(silent=True) or {}
     note = (data.get("note") or "").strip()[:2000]
+    title = (data.get("title") or "").strip()[:160]
+
+    # Confirm the statement is this user's before uploading anything or drawing
+    # a ticket number — otherwise a bad id would burn a number in the sequence.
+    if not statements.find_one({"_id": oid, "user_id": current_user()}, {"_id": 1}):
+        return jsonify({"error": "Not found"}), 404
+
+    # `screenshots` is the list form; `screenshot` is the older single-image key.
+    incoming = data.get("screenshots")
+    if not isinstance(incoming, list):
+        incoming = [data.get("screenshot")] if data.get("screenshot") else []
+    shots = _store_issue_shots(incoming, current_user())
+
+    # Stamped once, at creation, and never recomputed — the number stays with
+    # the issue through edits, reopens and any later deletions.
+    number = _next_issue_number(current_user())
 
     issue = {
+        "number": number,
+        "title": title,
         "note": note,
+        "screenshots": shots,
         "status": "open",
         "created_at": datetime.now(timezone.utc),
         "resolved_at": None,
@@ -1548,9 +1690,108 @@ def raise_statement_issue(sid):
         {"$set": {"issue": issue}},
     )
     if result.matched_count == 0:
+        _delete_issue_shots(shots)      # nothing to attach them to
         return jsonify({"error": "Not found"}), 404
 
-    return jsonify({"ok": True})
+    return jsonify({"ok": True, "number": number, "screenshot_count": len(shots)})
+
+
+@app.route("/api/statements/<sid>/issue", methods=["PATCH"])
+@login_required
+def update_statement_issue(sid):
+    # The owner edits the report they already raised. Only the wording changes —
+    # status, ticket order (created_at) and any admin resolution are preserved.
+    oid = _to_oid(sid)
+    if not oid:
+        return jsonify({"error": "Not found"}), 404
+
+    data = request.get_json(silent=True) or {}
+    note = (data.get("note") or "").strip()[:2000]
+    title = (data.get("title") or "").strip()[:160]
+    if not note:
+        return jsonify({"error": "Please describe the issue."}), 400
+
+    doc = statements.find_one(
+        {"_id": oid, "user_id": current_user(), "issue": {"$exists": True}},
+        {"issue": 1},
+    )
+    if not doc:
+        return jsonify({"error": "Not found"}), 404
+
+    existing = (doc.get("issue") or {}).get("screenshots") or []
+    dropped = []
+
+    # `keep` holds the indexes of the existing screenshots the user didn't
+    # remove; anything not kept is deleted from GridFS. Omit both keys (e.g. an
+    # older client) and the current set is left untouched.
+    if "keep" in data or "screenshots" in data:
+        keep_idx = data.get("keep")
+        if not isinstance(keep_idx, list):
+            keep_idx = list(range(len(existing)))
+        kept = []
+        for i, e in enumerate(existing):
+            (kept if i in keep_idx else dropped).append(e)
+
+        room = max(0, MAX_ISSUE_SHOTS - len(kept))
+        shots = kept + _store_issue_shots((data.get("screenshots") or [])[:room], current_user())
+    else:
+        shots = existing
+
+    now = datetime.now(timezone.utc)
+    changes = {
+        "issue.title": title,
+        "issue.note": note,
+        "issue.screenshots": shots,
+        "issue.updated_at": now,
+    }
+
+    # Reopening a resolved report puts it back in the admin queue and clears the
+    # resolution, keeping its ticket number and original raised date.
+    if data.get("reopen"):
+        changes.update({
+            "issue.status": "open",
+            "issue.resolved_at": None,
+            "issue.resolved_by": None,
+            "issue.reopened_at": now,
+        })
+
+    result = statements.update_one(
+        {"_id": oid, "user_id": current_user(), "issue": {"$exists": True}},
+        {"$set": changes},
+    )
+    if result.matched_count == 0:
+        return jsonify({"error": "Not found"}), 404
+
+    _delete_issue_shots(dropped)
+    return jsonify({"ok": True, "screenshot_count": len(shots)})
+
+
+@app.route("/api/statements/<sid>/issue/screenshot/<int:idx>")
+@login_required
+def get_issue_screenshot(sid, idx):
+    # Serve one screenshot attached to the owner's issue, by position. Scoped to
+    # the current user so nobody can read another account's attachments.
+    oid = _to_oid(sid)
+    if not oid:
+        return jsonify({"error": "Not found"}), 404
+
+    doc = statements.find_one(
+        {"_id": oid, "user_id": current_user()},
+        {"issue.screenshots": 1},
+    )
+    shots = ((doc or {}).get("issue") or {}).get("screenshots") or []
+    if idx < 0 or idx >= len(shots):
+        return jsonify({"error": "Not found"}), 404
+
+    entry = shots[idx]
+    try:
+        with shot_bucket.open_download_stream(entry["file_id"]) as stream:
+            raw = stream.read()
+    except Exception as exc:
+        app.logger.warning("Could not read issue screenshot: %s", exc)
+        return jsonify({"error": "Not found"}), 404
+
+    return send_file(io.BytesIO(raw), mimetype=entry.get("content_type", "image/png"))
 
 
 @app.route("/api/issues")
@@ -1573,18 +1814,23 @@ def list_my_issues():
             "title": issue.get("title", ""),
             "note": issue.get("note", ""),
             "status": issue.get("status", "open"),
-            # Screenshots aren't stored on issues yet — always false so the
-            # panel doesn't request a screenshot endpoint that doesn't exist.
-            "has_screenshot": False,
+            # Ticket number stamped when the issue was raised. Reports made
+            # before numbering existed have none — they fall back below.
+            "number": issue.get("number") or "",
+            # Name + position of each attached image; the bytes come from
+            # /api/statements/<id>/issue/screenshot/<index>.
+            "screenshots": _shots_payload(issue),
             "created_at": _iso(issue.get("created_at")),
+            "updated_at": _iso(issue.get("updated_at")),
             "resolved_at": _iso(issue.get("resolved_at")),
         })
 
-    # Number by the order raised (oldest = #1) so each issue keeps a stable
-    # label, then present open first and newest within each group.
+    # Oldest first, so any pre-numbering issue can fall back to its position in
+    # the order it was raised. Then present open first, newest within each group.
     out.sort(key=lambda r: r["created_at"] or "")
     for i, r in enumerate(out, start=1):
-        r["number"] = "#" + str(i)
+        if not r["number"]:
+            r["number"] = "#" + str(i)
 
     open_first = [r for r in out if r["status"] != "resolved"]
     resolved = [r for r in out if r["status"] == "resolved"]
