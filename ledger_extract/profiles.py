@@ -108,6 +108,31 @@ PROFILES = {
         "header_keywords": ["transaction description", "balance"],
         "drop_code_cells": True,
     },
+    "bob": {
+        # Bank of Baroda (bob World export): Serial No | Transaction Date |
+        # Value Date | Description | Cheque Number | Debit | Credit | Balance.
+        # Camelot stream splits every transaction across three physical rows:
+        # the narration's FIRST line sits in the row *above* the dated amount
+        # row (whose Description cell is empty) and the wrapped continuation
+        # lines sit in the rows *below* it -- the same "narration around" shape
+        # as PNB/UCO. Read as a plain columnar layout, every description comes
+        # out shifted by a line (its own tail glued to the next row's head).
+        # serial_col blanks the leading Serial No so the amount row still reads
+        # as date-led, and header_lines covers the two-row header ("Serial/No",
+        # "Cheque/Number") that repeats on every page. Cheque Number is the only
+        # ref column and is always empty here -> don't fabricate a reference.
+        "engine": "columnar",
+        "header_keywords": ["description", "balance"],
+        "debit_col": 5,
+        "credit_col": 6,
+        "narration_around": True,
+        "serial_col": True,
+        "header_lines": 2,
+        "no_reference": True,
+        # The narration column hard-wraps mid-token ("...@ybl/P" + "aym"), so
+        # rejoining the fragments with a space corrupts the value.
+        "glue_hard_wraps": True,
+    },
     "generic": {
         "engine": "columnar",
         "header_keywords": None,

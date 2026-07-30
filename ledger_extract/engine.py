@@ -23,6 +23,9 @@ from .profiles import ROLE_KEYWORDS
 
 _SPLIT_2SPACES = re.compile(r"\s{2,}")
 _LONG_DIGITS = re.compile(r"^\d{10,}$")
+# A row-number cell ("1", "117") in a statement that numbers its transactions.
+_SERIAL = re.compile(r"^\d{1,4}$")
+_WORDS = re.compile(r"[a-z]+")
 
 
 def _linearize(row):
@@ -118,10 +121,15 @@ def _description(cells, date_idx, balance_idx, ref, drop_code_cells=False):
     return " ".join(parts).strip()
 
 
-def parse_rows(tables_rows, profile):
-    """Return (transactions, opening_balance)."""
+def parse_rows(tables_rows, profile, glue_lines=None):
+    """Return (transactions, opening_balance).
+
+    *glue_lines* is the optional set of narration lines the PDF broke mid-token
+    (see pipeline._hard_wrapped_lines); the next fragment is joined onto them
+    with no separator. ``None`` joins every fragment with a space.
+    """
     if profile.get("narration_around"):
-        return _parse_around(tables_rows, profile)
+        return _parse_around(tables_rows, profile, glue_lines)
 
     engine = profile.get("engine", "columnar")
     header_keywords = profile.get("header_keywords")
@@ -324,10 +332,58 @@ def parse_rows(tables_rows, profile):
     return txns, opening
 
 
-def _parse_around(tables_rows, profile):
-    """Parser for statements (PNB) whose narration wraps in rows *around* the
-    amount line: line 1 sits in the row above the amount, continuation lines in
-    the row(s) below it; short narrations sit on the amount row itself.
+def _is_header_echo(low, header_tokens):
+    """True when *low* is a repeat of the table header rather than content.
+
+    Multi-row headers ("Serial / No", "Cheque / Number") are reprinted on every
+    page, and in an "around" layout a header line that survives the noise filter
+    is indistinguishable from a narration line -- it gets glued onto the next
+    transaction's description. A row qualifies as a header echo only when every
+    word in it is a known header word AND it carries no digits, so a narration
+    that merely reuses a header word next to an amount or a reference is safe.
+    """
+    words = _WORDS.findall(low)
+    return (
+        bool(words)
+        and not any(ch.isdigit() for ch in low)
+        and all(w in header_tokens for w in words)
+    )
+
+
+def _join_fragments(parts, glue_lines):
+    """Join narration fragments (already in document order) into one line.
+
+    The separator is dropped wherever the line break consumed no character, so
+    that rejoining restores the original string. That happens two ways:
+
+      * the fragment ran flush to its column edge and was chopped mid-token --
+        these are the ones listed in *glue_lines*
+        ("...@ybl/P" + "aym" -> "...@ybl/Paym");
+      * the fragment ends on a hyphen, a break opportunity the layout can take
+        early without swallowing anything
+        ("...8918137503-" + "2@ibl/Pa" -> "...8918137503-2@ibl/Pa").
+
+    Any other break fell on a space the layout swallowed, so the space is put
+    back ("CHARGES FOR" + ":IMPS/P2A/..."). With *glue_lines* None -- every
+    profile that has not opted in -- fragments are space-joined as before.
+    """
+    out = []
+    glue_next = False
+    for _, text in parts:
+        if out and not glue_next:
+            out.append(" ")
+        out.append(text)
+        glue_next = glue_lines is not None and (
+            text in glue_lines or text.endswith("-")
+        )
+    return "".join(out).strip()
+
+
+def _parse_around(tables_rows, profile, glue_lines=None):
+    """Parser for statements (PNB, UCO, Bank of Baroda) whose narration wraps in
+    rows *around* the amount line: line 1 sits in the row above the amount,
+    continuation lines in the row(s) below it; short narrations sit on the
+    amount row itself.
 
     Assignment rule for a narration-only row R between amount A (above) and
     amount B (below): R belongs to B (as B's first line) only when R sits
@@ -340,16 +396,26 @@ def _parse_around(tables_rows, profile):
     d_idx = profile.get("debit_col")
     c_idx = profile.get("credit_col")
     header_keywords = profile.get("header_keywords")
+    header_lines = profile.get("header_lines", 1)
+    serial_col = profile.get("serial_col", False)
     no_ref = profile.get("no_reference", False)
     items = []          # ordered list of {"k": "amt"/"narr", ...}
     opening = None
     in_footer = False
     started = header_keywords is None
     seen_amount = False
+    header_tokens = set()   # every word seen in the (multi-row) header
+    pending_header = 0      # header continuation rows still to consume
 
     for table in tables_rows:
         for raw in table:
-            cells = C.split_money_cells([C.clean(c) for c in raw])
+            cells = [C.clean(c) for c in raw]
+            if serial_col and cells and _SERIAL.match(cells[0]):
+                # Blank -- never drop -- the leading Serial No: the amount row
+                # must still test as date-led, and the profile's debit_col /
+                # credit_col indices have to stay aligned.
+                cells[0] = ""
+            cells = C.split_money_cells(cells)
             joined = " ".join(cells).strip()
             if not joined or not any(ch.isalnum() for ch in joined):
                 continue
@@ -371,6 +437,17 @@ def _parse_around(tables_rows, profile):
             if not started:
                 if header_keywords and all(k in low for k in header_keywords):
                     started = True
+                    header_tokens = set(_WORDS.findall(low))
+                    pending_header = header_lines - 1
+                continue
+
+            # Absorb the header's continuation row(s) on first sight, then drop
+            # every later reprint of any header line (see _is_header_echo).
+            if pending_header:
+                pending_header -= 1
+                header_tokens |= set(_WORDS.findall(low))
+                continue
+            if header_tokens and _is_header_echo(low, header_tokens):
                 continue
 
             date_idx, iso = C.first_date(cells)
@@ -425,7 +502,7 @@ def _parse_around(tables_rows, profile):
         if it["text"]:
             parts.append((pos, it["text"]))
         parts.sort(key=lambda x: x[0])
-        desc = " ".join(t for _, t in parts).strip()
+        desc = _join_fragments(parts, glue_lines)
         ref = "" if no_ref else (it["Reference"] or C.guess_reference(desc))
         txns.append({
             "Date": it["Date"], "Description": desc, "Reference": ref,

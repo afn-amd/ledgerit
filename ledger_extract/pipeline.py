@@ -46,6 +46,84 @@ def _text_layer_txn_estimate(pdf_path, password):
         return 0
 
 
+# A line counts as "flush" with its column's edge when the space left over is
+# under this many average character widths -- i.e. not even one more character
+# would have fitted, so the break happened mid-token. It has to allow ~2 mean
+# widths because the character that did not fit may be a wide one ("...@axl/Pay"
+# stops 5pt short only because the 'm' of "...men" needs more than that), while
+# a break taken at a space leaves the whole next word behind -- a much bigger
+# gap (the narrowest seen on these statements is 15pt, over twice this slack).
+_WRAP_SLACK_CHARS = 2.0
+# A right edge only counts as a column's wrap edge if this many lines reach it.
+# One long line in an unwrapped column is just the longest line, not an edge.
+_WRAP_MIN_FLUSH = 3
+
+
+def _hard_wrapped_lines(pdf_path, password):
+    """Text of every line the PDF broke *inside a token*, read via PyMuPDF.
+
+    A narration too long for its column is split across physical lines, for one
+    of two reasons that the extracted text cannot distinguish but that need
+    opposite handling when the lines are rejoined:
+
+      * the break fell on a space, which the layout then swallowed
+        ("CHARGES FOR" / ":IMPS/P2A/...")            -> rejoin WITH a space;
+      * the break fell inside an unbroken token, chopped mid-character
+        ("...@ybl/P" / "aym")                        -> rejoin with NOTHING.
+
+    The geometry separates them cleanly: a mid-token chop runs the line right up
+    to the column edge (it happened precisely because one more character would
+    not fit), while a space break stops short of it -- by the width of the word
+    that was pushed to the next line. So group lines by their left edge (a
+    column), take that column's right-most extent as its wrap edge, and return
+    the lines sitting flush against it.
+
+    Returns a set of line texts; the caller glues the *next* fragment straight
+    onto any fragment in it. Keying by text is exact rather than approximate:
+    identical text in the same column renders to an identical width, so it is
+    always classified the same way. Returns an empty set on any error, which
+    just restores the previous space-joined behaviour.
+    """
+    from collections import defaultdict
+
+    try:
+        doc = fitz.open(pdf_path)
+        try:
+            if doc.needs_pass:
+                doc.authenticate(password or "")
+            cols = defaultdict(list)   # left edge -> [(right edge, width, text)]
+            for page in doc:
+                for block in page.get_text("dict").get("blocks", []):
+                    for line in block.get("lines", []):
+                        text = "".join(
+                            s["text"] for s in line.get("spans", [])
+                        ).strip()
+                        if not text:
+                            continue
+                        x0, _, x1, _ = line["bbox"]
+                        cols[round(x0)].append((x1, x1 - x0, text))
+
+            glued = set()
+            for lines in cols.values():
+                if len(lines) < _WRAP_MIN_FLUSH:
+                    continue
+                # Mean character width of this column, used to size the slack:
+                # it scales with the font instead of hard-coding a point value.
+                chars = sum(len(t) for _, _, t in lines)
+                if not chars:
+                    continue
+                slack = _WRAP_SLACK_CHARS * sum(w for _, w, _ in lines) / chars
+                edge = max(x1 for x1, _, _ in lines)
+                flush = {t for x1, _, t in lines if x1 >= edge - slack}
+                if len(flush) >= _WRAP_MIN_FLUSH:
+                    glued |= flush
+            return glued
+        finally:
+            doc.close()
+    except Exception:
+        return set()
+
+
 def _page1_text(pdf_path, password):
     """Page-1 text layer, read directly with PyMuPDF.
 
@@ -85,7 +163,15 @@ def extract_statement(pdf_path, password_map=None):
             pdf_path, password=password, edge_tol=edge_tol
         )
         bank = header_bank or detect_bank(full_text)
-        txns, opening = parse_rows(tables_rows, get_profile(bank))
+        profile = get_profile(bank)
+        # Only layouts that hard-wrap their narration mid-token pay for the
+        # extra PyMuPDF pass (and only they change behaviour because of it).
+        glue = (
+            _hard_wrapped_lines(pdf_path, password)
+            if profile.get("glue_hard_wraps")
+            else None
+        )
+        txns, opening = parse_rows(tables_rows, profile, glue)
         # Profile-mismatch guard: a bank profile is tuned to one layout, and
         # the same bank ships others (Kotak current-account says "Description"
         # where the profile's header keyword expects "Narration"), so a correct
