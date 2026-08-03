@@ -276,8 +276,18 @@
         var out = await res.json();
 
         if (res.ok) {
-          // Admins land on the admin console; everyone else on the uploader.
-          window.location.href = out.is_admin ? "/admin.html" : "/upload.html";
+          // Admins land on the admin console; everyone else on the uploader —
+          // unless they were sent here mid-flow (e.g. from the pricing page),
+          // in which case return them to where they left off. Only same-site
+          // relative paths are honoured, so `?next=` can't be used to bounce
+          // someone to another domain after they sign in.
+          var next = new URLSearchParams(location.search).get("next");
+          var safeNext = (next && /^\/[^/\\]/.test(next)) ? next : null;
+          if (safeNext) {
+            window.location.href = safeNext;
+          } else {
+            window.location.href = out.is_admin ? "/admin.html" : "/upload.html";
+          }
         } else {
           var el = document.getElementById("errPass");
           el.textContent = out.error || "Sign in failed. Please try again.";

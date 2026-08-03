@@ -10,3 +10,17 @@ env/
 .DS_Store
 *.log
 requirements.txt
+
+# Secrets must never be baked into the image. The build context is /opt/ledgerit
+# on the VPS, and the live secrets file (ledgerit.env, passed to the container
+# with --env-file) sits right inside it — so `COPY . .` would bake the Razorpay
+# key secret into an image layer, readable via `docker history` or `docker save`
+# by anyone with access to the daemon. The env file is read by Docker at *run*
+# time from the host; the image itself must never contain it.
+#
+# The glob deliberately covers any *.env name, not just `.env`, so a future
+# prod.env / staging.env can't reintroduce the same leak.
+*.env
+**/*.env
+.env.*
+.flask_secret

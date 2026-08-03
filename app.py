@@ -2,6 +2,8 @@ import os
 import re
 import io
 import base64
+import hashlib
+import hmac
 import json
 import gc
 import secrets
@@ -11,6 +13,13 @@ from functools import wraps
 from datetime import datetime, timedelta, timezone
 
 warnings.filterwarnings("ignore", category=DeprecationWarning)
+
+# Load .env before anything reads os.environ. In production the host supplies
+# real environment variables and there is no .env file to find — load_dotenv
+# is a no-op then, and never overrides a variable that is already set.
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from flask import (
     Flask, request, jsonify, send_from_directory, send_file, session
@@ -23,6 +32,7 @@ from bson import ObjectId
 from bson.errors import InvalidId
 import camelot
 import pandas as pd
+import razorpay
 import torch
 from PyPDF2 import PdfReader, PdfWriter
 from transformers import DistilBertTokenizerFast, DistilBertForSequenceClassification
@@ -35,7 +45,12 @@ from pdfType import classify_pdf_fast, is_scanned_pdf, has_undecodable_text
 from ledger_extract.pipeline import extract_statement
 from ledger_extract.common import parse_date_leading
 
-app = Flask(__name__, static_folder=".")
+# static_folder is deliberately disabled. Pointing it at "." (the project root)
+# made Flask derive a static_url_path of "/." and serve the entire source tree
+# from it — `GET /./.env` returned the file, exposing the Razorpay key secret,
+# the Flask session key and the Mongo URI to anyone who asked. Nothing needs it:
+# every page has its own route below and static files go through /assets/<path>.
+app = Flask(__name__, static_folder=None)
 
 # Secret key signs the session cookie that keeps a user logged in. In
 # production set the SECRET_KEY env var. With no env var (local dev) we
@@ -66,6 +81,22 @@ def _load_secret_key():
 
 app.secret_key = _load_secret_key()
 
+# Session cookie hardening. SESSION_COOKIE_SECURE was already being set in .env
+# but nothing ever read it, so the cookie shipped with no Secure, HttpOnly or
+# SameSite flags. That matters more now that payments exist: an order is bound
+# to the session, so whoever holds the cookie can spend the account's credit.
+#   HttpOnly  - script on the page can't read the cookie
+#   SameSite  - it isn't attached to cross-site requests (Razorpay Checkout is
+#               a same-tab modal, so "Lax" doesn't interfere with the flow)
+#   Secure    - HTTPS only. Defaults off so local http:// development still
+#               works; set SESSION_COOKIE_SECURE=1 in production.
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_SECURE=os.environ.get("SESSION_COOKIE_SECURE", "0").strip().lower()
+                          in ("1", "true", "yes", "on"),
+)
+
 # ---------------------------------------------------------------------------
 # MongoDB connection
 # ---------------------------------------------------------------------------
@@ -78,6 +109,7 @@ db = mongo_client[os.environ.get("MONGO_DB", "ledgerit")]
 users = db["users"]              # registered accounts
 statements = db["statements"]    # saved extraction results, per user
 messages = db["messages"]        # contact-form submissions
+payments = db["payments"]        # one document per Razorpay order
 
 # Source PDFs that are too big to sit inline in their statement document (Mongo
 # caps a single document at 16 MB) are chunked into GridFS instead. Small files
@@ -96,6 +128,11 @@ shot_bucket = gridfs.GridFSBucket(db, bucket_name="issue_screenshots")
 # the index gets created on the first successful DB operation either way.
 try:
     users.create_index("mobile", unique=True)
+    # One payment document per Razorpay order. The unique index is what makes
+    # fulfilment safe to retry: a duplicate order id can never create a second
+    # record that could be credited twice.
+    payments.create_index("order_id", unique=True)
+    payments.create_index([("created_at", -1)])
 except Exception as exc:  # pragma: no cover - depends on local mongod
     print(f"[ledgerit] WARNING: could not reach MongoDB at {MONGO_URI}: {exc}")
 
@@ -124,7 +161,11 @@ def current_user_doc():
     oid = _to_oid(uid)
     if not oid:
         return None
-    return users.find_one({"_id": oid})
+    # A lapsed plan is retired here rather than by a scheduled job, so expiry
+    # takes effect on the user's next request with no cron to keep alive. Every
+    # authenticated path (the upload gate, /api/me, the role guards) goes
+    # through this function, so none of them can see a stale paid limit.
+    return _expire_plan_if_due(users.find_one({"_id": oid}))
 
 
 def login_required(view):
@@ -1208,6 +1249,154 @@ FREE_PAGE_LIMIT = 100
 
 
 # ---------------------------------------------------------------------------
+# Razorpay billing
+# ---------------------------------------------------------------------------
+# Paid plans are one-time purchases, not auto-renewing subscriptions: the user
+# pays once and the pages land in their `page_limit`. The purchase carries a
+# one-year term (PLAN_VALIDITY) after which the account drops back to the free
+# cap — see _expire_plan_if_due.
+#
+# Prices here are the ex-GST amounts quoted on plans.html, in paise (Razorpay
+# never deals in rupees). GST is added on top at order time; nothing derives a
+# price from anything the browser sends.
+RAZORPAY_KEY_ID = os.environ.get("RAZORPAY_KEY_ID", "").strip()
+RAZORPAY_KEY_SECRET = os.environ.get("RAZORPAY_KEY_SECRET", "").strip()
+RAZORPAY_WEBHOOK_SECRET = os.environ.get("RAZORPAY_WEBHOOK_SECRET", "").strip()
+
+try:
+    GST_PERCENT = float(os.environ.get("GST_PERCENT", "18"))
+except ValueError:
+    GST_PERCENT = 18.0
+
+PLAN_VALIDITY = timedelta(days=365)
+
+# ###########################################################################
+# TEMPORARY LIVE-TEST PRICING — REVERT BEFORE REAL SELLING
+#
+# Dropped to ₹1 / ₹2 so a real transaction can be put through the live gateway
+# cheaply. While this is deployed, ANY visitor can buy 2500 pages for ₹1.18 or
+# 10000 pages for ₹2.36.
+#
+# To restore, put these two values back and redeploy:
+#     starter       base_paise = 99900     (₹999)
+#     professional  base_paise = 249900    (₹2499)
+# The headline prices in plans.html were dropped to match and must go back too.
+# ###########################################################################
+PLANS = {
+    "starter": {
+        "name": "Starter",
+        "base_paise": 100,      # TEST: ₹1 ex-GST -> ₹1.18 charged. Real: 99900
+        "pages": 2500,
+    },
+    "professional": {
+        "name": "Professional",
+        "base_paise": 200,      # TEST: ₹2 ex-GST -> ₹2.36 charged. Real: 249900
+        "pages": 10000,
+    },
+}
+
+# One client for the process. Razorpay's SDK is a thin requests wrapper and is
+# safe to share across gunicorn's threads. Built only when both keys are
+# present so the app still boots (with payments disabled) on a dev machine that
+# has no credentials — the routes answer 503 rather than crashing at import.
+razorpay_client = None
+if RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET:
+    razorpay_client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
+else:
+    print("[ledgerit] WARNING: RAZORPAY_KEY_ID/SECRET not set — payments disabled.")
+
+
+def _gst_breakup(base_paise):
+    # Split a listed (ex-GST) price into base, tax and total, all in integer
+    # paise. Rounding the tax once and deriving the total by addition means the
+    # three numbers we show the user always add up — which is not true if you
+    # round the total independently.
+    gst_paise = int(round(base_paise * GST_PERCENT / 100.0))
+    return base_paise, gst_paise, base_paise + gst_paise
+
+
+def _plan_payload(key, plan):
+    # The catalogue entry handed to the browser: enough to render the price
+    # breakup, never enough to influence what gets charged.
+    base, gst, total = _gst_breakup(plan["base_paise"])
+    return {
+        "key": key,
+        "name": plan["name"],
+        "pages": plan["pages"],
+        "base_paise": base,
+        "gst_paise": gst,
+        "total_paise": total,
+        "base_rupees": round(base / 100.0, 2),
+        "gst_rupees": round(gst / 100.0, 2),
+        "total_rupees": round(total / 100.0, 2),
+        "gst_percent": GST_PERCENT,
+        "validity_days": PLAN_VALIDITY.days,
+    }
+
+
+def _as_utc(value):
+    # Mongo hands back naive datetimes; pin them to UTC before any comparison.
+    if not isinstance(value, datetime):
+        return None
+    return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+
+
+def _expire_plan_if_due(user):
+    # Retire a paid plan whose one-year term has run out, returning the user
+    # document as it now stands. Called on every authenticated request via
+    # current_user_doc, so it must be cheap: for the overwhelming majority
+    # (free users, and paid users mid-term) it is a dict lookup and a date
+    # compare with no database write at all.
+    #
+    # On expiry the cap returns to FREE_PAGE_LIMIT while `pages_used` is left
+    # untouched. That is deliberate — resetting usage would hand a fresh 100
+    # free pages to anyone whose plan lapsed, every year, forever.
+    if not user:
+        return user
+
+    expires_at = _as_utc(user.get("plan_expires_at"))
+    if not expires_at or expires_at > datetime.now(timezone.utc):
+        return user
+
+    # Conditioned on plan_expires_at still being the value we read, so two
+    # concurrent requests can't both apply the downgrade (and a purchase
+    # landing in between is not clobbered — it moves the date forward, so this
+    # update simply matches nothing).
+    updated = users.find_one_and_update(
+        {"_id": user["_id"], "plan_expires_at": user.get("plan_expires_at")},
+        {
+            "$set": {
+                "page_limit": FREE_PAGE_LIMIT,
+                "plan_lapsed_at": datetime.now(timezone.utc),
+                "previous_plan": user.get("plan_name"),
+            },
+            "$unset": {
+                "plan_name": "", "plan_pages": "",
+                "plan_started_at": "", "plan_expires_at": "",
+            },
+        },
+        return_document=ReturnDocument.AFTER,
+    )
+    return updated or user
+
+
+def _plan_status(user):
+    # Plan fields for /api/me and the admin console. Assumes the caller already
+    # passed the document through _expire_plan_if_due, so a plan_name present
+    # here is by definition still within its term.
+    expires_at = _as_utc(user.get("plan_expires_at"))
+    days_left = None
+    if expires_at:
+        days_left = max(0, (expires_at - datetime.now(timezone.utc)).days)
+    return {
+        "plan_name": user.get("plan_name"),
+        "plan_pages": user.get("plan_pages"),
+        "plan_expires_at": _iso(user.get("plan_expires_at")),
+        "plan_days_left": days_left,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Brute-force lockout
 # ---------------------------------------------------------------------------
 # After MAX_FAILED_LOGINS wrong passwords in a row, the account is locked for
@@ -1384,7 +1573,7 @@ def me():
     limit = int(user.get("page_limit", FREE_PAGE_LIMIT))
     used = int(user.get("pages_used", 0))
 
-    return jsonify({
+    payload = {
         "authenticated": True,
         "name": user.get("name", "") or session.get("name", ""),
         "role": role,
@@ -1397,7 +1586,358 @@ def me():
         "pages_used": used,
         "page_limit": limit,
         "pages_remaining": None if is_staff else max(0, limit - used),
+    }
+    # current_user_doc has already retired a lapsed plan, so these fields
+    # describe a plan that is genuinely still active.
+    payload.update(_plan_status(user))
+    return jsonify(payload)
+
+
+# ---------------------------------------------------------------------------
+# Payments API (Razorpay)
+# ---------------------------------------------------------------------------
+# The flow, and why it is shaped this way:
+#
+#   1. Browser asks for an order. The server picks the price from PLANS — the
+#      request carries only a plan key, never an amount.
+#   2. Razorpay Checkout collects the money and calls back into the page with
+#      an HMAC signature over "order_id|payment_id".
+#   3. The page posts that signature to /verify, which credits the account —
+#      this is the fast path that lets the UI update immediately.
+#   4. Razorpay independently POSTs the same event to /webhook. This is the
+#      path that actually guarantees delivery: a user who closes the tab the
+#      instant after paying still gets their pages.
+#
+# Both paths converge on _fulfil_payment, which is idempotent, so it does not
+# matter which arrives first or whether one arrives twice.
+def _payments_ready():
+    return razorpay_client is not None
+
+
+def _grant_plan(user_oid, plan_key, plan, order_id):
+    # Apply a paid plan to an account: add the pages to the cap and start a
+    # fresh one-year term. Buying again before the term ends stacks the pages
+    # and moves the single expiry date to one year from this purchase.
+    now = datetime.now(timezone.utc)
+
+    # Accounts created before `page_limit` existed have no such field, and a
+    # bare $inc would create it at exactly the granted pages — silently eating
+    # the free allowance they were still entitled to. Seed it first.
+    users.update_one(
+        {"_id": user_oid, "page_limit": {"$exists": False}},
+        {"$set": {"page_limit": FREE_PAGE_LIMIT}},
+    )
+    users.update_one(
+        {"_id": user_oid},
+        {
+            "$inc": {"page_limit": int(plan["pages"])},
+            "$set": {
+                "plan_name": plan_key,
+                "plan_pages": int(plan["pages"]),
+                "plan_started_at": now,
+                "plan_expires_at": now + PLAN_VALIDITY,
+                "plan_order_id": order_id,
+            },
+            # Clear the tombstone left by a previous lapse so the account does
+            # not look simultaneously subscribed and lapsed.
+            "$unset": {"plan_lapsed_at": "", "previous_plan": ""},
+        },
+    )
+
+
+def _fulfil_payment(order_id, payment_id, amount_paid=None, source="checkout"):
+    # Credit an account for a paid order, exactly once. Returns a short status
+    # string for the caller to log or hand back.
+    #
+    # The claim is the find_one_and_update below: it matches only a payment
+    # still sitting in "created" and flips it to "fulfilled" in one atomic
+    # step, so of two racing callers (the browser and the webhook, or a webhook
+    # retry) exactly one gets a document back and the other gets None.
+    claimed = payments.find_one_and_update(
+        {"order_id": order_id, "status": "created"},
+        {"$set": {
+            "status": "fulfilled",
+            "payment_id": payment_id,
+            "paid_at": datetime.now(timezone.utc),
+            "fulfilled_via": source,
+        }},
+        return_document=ReturnDocument.BEFORE,
+    )
+
+    if claimed is None:
+        # Either we have never heard of this order, or someone already credited
+        # it. Distinguish the two so a genuinely unknown order is visible.
+        if payments.find_one({"order_id": order_id}):
+            return "already_fulfilled"
+        print(f"[ledgerit] WARNING: payment for unknown order {order_id}")
+        return "unknown_order"
+
+    # Defence in depth. Razorpay fixes the amount when the order is created, so
+    # this should never fire — but if the charged amount ever disagrees with
+    # what we recorded, park the payment for a human instead of granting pages
+    # off an amount we did not expect.
+    expected = int(claimed.get("amount", 0))
+    if amount_paid is not None and int(amount_paid) != expected:
+        payments.update_one(
+            {"order_id": order_id},
+            {"$set": {
+                "status": "amount_mismatch",
+                "amount_paid": int(amount_paid),
+            }},
+        )
+        print(f"[ledgerit] ALERT: order {order_id} paid {amount_paid} "
+              f"but expected {expected} — not credited.")
+        return "amount_mismatch"
+
+    plan_key = claimed.get("plan")
+    plan = PLANS.get(plan_key)
+    user_oid = _to_oid(claimed.get("user_id"))
+
+    if not plan or not user_oid:
+        payments.update_one(
+            {"order_id": order_id},
+            {"$set": {"status": "needs_review",
+                      "fulfilment_error": "unknown plan or user"}},
+        )
+        print(f"[ledgerit] ALERT: order {order_id} references plan={plan_key!r} "
+              f"user={claimed.get('user_id')!r} — not credited.")
+        return "needs_review"
+
+    try:
+        _grant_plan(user_oid, plan_key, plan, order_id)
+    except Exception as exc:  # pragma: no cover - depends on live mongod
+        # The payment is already marked fulfilled, so a retry will not re-credit
+        # it. Record the failure loudly: the money is taken and the pages are
+        # not granted, which is the one state that needs a human. Recover with
+        # the admin console's existing per-user credit adjustment.
+        payments.update_one(
+            {"order_id": order_id},
+            {"$set": {"status": "needs_review", "fulfilment_error": str(exc)}},
+        )
+        print(f"[ledgerit] ALERT: paid order {order_id} could not be credited "
+              f"to user {claimed.get('user_id')}: {exc}")
+        return "needs_review"
+
+    return "fulfilled"
+
+
+@app.route("/api/payments/plans")
+def payment_plans():
+    # Catalogue for the pricing page: prices with their GST breakup, plus the
+    # publishable key id. The key id is designed to be public — it identifies
+    # the merchant to Checkout. The secret never appears in any response.
+    return jsonify({
+        "enabled": _payments_ready(),
+        "key_id": RAZORPAY_KEY_ID,
+        "currency": "INR",
+        "gst_percent": GST_PERCENT,
+        "plans": [_plan_payload(k, p) for k, p in PLANS.items()],
     })
+
+
+@app.route("/api/payments/order", methods=["POST"])
+@login_required
+def create_payment_order():
+    if not _payments_ready():
+        return jsonify({"error": "PAYMENTS_DISABLED",
+                        "message": "Online payment isn't configured yet. "
+                                   "Please contact support."}), 503
+
+    data = request.get_json(silent=True) or {}
+    plan_key = (data.get("plan") or "").strip().lower()
+    plan = PLANS.get(plan_key)
+    if not plan:
+        return jsonify({"error": "Unknown plan"}), 400
+
+    user = current_user_doc()
+    if not user:
+        return jsonify({"error": "AUTH_REQUIRED"}), 401
+
+    # Price comes from PLANS, never from the request body.
+    base, gst, total = _gst_breakup(plan["base_paise"])
+    # Razorpay caps the receipt at 40 characters.
+    receipt = f"rcpt_{secrets.token_hex(8)}"
+
+    try:
+        order = razorpay_client.order.create({
+            "amount": total,
+            "currency": "INR",
+            "receipt": receipt,
+            "notes": {
+                "user_id": str(user["_id"]),
+                "mobile": user.get("mobile", ""),
+                "plan": plan_key,
+                "pages": str(plan["pages"]),
+            },
+        })
+    except Exception as exc:
+        print(f"[ledgerit] Razorpay order.create failed: {exc}")
+        return jsonify({"error": "GATEWAY_ERROR",
+                        "message": "Couldn't reach the payment gateway. "
+                                   "Please try again."}), 502
+
+    payments.insert_one({
+        "order_id": order["id"],
+        "receipt": receipt,
+        "user_id": str(user["_id"]),
+        "user_name": user.get("name", ""),
+        "user_mobile": user.get("mobile", ""),
+        "plan": plan_key,
+        "plan_name": plan["name"],
+        "pages": int(plan["pages"]),
+        "base_paise": base,
+        "gst_paise": gst,
+        "gst_percent": GST_PERCENT,
+        "amount": total,          # what Razorpay is told to charge, in paise
+        "currency": "INR",
+        "status": "created",
+        "created_at": datetime.now(timezone.utc),
+    })
+
+    return jsonify({
+        "order_id": order["id"],
+        "amount": total,
+        "currency": "INR",
+        "key_id": RAZORPAY_KEY_ID,
+        "plan": _plan_payload(plan_key, plan),
+        "prefill": {
+            "name": user.get("name", ""),
+            "contact": user.get("mobile", ""),
+        },
+    })
+
+
+@app.route("/api/payments/verify", methods=["POST"])
+@login_required
+def verify_payment():
+    # Fast path: Checkout handed the browser a signature, the browser posts it
+    # here. A valid signature proves Razorpay (who alone holds the key secret)
+    # authorised this payment for this order.
+    if not _payments_ready():
+        return jsonify({"error": "PAYMENTS_DISABLED"}), 503
+
+    data = request.get_json(silent=True) or {}
+    order_id = (data.get("razorpay_order_id") or "").strip()
+    payment_id = (data.get("razorpay_payment_id") or "").strip()
+    signature = (data.get("razorpay_signature") or "").strip()
+
+    if not (order_id and payment_id and signature):
+        return jsonify({"error": "Missing payment details"}), 400
+
+    expected = hmac.new(
+        RAZORPAY_KEY_SECRET.encode(),
+        f"{order_id}|{payment_id}".encode(),
+        hashlib.sha256,
+    ).hexdigest()
+
+    # compare_digest, not ==, so a wrong signature can't be recovered byte by
+    # byte from how long the comparison took.
+    if not hmac.compare_digest(expected, signature):
+        payments.update_one(
+            {"order_id": order_id, "status": "created"},
+            {"$set": {"status": "signature_failed",
+                      "payment_id": payment_id,
+                      "failed_at": datetime.now(timezone.utc)}},
+        )
+        print(f"[ledgerit] ALERT: bad payment signature for order {order_id}")
+        return jsonify({"error": "SIGNATURE_MISMATCH",
+                        "message": "We couldn't verify this payment. If money "
+                                   "was deducted it will be refunded "
+                                   "automatically."}), 400
+
+    # The signature proves the payment is genuine; this proves the order
+    # belongs to the person asking. Without it, one user could present another
+    # user's (valid) order and signature to credit their own account.
+    record = payments.find_one({"order_id": order_id})
+    if not record or record.get("user_id") != current_user():
+        return jsonify({"error": "Order not found"}), 404
+
+    status = _fulfil_payment(order_id, payment_id, source="checkout")
+
+    if status in ("fulfilled", "already_fulfilled"):
+        user = current_user_doc() or {}
+        limit = int(user.get("page_limit", FREE_PAGE_LIMIT))
+        used = int(user.get("pages_used", 0))
+        payload = {
+            "ok": True,
+            "pages_added": record.get("pages"),
+            "page_limit": limit,
+            "pages_used": used,
+            "pages_remaining": max(0, limit - used),
+        }
+        payload.update(_plan_status(user))
+        return jsonify(payload)
+
+    # Payment is real but something downstream needs a human. Do not tell the
+    # user it failed — their money did go through.
+    return jsonify({
+        "ok": False,
+        "error": status,
+        "message": "Your payment went through, but we couldn't activate the "
+                   "plan automatically. Our team has been notified and will "
+                   "sort it out shortly.",
+    }), 202
+
+
+@app.route("/api/payments/webhook", methods=["POST"])
+def payment_webhook():
+    # Authoritative fulfilment path. No login decorator — the caller is
+    # Razorpay's server, not a browser session; the shared webhook secret is
+    # what authenticates it.
+    if not RAZORPAY_WEBHOOK_SECRET:
+        # Refuse rather than process unsigned payloads: without a secret this
+        # endpoint would grant pages to anyone who can POST to it.
+        print("[ledgerit] WARNING: webhook called but RAZORPAY_WEBHOOK_SECRET is unset")
+        return jsonify({"error": "WEBHOOK_NOT_CONFIGURED"}), 503
+
+    # The signature covers the exact bytes Razorpay sent. Re-serialising the
+    # parsed JSON would change key order and whitespace and never match.
+    raw = request.get_data()
+    signature = request.headers.get("X-Razorpay-Signature", "")
+
+    expected = hmac.new(
+        RAZORPAY_WEBHOOK_SECRET.encode(), raw, hashlib.sha256
+    ).hexdigest()
+
+    if not hmac.compare_digest(expected, signature):
+        print("[ledgerit] ALERT: webhook with bad signature rejected")
+        return jsonify({"error": "SIGNATURE_MISMATCH"}), 400
+
+    try:
+        event = json.loads(raw.decode("utf-8"))
+    except (ValueError, UnicodeDecodeError):
+        return jsonify({"error": "BAD_PAYLOAD"}), 400
+
+    kind = event.get("event", "")
+    entities = (event.get("payload") or {})
+    payment = ((entities.get("payment") or {}).get("entity") or {})
+    order = ((entities.get("order") or {}).get("entity") or {})
+
+    order_id = payment.get("order_id") or order.get("id")
+    payment_id = payment.get("id")
+    amount = payment.get("amount", order.get("amount_paid"))
+
+    if kind in ("payment.captured", "order.paid") and order_id:
+        status = _fulfil_payment(order_id, payment_id, amount, source="webhook")
+        print(f"[ledgerit] webhook {kind} order={order_id} -> {status}")
+
+    elif kind == "payment.failed" and order_id:
+        # Leave the record in place so an abandoned or declined attempt is
+        # visible in the console, but never move it out of "created" — the same
+        # order can be retried and succeed later.
+        payments.update_one(
+            {"order_id": order_id, "status": "created"},
+            {"$set": {
+                "last_failure": (payment.get("error_description")
+                                 or "Payment failed"),
+                "last_failed_at": datetime.now(timezone.utc),
+            }},
+        )
+
+    # Always 200 on a well-formed, correctly signed event. A non-2xx makes
+    # Razorpay retry, and there is nothing to retry for an event we simply
+    # don't act on.
+    return jsonify({"ok": True})
 
 
 # ---------------------------------------------------------------------------
@@ -2010,6 +2550,10 @@ def admin_users():
     for d in docs:
         uid = str(d["_id"])
         role = user_role(d)
+        # Retire a lapsed plan here too. This listing reads the collection
+        # directly rather than going through current_user_doc, so without this
+        # the console would keep showing an expired plan as active.
+        d = _expire_plan_if_due(d)
         limit = int(d.get("page_limit", FREE_PAGE_LIMIT))
         # User type: a staff role (admin/salesperson), a user who bought a plan
         # (page_limit bumped above the free cap), or a default free user.
@@ -2034,6 +2578,7 @@ def admin_users():
             "pages_used": int(d.get("pages_used", 0)),
             "page_limit": limit,
             "created_at": _iso(d.get("created_at")),
+            **_plan_status(d),
         })
 
     return jsonify({"users": out})
@@ -2411,6 +2956,61 @@ def admin_resolve_message(mid):
     if result.matched_count == 0:
         return jsonify({"error": "Not found"}), 404
     return jsonify({"ok": True, "status": new_status})
+
+
+@app.route("/api/admin/payments")
+@admin_required
+def admin_payments():
+    # Payment ledger for the console. `needs_review` and `amount_mismatch` are
+    # the rows that matter: money taken with pages not granted. They sort to the
+    # top so they can't be missed in a long list of successful payments.
+    status_filter = (request.args.get("status") or "").strip()
+    query = {"status": status_filter} if status_filter else {}
+
+    docs = payments.find(query).sort("created_at", -1).limit(500)
+
+    ATTENTION = ("needs_review", "amount_mismatch", "signature_failed")
+    out = []
+    for d in docs:
+        out.append({
+            "order_id": d.get("order_id"),
+            "payment_id": d.get("payment_id"),
+            "user_id": d.get("user_id"),
+            "user_name": d.get("user_name", ""),
+            "user_mobile": d.get("user_mobile", ""),
+            "plan": d.get("plan"),
+            "plan_name": d.get("plan_name", ""),
+            "pages": d.get("pages"),
+            # Rupees for display; paise stays the source of truth in the DB.
+            "base_rupees": round(int(d.get("base_paise", 0)) / 100.0, 2),
+            "gst_rupees": round(int(d.get("gst_paise", 0)) / 100.0, 2),
+            "amount_rupees": round(int(d.get("amount", 0)) / 100.0, 2),
+            "status": d.get("status"),
+            "needs_attention": d.get("status") in ATTENTION,
+            "fulfilment_error": d.get("fulfilment_error"),
+            "last_failure": d.get("last_failure"),
+            "fulfilled_via": d.get("fulfilled_via"),
+            "created_at": _iso(d.get("created_at")),
+            "paid_at": _iso(d.get("paid_at")),
+        })
+
+    # Mongo already returned these newest-first, and Python's sort is stable, so
+    # keying on the flag alone floats the rows needing attention to the top
+    # without disturbing the date order within either group.
+    out.sort(key=lambda r: not r["needs_attention"])
+
+    revenue = 0
+    for row in payments.aggregate([
+        {"$match": {"status": "fulfilled"}},
+        {"$group": {"_id": None, "total": {"$sum": "$amount"}}},
+    ]):
+        revenue = int(row.get("total", 0))
+
+    return jsonify({
+        "payments": out,
+        "total_revenue_rupees": round(revenue / 100.0, 2),
+        "attention_count": sum(1 for r in out if r["needs_attention"]),
+    })
 
 
 @app.route("/api/admin/issues")

@@ -124,11 +124,28 @@
     .price-for { color: var(--muted); font-size: 0.95rem; margin-top: 4px; }
     .price-amt { font-size: 2.5rem; font-weight: 800; margin-top: 22px; color: var(--ink); }
     .price-amt small { font-size: 1rem; font-weight: 500; color: var(--muted); }
-    .price-note { color: var(--muted); font-size: 0.82rem; margin-top: 6px; }
+    /* line-height + matching min-height keep an EMPTY note occupying exactly one
+       line, so the Enterprise card (which shows no GST line) still lines its
+       Contact sales button up with the Subscribe buttons beside it. */
+    .price-note { color: var(--muted); font-size: 0.82rem; margin-top: 6px;
+                  line-height: 1.25; min-height: 1.25em; }
     .price-feats { list-style: none; margin: 24px 0 28px; display: grid; gap: 13px; }
     .price-feats li { display: flex; align-items: center; gap: 11px; color: var(--ink-soft); font-size: 0.97rem; }
     .price-feats svg { color: var(--green); flex-shrink: 0; }
     .price-btn { margin: 18px 0 6px; width: 100%; justify-content: center; }
+    .price-btn[disabled] { opacity: 0.55; cursor: not-allowed; }
+    .plan-banner { max-width: 1040px; margin: 0 auto 26px; padding: 14px 18px; border-radius: 14px;
+                   border: 1px solid var(--border); background: var(--surface); color: var(--ink-soft);
+                   font-size: 0.95rem; display: none; }
+    .plan-banner.show { display: block; }
+    .plan-banner.good { border-color: var(--green); }
+    .pay-toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%);
+                 max-width: min(520px, calc(100vw - 32px)); padding: 14px 20px; border-radius: 14px;
+                 background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow-lg);
+                 color: var(--ink); font-size: 0.95rem; z-index: 60; display: none; }
+    .pay-toast.show { display: block; }
+    .pay-toast.err { border-color: #e5484d; }
+    .pay-toast.ok { border-color: var(--green); }
 
     footer { background: var(--primary); color: #fff; padding: 22px 0; }
     .foot-row { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px; font-size: 0.9rem; }
@@ -172,14 +189,17 @@
         <h2>Simple, transparent pricing</h2>
         <p>Start free, scale as your practice grows. No hidden fees.</p>
       </div>
+      <div class="plan-banner" id="planBanner"></div>
       <div class="price-grid">
         <!-- Starter -->
         <div class="price-card">
           <div class="price-name">Starter</div>
           <div class="price-for">Perfect for individuals</div>
-          <div class="price-amt">₹999 <small>/year</small></div>
+          <!-- TEMPORARY LIVE-TEST PRICE. Restore to ₹999 (and app.py PLANS
+               starter base_paise = 99900) before real selling. -->
+          <div class="price-amt">₹1 <small>/year</small></div>
           <div class="price-note">Excl. GST</div>
-          <button class="btn btn-outline price-btn" onclick="alert('Subscription coming soon.')">Subscribe</button>
+          <button class="btn btn-outline price-btn" data-plan="starter">Subscribe</button>
           <ul class="price-feats">
             <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg> 2500 Pages</li>
             <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg> No user restriction</li>
@@ -193,9 +213,11 @@
           <span class="badge">Most Popular</span>
           <div class="price-name">Professional</div>
           <div class="price-for">Perfect for CAs and accounting firms</div>
-          <div class="price-amt">₹2499 <small>/year</small></div>
+          <!-- TEMPORARY LIVE-TEST PRICE. Restore to ₹2499 (and app.py PLANS
+               professional base_paise = 249900) before real selling. -->
+          <div class="price-amt">₹2 <small>/year</small></div>
           <div class="price-note">Excl. GST</div>
-          <button class="btn btn-primary price-btn" onclick="alert('Subscription coming soon.')">Subscribe</button>
+          <button class="btn btn-primary price-btn" data-plan="professional">Subscribe</button>
           <ul class="price-feats">
             <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg> 10000 Pages</li>
             <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg> All Starter features</li>
@@ -209,7 +231,10 @@
           <div class="price-name">Enterprise</div>
           <div class="price-for">Custom plans for large teams</div>
           <div class="price-amt">Custom</div>
-          <div class="price-note">Excl. GST</div>
+          <!-- Intentionally empty: Enterprise is quoted individually, so there
+               is no ex-GST figure to caveat. The element stays so its reserved
+               line keeps this card's button level with the other two. -->
+          <div class="price-note"></div>
           <button class="btn btn-dark price-btn" onclick="window.location.href='/contact.html'">Contact sales</button>
           <ul class="price-feats">
             <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg> Pay as you need</li>
@@ -242,6 +267,216 @@
       var cur = document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
       applyTheme(cur === "dark" ? "light" : "dark");
     }
+  </script>
+
+  <!-- ============ RAZORPAY CHECKOUT ============ -->
+  <script>
+  (function () {
+    var toastEl = document.createElement("div");
+    toastEl.className = "pay-toast";
+    document.body.appendChild(toastEl);
+    var toastTimer = null;
+
+    function toast(msg, kind, sticky) {
+      toastEl.textContent = msg;
+      toastEl.className = "pay-toast show " + (kind || "");
+      clearTimeout(toastTimer);
+      if (!sticky) toastTimer = setTimeout(function () { toastEl.className = "pay-toast"; }, 6000);
+    }
+
+    var config = null;   // /api/payments/plans
+    var me = null;       // /api/me
+    var buttons = Array.prototype.slice.call(document.querySelectorAll("[data-plan]"));
+
+    // Checkout.js is only fetched when it's actually needed, so the pricing
+    // page costs nothing extra for the visitors who never buy.
+    var sdkPromise = null;
+    function loadCheckout() {
+      if (window.Razorpay) return Promise.resolve();
+      if (sdkPromise) return sdkPromise;
+      sdkPromise = new Promise(function (resolve, reject) {
+        var s = document.createElement("script");
+        s.src = "https://checkout.razorpay.com/v1/checkout.js";
+        s.onload = resolve;
+        s.onerror = function () { sdkPromise = null; reject(new Error("sdk")); };
+        document.head.appendChild(s);
+      });
+      return sdkPromise;
+    }
+
+    function renderBanner() {
+      var el = document.getElementById("planBanner");
+      if (!me || !me.authenticated) return;
+
+      if (me.plan_name) {
+        var planLabel = me.plan_name.charAt(0).toUpperCase() + me.plan_name.slice(1);
+        el.textContent = "You're on the " + planLabel + " plan — " +
+          Number(me.pages_remaining).toLocaleString("en-IN") + " of " +
+          Number(me.page_limit).toLocaleString("en-IN") + " pages left, " +
+          me.plan_days_left + " days remaining. Buying again adds pages and " +
+          "restarts the year.";
+        el.className = "plan-banner show good";
+      } else if (!me.unlimited) {
+        el.textContent = "You're on the free plan — " +
+          Number(me.pages_remaining).toLocaleString("en-IN") + " of " +
+          Number(me.page_limit).toLocaleString("en-IN") + " pages left.";
+        el.className = "plan-banner show";
+      }
+    }
+
+    function setBusy(btn, busy, label) {
+      btn.disabled = busy;
+      if (busy) {
+        btn.dataset.label = btn.dataset.label || btn.textContent;
+        btn.textContent = label || "Please wait…";
+      } else if (btn.dataset.label) {
+        btn.textContent = btn.dataset.label;
+      }
+    }
+
+    async function startPurchase(btn) {
+      var planKey = btn.dataset.plan;
+
+      // Orders are created against the signed-in account, so send them to log
+      // in first and bring them straight back here afterwards.
+      if (!me || !me.authenticated) {
+        window.location.href = "/login.html?next=" + encodeURIComponent("/plans.html");
+        return;
+      }
+      if (me.unlimited) {
+        toast("Staff accounts already have unlimited pages.", "");
+        return;
+      }
+
+      setBusy(btn, true, "Opening checkout…");
+      try {
+        await loadCheckout();
+
+        var res = await fetch("/api/payments/order", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ plan: planKey })
+        });
+        var order = await res.json();
+
+        if (!res.ok) {
+          if (res.status === 401) {
+            window.location.href = "/login.html?next=" + encodeURIComponent("/plans.html");
+            return;
+          }
+          toast(order.message || order.error || "Couldn't start the payment.", "err");
+          setBusy(btn, false);
+          return;
+        }
+
+        var rzp = new window.Razorpay({
+          key: order.key_id,
+          order_id: order.order_id,
+          amount: order.amount,
+          currency: order.currency,
+          name: "Ledgerit",
+          description: order.plan.name + " plan · " +
+                       order.plan.pages.toLocaleString("en-IN") + " pages",
+          // Checkout renders this from Razorpay's own servers, so it has to be
+          // an absolute URL — a site-relative path resolves against their
+          // domain and silently shows no logo.
+          image: window.location.origin + "/assets/logo.png",
+          prefill: order.prefill,
+          theme: { color: "#2563eb" },
+          handler: function (response) { confirmPayment(response, btn); },
+          modal: {
+            // Fires when the user closes the sheet without paying. The order
+            // stays open server-side, so they can simply try again.
+            ondismiss: function () {
+              setBusy(btn, false);
+              toast("Payment cancelled. You haven't been charged.", "");
+            }
+          }
+        });
+
+        rzp.on("payment.failed", function (resp) {
+          setBusy(btn, false);
+          var d = (resp && resp.error) || {};
+          toast(d.description || "The payment failed. Please try again.", "err");
+        });
+
+        rzp.open();
+      } catch (err) {
+        setBusy(btn, false);
+        toast("Couldn't reach the payment gateway. Check your connection and try again.", "err");
+      }
+    }
+
+    async function confirmPayment(response, btn) {
+      setBusy(btn, true, "Confirming…");
+      try {
+        var res = await fetch("/api/payments/verify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(response)
+        });
+        var out = await res.json();
+
+        if (res.ok && out.ok) {
+          toast("Payment successful — " + Number(out.pages_added).toLocaleString("en-IN") +
+                " pages added. You now have " +
+                Number(out.pages_remaining).toLocaleString("en-IN") + " pages.", "ok", true);
+          me = null;
+          await refreshMe();
+          renderBanner();
+          setBusy(btn, false);
+          setTimeout(function () { window.location.href = "/upload.html"; }, 2600);
+          return;
+        }
+
+        // 202 means the money went through but activation needs a human. Never
+        // word this as a failure — they have been charged.
+        toast(out.message || "We couldn't confirm the payment. If money was " +
+              "deducted, contact support with your payment id.", "err", true);
+        setBusy(btn, false);
+      } catch (err) {
+        toast("Payment received, but confirming it failed. Please refresh — " +
+              "if the pages aren't there, contact support.", "err", true);
+        setBusy(btn, false);
+      }
+    }
+
+    async function refreshMe() {
+      try {
+        var r = await fetch("/api/me");
+        me = await r.json();
+      } catch (e) { me = { authenticated: false }; }
+    }
+
+    async function init() {
+      var results = await Promise.all([
+        fetch("/api/payments/plans").then(function (r) { return r.json(); })
+          .catch(function () { return null; }),
+        refreshMe()
+      ]);
+      // Prices are static in the markup; this fetch is only for `enabled` and
+      // the publishable key id needed to open Checkout.
+      config = results[0];
+
+      renderBanner();
+
+      // No gateway credentials configured — leave the buttons visible but
+      // inert rather than sending people into a checkout that can't complete.
+      if (!config || !config.enabled) {
+        buttons.forEach(function (b) {
+          b.disabled = true;
+          b.title = "Online payment is temporarily unavailable.";
+        });
+        return;
+      }
+
+      buttons.forEach(function (b) {
+        b.addEventListener("click", function () { startPurchase(b); });
+      });
+    }
+
+    init();
+  })();
   </script>
 
 </body>
