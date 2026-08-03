@@ -1043,7 +1043,7 @@
           <div class="price-for">Perfect for individuals</div>
           <div class="price-amt">₹999 <small>/year</small></div>
           <div class="price-note">Excl. GST</div>
-          <button class="btn btn-outline price-btn" onclick="alert('Subscription coming soon.')">Subscribe</button>
+          <button class="btn btn-outline price-btn" onclick="goSubscribe('starter')">Subscribe</button>
           <ul class="price-feats">
             <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg> 2500 Pages</li>
             <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg> No user restriction</li>
@@ -1059,7 +1059,7 @@
           <div class="price-for">Perfect for CAs and accounting firms</div>
           <div class="price-amt">₹2499 <small>/year</small></div>
           <div class="price-note">Excl. GST</div>
-          <button class="btn btn-primary price-btn" onclick="alert('Subscription coming soon.')">Subscribe</button>
+          <button class="btn btn-primary price-btn" onclick="goSubscribe('professional')">Subscribe</button>
           <ul class="price-feats">
             <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg> 10000 Pages</li>
             <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg> All Starter features</li>
@@ -1116,7 +1116,7 @@
         <div class="foot-col" id="contact">
           <h4>Contact Us</h4>
           <ul>
-            <li><a href="tel:8731807899">+91 87318 07899</a></li>
+            <li><a href="tel:+918100654651">+91 8100 654651</a></li>
             <li><a href="mailto:support@ledgerit.in">support@ledgerit.in</a></li>
           </ul>
         </div>
@@ -1140,6 +1140,26 @@
 
   <script>
     document.getElementById("year").textContent = new Date().getFullYear();
+
+    // ---- Pricing: send the visitor to the plans page to actually buy ----
+    // Buying needs a signed-in account (the order is created against it), so
+    // anyone logged out goes via login and is returned to /plans.html by the
+    // ?next= parameter. Someone already signed in skips straight there rather
+    // than being asked to log in again — this page shows Login/Register to
+    // everyone regardless of session, so it can't tell without asking.
+    async function goSubscribe(plan) {
+      var next = "/plans.html";
+      var login = "/login.html?next=" + encodeURIComponent(next);
+      try {
+        var res = await fetch("/api/me", { credentials: "same-origin" });
+        var me = await res.json();
+        window.location.href = me && me.authenticated ? next : login;
+      } catch (e) {
+        // Network hiccup: login is the safe destination — it works whether or
+        // not there's a session, and still lands on /plans.html afterwards.
+        window.location.href = login;
+      }
+    }
 
     // ---- Theme toggle (light/dark) ----
     function applyTheme(t) {

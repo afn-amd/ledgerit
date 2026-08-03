@@ -147,6 +147,25 @@
     .pay-toast.err { border-color: #e5484d; }
     .pay-toast.ok { border-color: var(--green); }
 
+    /* Pre-checkout confirmation. Razorpay's Checkout has no line-item or tax
+       field — its Price Summary shows only the order total — so the GST split
+       has to be shown here, on the last screen we control, before the modal. */
+    .pay-confirm { position: fixed; inset: 0; background: rgba(9, 13, 24, 0.55);
+                   display: none; align-items: center; justify-content: center;
+                   padding: 20px; z-index: 70; }
+    .pay-confirm.show { display: flex; }
+    .pc-box { background: var(--surface); border: 1px solid var(--border); border-radius: 20px;
+              box-shadow: var(--shadow-lg); padding: 26px 26px 22px; width: min(400px, 100%); }
+    .pc-title { font-family: "Sora", sans-serif; font-size: 1.15rem; font-weight: 700; color: var(--ink); }
+    .pc-sub { color: var(--muted); font-size: 0.88rem; margin-top: 4px; }
+    .pc-rows { margin: 20px 0 6px; display: grid; gap: 10px; }
+    .pc-row { display: flex; justify-content: space-between; gap: 16px;
+              color: var(--ink-soft); font-size: 0.95rem; }
+    .pc-row.total { border-top: 1px solid var(--border); margin-top: 4px; padding-top: 12px;
+                    color: var(--ink); font-weight: 700; font-size: 1.05rem; }
+    .pc-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; }
+    .pc-actions .btn { width: 100%; justify-content: center; }
+
     footer { background: var(--primary); color: #fff; padding: 22px 0; }
     .foot-row { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px; font-size: 0.9rem; }
     .foot-row a:hover { text-decoration: underline; }
@@ -247,6 +266,23 @@
     </div>
   </section>
 
+  <!-- ============ PRE-CHECKOUT CONFIRMATION ============ -->
+  <div class="pay-confirm" id="payConfirm" role="dialog" aria-modal="true" aria-labelledby="pcTitle">
+    <div class="pc-box">
+      <div class="pc-title" id="pcTitle"></div>
+      <div class="pc-sub" id="pcSub"></div>
+      <div class="pc-rows">
+        <div class="pc-row"><span id="pcBaseLabel">Plan price</span><span id="pcBase"></span></div>
+        <div class="pc-row"><span id="pcGstLabel">GST</span><span id="pcGst"></span></div>
+        <div class="pc-row total"><span>Total payable</span><span id="pcTotal"></span></div>
+      </div>
+      <div class="pc-actions">
+        <button class="btn btn-outline" id="pcCancel" type="button">Cancel</button>
+        <button class="btn btn-primary" id="pcProceed" type="button">Proceed to pay</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ============ FOOTER ============ -->
   <footer>
     <div class="wrap foot-row">
@@ -334,9 +370,68 @@
       }
     }
 
-    async function startPurchase(btn) {
-      var planKey = btn.dataset.plan;
+    function inr(n) {
+      return "₹" + Number(n).toLocaleString("en-IN", {
+        minimumFractionDigits: 2, maximumFractionDigits: 2
+      });
+    }
 
+    // --- Pre-checkout confirmation -----------------------------------------
+    // Razorpay's Checkout cannot display a tax breakup, so this is the last
+    // point at which the customer can be shown what the total is made of.
+    var confirmEl = document.getElementById("payConfirm");
+    var pendingBtn = null;
+
+    function planFor(key) {
+      if (!config || !config.plans) return null;
+      for (var i = 0; i < config.plans.length; i++) {
+        if (config.plans[i].key === key) return config.plans[i];
+      }
+      return null;
+    }
+
+    function closeConfirm() {
+      confirmEl.className = "pay-confirm";
+      if (pendingBtn) setBusy(pendingBtn, false);
+      pendingBtn = null;
+    }
+
+    function openConfirm(btn) {
+      var p = planFor(btn.dataset.plan);
+      // No catalogue (the fetch failed) — don't invent numbers, just go
+      // straight to Checkout, which shows the authoritative total anyway.
+      if (!p) { startPurchase(btn); return; }
+
+      pendingBtn = btn;
+      document.getElementById("pcTitle").textContent = p.name + " plan";
+      document.getElementById("pcSub").textContent =
+        p.pages.toLocaleString("en-IN") + " pages · valid " + p.validity_days + " days";
+      document.getElementById("pcBase").textContent = inr(p.base_rupees);
+      document.getElementById("pcGstLabel").textContent = "GST (" + p.gst_percent + "%)";
+      document.getElementById("pcGst").textContent = inr(p.gst_rupees);
+      document.getElementById("pcTotal").textContent = inr(p.total_rupees);
+      confirmEl.className = "pay-confirm show";
+      document.getElementById("pcProceed").focus();
+    }
+
+    document.getElementById("pcCancel").addEventListener("click", closeConfirm);
+    document.getElementById("pcProceed").addEventListener("click", function () {
+      var btn = pendingBtn;
+      confirmEl.className = "pay-confirm";
+      pendingBtn = null;
+      if (btn) startPurchase(btn);
+    });
+    // Backdrop click and Escape both dismiss, matching what people expect of a
+    // modal. Nothing has been charged at this point.
+    confirmEl.addEventListener("click", function (e) {
+      if (e.target === confirmEl) closeConfirm();
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && confirmEl.classList.contains("show")) closeConfirm();
+    });
+
+    // Entry point for a Subscribe click: auth checks first, then the breakup.
+    function onSubscribe(btn) {
       // Orders are created against the signed-in account, so send them to log
       // in first and bring them straight back here afterwards.
       if (!me || !me.authenticated) {
@@ -347,6 +442,11 @@
         toast("Staff accounts already have unlimited pages.", "");
         return;
       }
+      openConfirm(btn);
+    }
+
+    async function startPurchase(btn) {
+      var planKey = btn.dataset.plan;
 
       setBusy(btn, true, "Opening checkout…");
       try {
@@ -380,7 +480,12 @@
           // Checkout renders this from Razorpay's own servers, so it has to be
           // an absolute URL — a site-relative path resolves against their
           // domain and silently shows no logo.
-          image: window.location.origin + "/assets/logo.png",
+          //
+          // Square, dark artwork on purpose: Razorpay drops the logo into a
+          // small square WHITE tile. The wide 2401x722 wordmark got letterboxed
+          // into a mostly-empty box, and the white variant of it would be
+          // invisible against that tile.
+          image: window.location.origin + "/assets/favicon-256.png",
           prefill: order.prefill,
           theme: { color: "#2563eb" },
           handler: function (response) { confirmPayment(response, btn); },
@@ -471,7 +576,7 @@
       }
 
       buttons.forEach(function (b) {
-        b.addEventListener("click", function () { startPurchase(b); });
+        b.addEventListener("click", function () { onSubscribe(b); });
       });
     }
 
