@@ -10,6 +10,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
+# Python block-buffers stdout whenever it isn't a terminal, and under gunicorn
+# in a container it's a pipe — so every print() sat in a buffer instead of
+# reaching `docker logs`. That silently hid the payment alerts (bad webhook
+# signature, amount mismatch, a paid order that couldn't be credited), which
+# are precisely the lines someone needs to see promptly. gunicorn's own logs
+# were never affected because they go to stderr.
+ENV PYTHONUNBUFFERED=1
+
 # 1) Install CPU-only PyTorch from the official CPU wheel index.
 #    (Your repo pinned +cu121 GPU wheels, which the app never uses and
 #     which fail to install on a CPU host.)
