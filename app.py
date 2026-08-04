@@ -1270,27 +1270,18 @@ except ValueError:
 
 PLAN_VALIDITY = timedelta(days=365)
 
-# ###########################################################################
-# TEMPORARY LIVE-TEST PRICING — REVERT BEFORE REAL SELLING
-#
-# Dropped to ₹1 / ₹2 so a real transaction can be put through the live gateway
-# cheaply. While this is deployed, ANY visitor can buy 2500 pages for ₹1.18 or
-# 10000 pages for ₹2.36.
-#
-# To restore, put these two values back and redeploy:
-#     starter       base_paise = 99900     (₹999)
-#     professional  base_paise = 249900    (₹2499)
-# The headline prices in plans.html were dropped to match and must go back too.
-# ###########################################################################
+# base_paise is the ex-GST price in paise; it must stay in step with the
+# headline figure on plans.html, which is what the customer reads before the
+# pre-checkout dialog derives the tax split from these numbers.
 PLANS = {
     "starter": {
         "name": "Starter",
-        "base_paise": 100,      # TEST: ₹1 ex-GST -> ₹1.18 charged. Real: 99900
+        "base_paise": 99900,    # ₹999 ex-GST -> ₹1178.82 charged
         "pages": 2500,
     },
     "professional": {
         "name": "Professional",
-        "base_paise": 200,      # TEST: ₹2 ex-GST -> ₹2.36 charged. Real: 249900
+        "base_paise": 249900,   # ₹2499 ex-GST -> ₹2948.82 charged
         "pages": 10000,
     },
 }
