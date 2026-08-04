@@ -90,12 +90,37 @@ app.secret_key = _load_secret_key()
 #               a same-tab modal, so "Lax" doesn't interfere with the flow)
 #   Secure    - HTTPS only. Defaults off so local http:// development still
 #               works; set SESSION_COOKIE_SECURE=1 in production.
+#
+# SESSION_IDLE_TIMEOUT is an *idle* timeout, not an absolute one: Flask reissues
+# the cookie on every response (SESSION_REFRESH_EACH_REQUEST defaults to True),
+# so the hour restarts with each request and nobody is logged out mid-upload.
+# An hour of no activity ends the session.
+#
+# This is enforced on the server, not just by the browser dropping the cookie:
+# Flask signs the session with a timestamp and refuses to load one older than
+# PERMANENT_SESSION_LIFETIME, so a copied or replayed cookie expires too.
+SESSION_IDLE_TIMEOUT = timedelta(minutes=60)
+
 app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE="Lax",
     SESSION_COOKIE_SECURE=os.environ.get("SESSION_COOKIE_SECURE", "0").strip().lower()
                           in ("1", "true", "yes", "on"),
+    PERMANENT_SESSION_LIFETIME=SESSION_IDLE_TIMEOUT,
 )
+
+
+@app.before_request
+def _apply_session_timeout():
+    # PERMANENT_SESSION_LIFETIME only applies to sessions flagged permanent, so
+    # flag them here rather than in the login/register handlers — this way the
+    # timeout also covers people who were already signed in when it shipped,
+    # instead of waiting for them to log in again.
+    #
+    # Guarded on there being a logged-in user so anonymous visitors aren't
+    # issued a cookie just for reading the landing page.
+    if session.get("user_id"):
+        session.permanent = True
 
 # ---------------------------------------------------------------------------
 # MongoDB connection
@@ -1468,7 +1493,11 @@ def register():
         "created_at": datetime.now(timezone.utc),
     })
 
-    # Log the new user straight in.
+    # Log the new user straight in. permanent is set here as well as in the
+    # before_request hook because that hook runs before this handler assigns
+    # user_id — without this, the very first response would carry a cookie with
+    # no expiry attributes.
+    session.permanent = True
     session["user_id"] = str(result.inserted_id)
     session["name"] = name
 
@@ -1533,6 +1562,9 @@ def login():
             {"$unset": {"failed_logins": "", "lock_until": ""}},
         )
 
+    # See the note in register(): before_request can't have flagged this session
+    # permanent yet, because user_id is only being set now.
+    session.permanent = True
     session["user_id"] = str(user["_id"])
     session["name"] = user.get("name", "")
 
