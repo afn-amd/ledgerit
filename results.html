@@ -13,7 +13,8 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Lora carries the serif page title; Poppins is the UI/number face. -->
+  <link href="https://fonts.googleapis.com/css2?family=Lora:wght@600;700&family=Poppins:wght@400;500;600;700&family=Sora:wght@400;600;700;800&display=swap" rel="stylesheet">
 
   <style>
 
@@ -77,7 +78,7 @@
 
     body {
 
-      font-family: "Space Grotesk", Inter, sans-serif;
+      font-family: "Poppins", "Space Grotesk", Inter, sans-serif;
 
       background: var(--bg-soft);
 
@@ -97,7 +98,8 @@
       padding: 24px;
     }
 
-    /* ---- header bar: brand on the left, actions on the right ---- */
+    /* ---- header bar: brand on the left, actions on the right, both
+       sitting on a white panel that matches the summary cards ---- */
     .page-head {
       display: flex;
       justify-content: space-between;
@@ -105,6 +107,17 @@
       gap: 20px;
       flex-wrap: wrap;
       margin-bottom: 22px;
+      background: #ffffff;
+      border: 1px solid rgba(15,23,42,0.05);
+      border-radius: 18px;
+      padding: 18px 24px;
+      box-shadow: 0 1px 2px rgba(15,23,42,0.04), 0 14px 30px rgba(15,23,42,0.06);
+      transition: background 0.25s ease, border-color 0.25s ease;
+    }
+    :root[data-theme="dark"] .page-head {
+      background: #151d33;
+      border-color: rgba(255,255,255,0.07);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.3), 0 14px 32px rgba(0,0,0,0.42);
     }
     .brand {
       display: flex;
@@ -118,55 +131,100 @@
       flex-shrink: 0;
     }
     .brand-text h1 {
-      font-family: "Space Grotesk", system-ui, sans-serif;
-      font-size: 1.5rem;
+      font-family: "Lora", Georgia, "Times New Roman", serif;
+      font-size: 1.65rem;
       font-weight: 700;
       color: var(--ink);
       line-height: 1.1;
-      letter-spacing: -0.02em;
+      letter-spacing: -0.01em;
     }
     .brand-text p {
-      font-size: 0.8rem;
+      font-size: 0.82rem;
+      font-weight: 400;
       color: var(--text-muted);
-      margin-top: 3px;
+      margin-top: 4px;
     }
 
-    /* ---- summary strip: matching cards for counts + balances ---- */
+    /* ---- summary strip: text-only cards with a coloured spine ---- */
     .summary {
       display: flex;
-      gap: 14px;
+      gap: 18px;
       flex-wrap: wrap;
       margin-bottom: 24px;
     }
     .stat-card {
+      /* per-card accent, overridden by the colour modifiers below */
+      --sc-accent: var(--primary);
+      /* cards sit a shade brighter than the page so they lift off it */
+      --sc-surface: #ffffff;
+
+      position: relative;
+      overflow: hidden;
       flex: 1 1 200px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 16px 18px;
-      box-shadow: var(--shadow);
+      background: var(--sc-surface);
+      border: 1px solid rgba(15,23,42,0.05);
+      border-left: none;
+      border-radius: 18px;
+      padding: 12px 20px 14px 22px;
+      box-shadow: 0 1px 2px rgba(15,23,42,0.04), 0 14px 30px rgba(15,23,42,0.06);
       display: flex;
-      align-items: center;
-      gap: 14px;
-      transition: background 0.25s ease, border 0.25s ease;
+      flex-direction: column;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 72px;
+      transition: background 0.25s ease, border 0.25s ease, transform 0.2s ease;
     }
-    .stat-card.accent { border-color: var(--primary); }
-    .sc-icon {
-      width: 42px; height: 42px; border-radius: 12px;
-      display: grid; place-items: center; flex-shrink: 0;
-      background: var(--primary-soft); color: var(--primary);
+    /* the coloured spine down the left edge */
+    .stat-card::before {
+      content: "";
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 4px;
+      background: var(--sc-accent);
     }
-    .sc-icon svg { width: 20px; height: 20px; }
+    .stat-card:hover { transform: translateY(-2px); }
+
+    /* dark theme keeps the same "lifted" relationship: card sits a step
+       lighter than the page rather than turning white */
+    :root[data-theme="dark"] .stat-card {
+      --sc-surface: #151d33;
+      border-color: rgba(255,255,255,0.07);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.3), 0 14px 32px rgba(0,0,0,0.42);
+    }
+
+    .stat-card > div { width: 100%; }
+
     .sc-label {
-      font-size: 0.66rem; font-weight: 600; letter-spacing: 0.12em;
-      text-transform: uppercase; color: var(--text-muted); white-space: nowrap;
+      font-size: 0.68rem; font-weight: 600; letter-spacing: 0.09em;
+      text-transform: uppercase; color: var(--ink-soft); opacity: 0.72;
+      white-space: nowrap;
     }
     .sc-value {
-      font-size: 1.45rem; font-weight: 700; color: var(--text);
-      font-variant-numeric: tabular-nums; line-height: 1.2; white-space: nowrap;
-      letter-spacing: -0.01em;
+      font-size: 1.45rem; font-weight: 700; color: var(--sc-accent);
+      font-variant-numeric: tabular-nums; line-height: 1.15; white-space: nowrap;
+      letter-spacing: -0.02em;
+      margin-top: 3px;
     }
-    .stat-card.accent .sc-value { color: var(--primary); }
+    /* hairline rule under the value, as in the reference layout */
+    .sc-value::after {
+      content: "";
+      display: block;
+      width: 48%;
+      height: 1px;
+      margin-top: 8px;
+      background: var(--border);
+    }
+
+    /* colour modifiers — one per card */
+    .sc-blue   { --sc-accent: #2563eb; }
+    .sc-violet { --sc-accent: #5326e0; }
+    .sc-green  { --sc-accent: #10b981; }
+    .sc-amber  { --sc-accent: #f97316; }
+
+    :root[data-theme="dark"] .sc-blue   { --sc-accent: #60a5fa; }
+    :root[data-theme="dark"] .sc-violet { --sc-accent: #a78bfa; }
+    :root[data-theme="dark"] .sc-green  { --sc-accent: #34d399; }
+    :root[data-theme="dark"] .sc-amber  { --sc-accent: #fb923c; }
 
     .actions {
 
@@ -265,7 +323,7 @@
       background: var(--bg-soft);
       color: var(--ink);
       font-size: 0.95rem;
-      font-family: "Space Grotesk", sans-serif;
+      font-family: inherit;
       outline: none;
       transition: 0.2s ease;
     }
@@ -343,6 +401,27 @@
       width: 18px;
 
       height: 18px;
+    }
+
+    /* download buttons: arrow icon + short format label */
+    .download-btn {
+
+      display: inline-flex;
+
+      align-items: center;
+
+      justify-content: center;
+
+      gap: 8px;
+    }
+
+    .download-btn svg {
+
+      width: 18px;
+
+      height: 18px;
+
+      flex-shrink: 0;
     }
 
     #viewPdfBtn svg {
@@ -588,8 +667,15 @@
 
       .brand-text h1 { font-size: 1.2rem; }
 
-      .stat-card { flex-basis: 150px; padding: 14px; }
-      .sc-value { font-size: 1.2rem; }
+      .page-head { padding: 14px 16px; border-radius: 16px; }
+
+      .stat-card {
+        flex-basis: 150px;
+        padding: 10px 14px 12px 16px;
+        min-height: 64px;
+      }
+      .sc-value { font-size: 1.15rem; }
+      .sc-value::after { margin-top: 7px; }
 
       .actions {
 
@@ -646,17 +732,23 @@
       </button>
 
       <button
-        class="btn"
+        class="btn download-btn"
         onclick="downloadXML()"
+        title="Download XML"
+        aria-label="Download XML"
       >
-        Download XML
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+        XML
       </button>
 
       <button
-        class="btn"
+        class="btn download-btn"
         onclick="downloadCSV()"
+        title="Download CSV"
+        aria-label="Download CSV"
       >
-        Download CSV
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+        CSV
       </button>
 
       <button class="theme-switch" id="themeToggle" type="button" role="switch" aria-label="Toggle light/dark mode" onclick="toggleTheme()">
@@ -674,20 +766,14 @@
 
   <section class="summary">
 
-    <div class="stat-card accent" id="pagesCard" style="display:none">
-      <span class="sc-icon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8 12 4l8 4-8 4z"/><path d="m4 12 8 4 8-4"/><path d="m4 16 8 4 8-4"/></svg>
-      </span>
+    <div class="stat-card sc-blue" id="pagesCard" style="display:none">
       <div>
         <div class="sc-label">Total pages</div>
         <div class="sc-value" id="pagesValue">—</div>
       </div>
     </div>
 
-    <div class="stat-card">
-      <span class="sc-icon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
-      </span>
+    <div class="stat-card sc-violet">
       <div>
         <div class="sc-label">Total transactions</div>
         <div class="sc-value" id="txnValue">—</div>
@@ -695,19 +781,13 @@
     </div>
 
     <div id="balances" style="display:none">
-      <div class="stat-card">
-        <span class="sc-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
-        </span>
+      <div class="stat-card sc-green">
         <div>
           <div class="sc-label">Opening Balance</div>
           <div class="sc-value" id="openingBalance">—</div>
         </div>
       </div>
-      <div class="stat-card accent">
-        <span class="sc-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
-        </span>
+      <div class="stat-card sc-amber">
         <div>
           <div class="sc-label">Closing Balance</div>
           <div class="sc-value" id="closingBalance">—</div>
