@@ -9,7 +9,7 @@ import gc
 import secrets
 import tempfile
 import warnings
-from functools import wraps
+from functools import lru_cache, wraps
 from datetime import datetime, timedelta, timezone
 
 warnings.filterwarnings("ignore", category=DeprecationWarning)
@@ -408,11 +408,37 @@ SUMMARY_ROW_MARKERS = [
 ]
 
 
+@lru_cache(maxsize=None)
+def _header_kw_re(keyword):
+    """Regex matching *keyword* as a word, not as an infix.
+
+    Plain substring matching promoted a transaction row to the column header on
+    SBI statements: "DEBIT CMP MANDATE DEBIT / Bajaj Finance Ltd - SI" supplies
+    the mandatory "date" group out of the middle of "man-DATE-", and its literal
+    "DEBIT" supplies the second group. Anchoring the START of the keyword to a
+    word boundary rules that out ("mandate" has no boundary before "date") while
+    still matching the plural and compound forms real headers use --
+    "Withdrawals", "Particulars", "Datewise" -- which a trailing \\b would break.
+
+    Two-letter keywords ("dr", "cr") get a trailing boundary as well: without it
+    "dr" matches "Drawing Power" in an account-summary block.
+    """
+    tail = r"\b" if len(keyword) <= 2 else ""
+    return re.compile(r"\b" + re.escape(keyword) + tail)
+
+
 def looks_like_header(row_values):
     # Join the row's cells into one lowercase string.
     joined = " ".join(str(v) for v in row_values).lower()
 
     if not joined.strip():
+        return False
+
+    # A column header never opens with a transaction date. This catches the
+    # data rows that survive the digit-ratio test below because their narration
+    # is wordy and their amounts are few (again: SBI's one-line "DEBIT CMP
+    # MANDATE DEBIT / Bajaj Finance Ltd - SI" row).
+    if row_values and LEADING_DATE_RE.match(str(row_values[0])):
         return False
 
     # Reject summary / totals rows outright (e.g. the end-of-statement
@@ -429,13 +455,13 @@ def looks_like_header(row_values):
 
     groups_matched = 0
     for group in HEADER_KEYWORD_GROUPS:
-        if any(kw in joined for kw in group):
+        if any(_header_kw_re(kw).search(joined) for kw in group):
             groups_matched += 1
 
     # Require a date-type column AND at least one more group. A genuine
     # transaction header always has a date column; this extra requirement
     # further guards against promoting stray non-header rows.
-    has_date = "date" in joined
+    has_date = bool(_header_kw_re("date").search(joined))
     return has_date and groups_matched >= 2
 
 
