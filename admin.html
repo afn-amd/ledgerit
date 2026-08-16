@@ -476,6 +476,12 @@
     :root[data-theme="dark"] .icon-act:hover { border-color: #6b7280; }
     .icon-act:disabled { opacity: 0.4; cursor: default; color: var(--muted-2); }
     .icon-act svg { width: 18px; height: 18px; }
+    /* issues: green tick while the issue is open (click to resolve); red once
+       it is resolved, where the same button reopens it */
+    .icon-act.tick { color: var(--ok-fg); }
+    .icon-act.tick:hover { background: var(--ok-bg); border-color: var(--ok-fg); }
+    .icon-act.tick.done { color: var(--danger-fg); background: var(--danger-bg); border-color: var(--danger-fg); }
+    .icon-act.tick.done:hover { filter: brightness(0.97); }
     /* destructive variant (delete user) — red glyph, red wash on hover */
     .icon-act.danger { color: var(--danger-fg); }
     .icon-act.danger:hover { background: var(--danger-bg); border-color: var(--danger-fg); }
@@ -520,7 +526,9 @@
     [data-tip] { position: relative; }
     [data-tip]::after {
       content: attr(data-tip);
-      position: absolute; bottom: calc(100% + 8px); left: 50%;
+      /* Below the element, not above: a tip above the first row of a scrolling
+         list is clipped by the container's edge. */
+      position: absolute; top: calc(100% + 8px); left: 50%;
       transform: translateX(-50%);
       background: var(--ink); color: var(--surface);
       padding: 5px 9px; border-radius: 7px;
@@ -529,6 +537,70 @@
       transition: opacity 0.1s ease; z-index: 50;
     }
     [data-tip]:hover::after, [data-tip]:focus-within::after { opacity: 1; }
+    /* Row action buttons sit hard against the right edge of their row, inside a
+       container that clips overflow — a centred tip is cut off there. Put it to
+       the LEFT of the button, vertically centred: it grows into the wide empty
+       part of the row, so it can't be clipped horizontally, and staying on the
+       button's own line keeps it clear of the first/last row edges too. */
+    .row-actions [data-tip]::after {
+      top: 50%; bottom: auto; left: auto; right: calc(100% + 8px);
+      transform: translateY(-50%);
+    }
+
+    /* Issues: one tile per issue, no table header. Each tile is the same grid,
+       so the fields still line up column-wise down the list. The panel is
+       pinned to the viewport — 6 tiles per page with the pager at the bottom —
+       so the page itself never scrolls. */
+    #panel-issues.active { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+    #panel-issues .toolbar { flex: 0 0 auto; }
+    /* the search fills the row so the tally is pushed to the far right, flush
+       with the right edge of the tiles below */
+    #panel-issues .search { flex: 1 1 auto; }
+    /* resolved tally — same green as the active Resolved chip */
+    .res-count {
+      flex-shrink: 0; display: inline-grid; place-content: center;
+      min-width: 46px; height: 42px; padding: 0 14px; border-radius: 10px;
+      background: #16a34a; color: #fff;
+      font-weight: 700; font-size: 0.95rem; font-variant-numeric: tabular-nums;
+    }
+    .res-count[hidden] { display: none; }
+    #issuesList { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+    /* Takes the leftover height; scrolls inside itself only when the viewport
+       is too short for a full page of tiles. overflow-x is pinned to hidden:
+       setting overflow-y alone makes the browser compute the other axis as
+       auto, and sub-pixel rounding across the grid columns is then enough to
+       raise a horizontal scrollbar. Nothing can be lost to it — every value in
+       a tile already truncates. The 2px padding keeps the tiles' hover shadow
+       from being clipped by that same clipping box. */
+    #issuesList .issue-list {
+      flex: 1 1 auto; min-height: 0;
+      overflow-y: auto; overflow-x: hidden; padding: 2px;
+    }
+    .issue-list { display: flex; flex-direction: column; gap: 12px; }
+    /* minmax(0, …) lets the flexible columns shrink below their content width —
+       without it a long name or filename widens the tile and scrolls the whole
+       page sideways. The date column is fixed so its timestamp never clips. */
+    .issue-row {
+      display: grid; grid-template-columns: 64px minmax(0, 1.1fr) minmax(0, 1.6fr) 150px auto;
+      align-items: center; gap: 20px; padding: 14px 20px; min-width: 0;
+      flex: 0 0 auto;   /* never squash a tile to fit — scroll the list instead */
+      transition: box-shadow 0.18s ease, border-color 0.18s ease;
+    }
+    .issue-row > div { min-width: 0; }
+    /* long values truncate inside their column instead of stretching the tile */
+    .issue-row .cell-strong,
+    .issue-row .cell-sub,
+    .issue-row .file-link {
+      display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .issue-row:hover { box-shadow: var(--shadow); border-color: var(--accent); }
+    .issue-row.resolved { opacity: 0.7; }
+    /* the ticket number the owner sees, in a chip */
+    .ticket {
+      display: inline-block; padding: 3px 9px; border-radius: 7px;
+      background: var(--sel-bg); color: var(--accent-text);
+      font-weight: 700; font-size: 0.82rem; font-variant-numeric: tabular-nums;
+    }
 
     /* message / issue list */
     .feed { display: flex; flex-direction: column; gap: 14px; }
@@ -949,9 +1021,19 @@
     };
     var tabs = {};
     var loaded = {};
-    function activateTab(name) {
+    // fromUrl: the hash already says this section (a refresh or a back/forward),
+    // so don't write it again.
+    function activateTab(name, fromUrl) {
       // Don't open a section this role isn't allowed to use.
       if (window.allowedSections && window.allowedSections.indexOf(name) === -1) return;
+
+      // Record the section in the URL so a refresh reopens it. replaceState
+      // keeps it out of the history stack, so Back still leaves the console
+      // rather than stepping through every tab visited.
+      if (!fromUrl) {
+        try { history.replaceState(null, "", "#" + name); }
+        catch (e) { window.location.hash = name; }
+      }
       document.querySelectorAll(".nav-opt[data-tab]").forEach(function (t) {
         t.classList.toggle("active", t.getAttribute("data-tab") === name);
       });
@@ -965,14 +1047,13 @@
         if (st) st.textContent = meta.title;
         if (ss) ss.textContent = meta.sub;
       }
-      if (!loaded[name] && tabs[name]) { loaded[name] = true; tabs[name](); }
+      // Rebuild and re-fetch every time the section is opened, so it never
+      // shows data that went stale while you were in another tab.
+      if (tabs[name]) { loaded[name] = true; tabs[name](); }
 
-      // If statements changed while this tab was hidden (issue resolved from the
-      // Issues tab), re-render now that it's visible so measurements are correct.
-      if (name === "statements" && stmtDirty && loaded.statements) {
-        renderAll();
-        stmtDirty = false;
-      }
+      // That fresh fetch supersedes any re-render deferred while the tab was
+      // hidden (e.g. an issue resolved from the Issues tab).
+      if (name === "statements") stmtDirty = false;
     }
 
     // =====================================================================
@@ -2166,23 +2247,63 @@
         el.innerHTML = '<div class="card card-pad state"><div class="sic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div><h2>No issues here</h2><p>Nothing matches this view.</p></div>';
         return;
       }
-      el.innerHTML = '<div class="feed">' + list.map(function (i) {
+      var EYE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>';
+      var TICK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+
+      // Clamp the page against the current list (resolving an issue can empty
+      // the last page) and take this page's slice.
+      var totalPages = Math.max(1, Math.ceil(list.length / ISSUES_PER_PAGE));
+      if (issuesPage > totalPages - 1) issuesPage = totalPages - 1;
+      if (issuesPage < 0) issuesPage = 0;
+
+      var rows = list.slice(issuesPage * ISSUES_PER_PAGE, (issuesPage + 1) * ISSUES_PER_PAGE).map(function (i) {
         var resolved = i.status === "resolved";
-        var owner = i.owner_name || i.owner_mobile || "Unknown";
-        var raisedBy = "Raised by " + escHtml(owner) + (i.owner_mobile && i.owner_name ? " | " + escHtml(i.owner_mobile) : "");
-        return '<div class="card feed-card' + (resolved ? ' resolved' : '') + '">' +
-          '<div class="feed-top"><div><div class="feed-who">' + escHtml(i.filename || "Untitled statement") + '</div>' +
-            '<div class="feed-contact">' + raisedBy + (i.owner_deleted ? ' <span class="badge off">deleted</span>' : '') + '</div></div>' +
-            '<span class="badge ' + (resolved ? 'ok' : 'open') + '">' + (resolved ? 'Resolved' : 'Open') + '</span></div>' +
-          '<div class="feed-body" style="margin-top:12px;' + (i.note ? 'color:var(--t-red-fg);font-weight:500;' : '') + '">' + escHtml(i.note || "(no description provided)") + '</div>' +
-          '<div class="feed-foot"><span class="feed-time">' + escHtml(fmtDateTime(i.created_at)) + '</span>' +
-            '<div style="display:flex;gap:8px;">' +
-              '<button class="btn btn-primary" data-result="' + escHtml(i.statement_id) + '">View result</button>' +
-              '<a class="btn" href="/api/admin/statements/' + escHtml(i.statement_id) + '/pdf?inline=1" target="_blank" rel="noopener">View PDF</a>' +
-              '<button class="btn" data-resolve="' + escHtml(i.statement_id) + '" data-to="' + (resolved ? 'open' : 'resolved') + '">' + (resolved ? 'Reopen' : 'Mark resolved') + '</button>' +
-            '</div></div>' +
+
+        // Filename opens the source PDF in a new tab; without stored bytes
+        // there's nothing to open, so it stays plain text.
+        var fname = i.filename || "Untitled";
+        var file = i.has_pdf
+          ? '<a class="cell-strong file-link" title="' + escHtml(fname) + '" href="/api/admin/statements/' + escHtml(i.statement_id) + '/pdf?inline=1" target="_blank" rel="noopener">' + escHtml(fname) + '</a>'
+          : '<span class="cell-strong" title="' + escHtml(fname) + '">' + escHtml(fname) + '</span>';
+
+        // The tick reads as "mark resolved" while open, and as the resolved
+        // state (green, click to reopen) once it has been handled.
+        var tick = '<button class="icon-act tick' + (resolved ? ' done' : '') + '" type="button" data-resolve="' + escHtml(i.statement_id) + '"' +
+          ' data-to="' + (resolved ? 'open' : 'resolved') + '" data-tip="' + (resolved ? 'Reopen' : 'Mark resolved') + '"' +
+          ' aria-label="' + (resolved ? 'Reopen issue' : 'Mark resolved') + '">' + TICK + '</button>';
+
+        return '<div class="card issue-row' + (resolved ? ' resolved' : '') + '">' +
+          '<div><span class="ticket">' + escHtml(i.number || "—") + '</span></div>' +
+          '<div><div class="cell-strong" title="' + escHtml(i.owner_name || "Unknown") + '">' +
+            escHtml(i.owner_name || "Unknown") +
+            (i.owner_deleted ? ' <span class="badge off">deleted</span>' : '') + '</div>' +
+            '<div class="cell-sub">' + escHtml(i.owner_mobile || "—") + '</div></div>' +
+          '<div>' + file + '</div>' +
+          '<div><div class="cell-sub">' + escHtml(fmtISTDate(i.created_at)) + '</div>' +
+            '<div class="upload-time">' + escHtml(fmtISTTime(i.created_at)) + '</div></div>' +
+          '<div class="row-actions">' +
+            '<button class="icon-act" type="button" data-result="' + escHtml(i.statement_id) + '" data-tip="View result" aria-label="View result">' + EYE + '</button>' +
+            tick +
+          '</div>' +
         '</div>';
-      }).join("") + '</div>';
+      }).join("");
+
+      el.innerHTML = '<div class="issue-list">' + rows + '</div>' +
+        '<div class="pager">' +
+          '<button class="btn" type="button" id="issuesPrev"' + (issuesPage === 0 ? ' disabled' : '') + '>Previous</button>' +
+          '<span class="page-info">Page ' + (issuesPage + 1) + ' of ' + totalPages + '</span>' +
+          '<button class="btn" type="button" id="issuesNext"' + (issuesPage >= totalPages - 1 ? ' disabled' : '') + '>Next</button>' +
+        '</div>';
+
+      var prev = document.getElementById("issuesPrev");
+      var next = document.getElementById("issuesNext");
+      if (prev) prev.addEventListener("click", function () {
+        if (issuesPage > 0) { issuesPage--; renderIssues(issuesView); }
+      });
+      if (next) next.addEventListener("click", function () {
+        if (issuesPage < totalPages - 1) { issuesPage++; renderIssues(issuesView); }
+      });
+
       el.querySelectorAll("[data-result]").forEach(function (btn) {
         btn.addEventListener("click", function () { viewResult(btn.getAttribute("data-result")); });
       });
@@ -2212,14 +2333,27 @@
 
     var issueFilter = "open";
     var issuesData = [];
+    var issueQuery = "";         // search text: ticket number, name or PDF name
+    var issuesView = [];         // issuesData after the status filter + search
+    var ISSUES_PER_PAGE = 7;     // tiles shown per page
+    var issuesPage = 0;          // current page (0-indexed)
     tabs.issues = function () {
       var el = document.getElementById("panel-issues");
       el.innerHTML =
         '<div class="toolbar"><div class="seg" id="issueFilter">' +
           '<button data-f="open" class="active">Open</button>' +
           '<button data-f="resolved">Resolved</button>' +
-        '</div></div>' +
+        '</div>' +
+        '<div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>' +
+          '<input id="issueSearch" type="search" placeholder="Search by ticket, name or PDF name…" autocomplete="off"></div>' +
+        '<span class="res-count" id="resolvedCount" hidden>0</span>' +
+        '</div>' +
         '<div id="issuesList"><div class="card card-pad state"><div class="spinner"></div></div></div>';
+      var issueDebounce = null;
+      document.getElementById("issueSearch").addEventListener("input", function (e) {
+        clearTimeout(issueDebounce); var q = e.target.value;
+        issueDebounce = setTimeout(function () { issueQuery = q; applyIssueFilter(); }, 200);
+      });
       el.querySelectorAll("#issueFilter button").forEach(function (b) {
         b.addEventListener("click", function () {
           el.querySelectorAll("#issueFilter button").forEach(function (x) { x.classList.remove("active"); });
@@ -2231,20 +2365,40 @@
       fetchIssues();
     };
 
-    function applyIssueFilter() {
-      var list = issuesData.filter(function (i) {
-        if (issueFilter === "open") return i.status !== "resolved";
-        if (issueFilter === "resolved") return i.status === "resolved";
-        return true;
+    // keepPage: stay on the current page (a resolve/reopen refetch) rather than
+    // jumping back to the first one.
+    function applyIssueFilter(keepPage) {
+      // Search covers the ticket number, the owner's name and the PDF name. The
+      // ticket is matched with and without its leading "#", so both "#3" and
+      // "3" find the same issue.
+      var q = (issueQuery || "").trim().toLowerCase();
+      issuesView = issuesData.filter(function (i) {
+        if (issueFilter === "open" && i.status === "resolved") return false;
+        if (issueFilter === "resolved" && i.status !== "resolved") return false;
+        if (!q) return true;
+        var num = String(i.number || "");
+        return [num, num.replace(/^#/, ""), i.owner_name || "", i.filename || ""]
+          .join(" ").toLowerCase().indexOf(q) !== -1;
       });
-      renderIssues(list);
+      if (!keepPage) issuesPage = 0;
+      syncResolvedCount();
+      renderIssues(issuesView);
     }
 
-    async function fetchIssues() {
+    // Green tally beside the search box, shown only in the Resolved view. It
+    // reports the total resolved issues, so it doesn't move as you search.
+    function syncResolvedCount() {
+      var el = document.getElementById("resolvedCount");
+      if (!el) return;
+      el.textContent = issuesData.filter(function (i) { return i.status === "resolved"; }).length;
+      el.hidden = issueFilter !== "resolved";
+    }
+
+    async function fetchIssues(keepPage) {
       var r = await api("/api/admin/issues");
       if (!r.ok) { showToast(r.data.error || "Could not load issues."); return; }
       issuesData = r.data.issues || [];
-      applyIssueFilter();
+      applyIssueFilter(keepPage);
       setNotif("nIssues", issuesData.filter(function (i) { return i.status !== "resolved"; }).length);
     }
 
@@ -2263,7 +2417,7 @@
       }
       refreshStatements();
 
-      fetchIssues();
+      fetchIssues(true);
     }
 
     // =====================================================================
@@ -2297,8 +2451,20 @@
         t.addEventListener("click", function () { activateTab(name); });
       });
 
-      // Land on the role's first allowed section (activateTab loads its data).
-      activateTab(allowed[0]);
+      // Reopen the section named in the URL (so a refresh stays put), falling
+      // back to the role's first allowed section. A hash naming a section this
+      // role can't use is ignored.
+      function sectionFromUrl() {
+        var n = (window.location.hash || "").replace(/^#/, "");
+        return allowed.indexOf(n) !== -1 ? n : "";
+      }
+      activateTab(sectionFromUrl() || allowed[0]);
+
+      // Someone editing the hash directly, or a back/forward between them.
+      window.addEventListener("hashchange", function () {
+        var n = sectionFromUrl();
+        if (n) activateTab(n, true);
+      });
     })();
   </script>
 

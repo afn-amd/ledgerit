@@ -2487,6 +2487,13 @@ def _iso(dt):
     return dt.isoformat()
 
 
+# A contact message stays "open" until it is explicitly closed. General
+# enquiries are closed by resolving them; sales enquiries are closed as
+# purchased / not_purchased. Older documents carry no status field at all —
+# "$nin" matches a missing field, so those still count as open.
+CLOSED_MESSAGE_STATUSES = ["resolved", "purchased", "not_purchased"]
+
+
 def _user_statement_counts():
     # One aggregation → {user_id: count}, so the users list can show each
     # account's statement count without a query per row.
@@ -2498,24 +2505,55 @@ def _user_statement_counts():
     return counts
 
 
+def _super_admin_accounts():
+    # The super admin's ids and phone numbers, for excluding their own activity
+    # from the dashboard. Ids come back as strings because that is how
+    # statements store user_id. Legacy documents that predate the `role` field
+    # are caught by the is_super_admin flag.
+    ids, mobiles = [], []
+    for u in users.find(
+        {"$or": [{"role": "super_admin"}, {"is_super_admin": True}]},
+        {"mobile": 1},
+    ):
+        ids.append(str(u["_id"]))
+        if u.get("mobile"):
+            mobiles.append(u["mobile"])
+    return ids, mobiles
+
+
 @app.route("/api/admin/stats")
 @admin_required
 def admin_stats():
-    total_users = users.count_documents({})
-    total_admins = users.count_documents({"role": {"$in": ["super_admin", "admin"]}})
-    total_statements = statements.count_documents({})
-    # "Open" = not yet handled. General messages get resolved; sales enquiries
-    # are closed as purchased / not_purchased. Missing status (older docs) is
-    # counted as open. $nin matches missing fields too.
-    open_messages = messages.count_documents(
-        {"status": {"$nin": ["resolved", "purchased", "not_purchased"]}}
-    )
-    total_messages = messages.count_documents({})
-    open_issues = statements.count_documents({"issue.status": "open"})
+    # Every tile reports end-user activity only: the super admin's own account,
+    # uploads, enquiries and issues are house-keeping, not platform usage, so
+    # they are left out of the counts.
+    sa_ids, sa_mobiles = _super_admin_accounts()
 
-    # Total rows extracted across every saved statement.
+    # Statements owned by the super admin — and therefore the issues raised on
+    # them too. $nin also matches documents with no user_id at all, so files
+    # whose owner was since deleted stay counted, as the Statements tab lists
+    # them. Widen this to STAFF_ROLES to drop admin/salesperson uploads as well.
+    end_user_stmts = {"user_id": {"$nin": sa_ids}}
+    # Contact-form messages aren't tied to a user id; they are linked by the
+    # phone number the form was submitted with, the same join admin_users uses.
+    end_user_msgs = {"phone": {"$nin": sa_mobiles}} if sa_mobiles else {}
+
+    total_users = users.count_documents(
+        {"role": {"$ne": "super_admin"}, "is_super_admin": {"$ne": True}}
+    )
+    total_admins = users.count_documents({"role": {"$in": ["super_admin", "admin"]}})
+    total_statements = statements.count_documents(end_user_stmts)
+    open_messages = messages.count_documents({
+        **end_user_msgs,
+        "status": {"$nin": CLOSED_MESSAGE_STATUSES},
+    })
+    total_messages = messages.count_documents(end_user_msgs)
+    open_issues = statements.count_documents({**end_user_stmts, "issue.status": "open"})
+
+    # Total rows extracted across every saved end-user statement.
     rows_agg = list(statements.aggregate([
-        {"$group": {"_id": None, "n": {"$sum": "$row_count"}}}
+        {"$match": end_user_stmts},
+        {"$group": {"_id": None, "n": {"$sum": "$row_count"}}},
     ]))
     total_rows = rows_agg[0]["n"] if rows_agg else 0
 
@@ -2584,10 +2622,12 @@ def admin_users():
         issue_counts[row["_id"]] = row["n"]
 
     # Open messages per user. Contact-form messages aren't tied to a user id,
-    # so they're linked by phone number (which matches the user's mobile).
+    # so they're linked by phone number (which matches the user's mobile). A
+    # sales enquiry closed as purchased / not_purchased is no longer open, so it
+    # drops out of the badge — leaving the count of whatever is still pending.
     msg_counts = {}
     for row in messages.aggregate([
-        {"$match": {"status": {"$ne": "resolved"}}},
+        {"$match": {"status": {"$nin": CLOSED_MESSAGE_STATUSES}}},
         {"$group": {"_id": "$phone", "n": {"$sum": 1}}},
     ]):
         if row["_id"]:
@@ -3097,9 +3137,26 @@ def admin_issues():
             "owner_deleted": not live and bool(d.get("owner_deleted")),
             "note": issue.get("note", ""),
             "status": issue.get("status", "open"),
+            # The same ticket number the owner sees on statements.html: stamped
+            # onto the issue when it was raised.
+            "number": issue.get("number") or "",
+            "user_id": d.get("user_id") or "",
+            "has_pdf": bool(d.get("content_type")),
             "created_at": _iso(issue.get("created_at")),
             "resolved_at": _iso(issue.get("resolved_at")),
         })
+
+    # Issues raised before numbering existed have no stamped ticket. Fall back
+    # to their position in the order that OWNER raised them — the same "#N" the
+    # owner is shown — so numbering is per-user, not global.
+    unnumbered = [r for r in out if not r["number"]]
+    if unnumbered:
+        by_owner = {}
+        for r in sorted(out, key=lambda r: r["created_at"] or ""):
+            seq = by_owner.setdefault(r["user_id"], 0) + 1
+            by_owner[r["user_id"]] = seq
+            if not r["number"]:
+                r["number"] = "#" + str(seq)
 
     # Open issues first, then by recency within each group.
     open_first = [r for r in out if r["status"] != "resolved"]
