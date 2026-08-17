@@ -581,7 +581,7 @@
        without it a long name or filename widens the tile and scrolls the whole
        page sideways. The date column is fixed so its timestamp never clips. */
     .issue-row {
-      display: grid; grid-template-columns: 64px minmax(0, 1.1fr) minmax(0, 1.6fr) 150px auto;
+      display: grid; grid-template-columns: 64px minmax(0, 1.1fr) minmax(0, 2fr) 150px auto;
       align-items: center; gap: 20px; padding: 14px 20px; min-width: 0;
       flex: 0 0 auto;   /* never squash a tile to fit — scroll the list instead */
       transition: box-shadow 0.18s ease, border-color 0.18s ease;
@@ -590,8 +590,61 @@
     /* long values truncate inside their column instead of stretching the tile */
     .issue-row .cell-strong,
     .issue-row .cell-sub,
-    .issue-row .file-link {
+    .issue-row .file-link,
+    .issue-row .issue-note {
       display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    /* what the user actually reported, beside the file it was reported against */
+    .issue-note { color: var(--t-red-fg); font-weight: 500; font-size: 0.9rem; }
+    /* the statement itself: an icon that names the PDF on hover and opens it */
+    .pdf-btn { color: var(--muted); }
+    .pdf-btn:hover { color: var(--accent-text); }
+    .pdf-btn.is-off { color: var(--muted-2); opacity: 0.5; cursor: default; }
+    .pdf-btn.is-off:hover { background: var(--surface); border-color: #cbd5e1; }
+    :root[data-theme="dark"] .pdf-btn.is-off:hover { border-color: #4b5563; }
+    /* attached screenshots, with how many sit on the corner of the icon */
+    .shots-btn { position: relative; color: var(--t-purple-fg); }
+    .shots-btn:hover { background: var(--t-purple-bg); border-color: var(--t-purple-fg); }
+    /* placeholder when nothing is attached — holds the column, invites nothing */
+    .shots-btn.is-off { color: var(--muted-2); opacity: 0.3; cursor: default; }
+    .shots-btn.is-off:hover { background: var(--surface); border-color: #cbd5e1; }
+    :root[data-theme="dark"] .shots-btn.is-off:hover { border-color: #4b5563; }
+    .shots-btn .shot-n {
+      position: absolute; top: -6px; right: -6px; min-width: 16px; height: 16px;
+      padding: 0 4px; border-radius: 999px; background: var(--t-purple-fg); color: #fff;
+      font-size: 0.62rem; font-weight: 700; line-height: 16px; text-align: center;
+    }
+
+    /* screenshot viewer */
+    .shot-modal { width: 100%; max-width: 860px; max-height: 86vh; text-align: left; padding: 20px; overflow: auto; }
+    .shot-modal h3 { font-size: 1.05rem; font-weight: 700; color: var(--ink); margin-bottom: 4px; }
+    .shot-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+    .shot-grid { display: flex; flex-direction: column; gap: 18px; }
+    .shot-item { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--bg); }
+    .shot-frame { position: relative; }
+    .shot-item img { display: block; width: 100%; height: auto; }
+    /* opens this one image full size in a new tab */
+    .shot-max {
+      position: absolute; top: 10px; right: 10px;
+      display: inline-grid; place-content: center; width: 32px; height: 32px;
+      border-radius: 8px; background: rgba(15, 23, 42, 0.62); color: #fff;
+      transition: background 0.16s ease;
+    }
+    .shot-max:hover { background: rgba(15, 23, 42, 0.88); }
+    .shot-max svg { width: 16px; height: 16px; }
+    /* red cross that closes the viewer */
+    .shot-x {
+      flex-shrink: 0; display: inline-grid; place-content: center;
+      width: 36px; height: 36px; border-radius: 9px;
+      border: 1px solid var(--border); background: var(--surface);
+      color: var(--danger-fg); cursor: pointer; transition: background 0.16s ease, border-color 0.16s ease;
+    }
+    .shot-x:hover { background: var(--danger-bg); border-color: var(--danger-fg); }
+    .shot-x svg { width: 18px; height: 18px; }
+    .shot-cap {
+      padding: 8px 12px; font-size: 0.8rem; color: var(--muted);
+      border-top: 1px solid var(--border); background: var(--surface);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
     .issue-row:hover { box-shadow: var(--shadow); border-color: var(--accent); }
     .issue-row.resolved { opacity: 0.7; }
@@ -787,6 +840,19 @@
         <button class="btn" id="promptCancel" type="button">Cancel</button>
         <button class="btn btn-primary" id="promptOk" type="button">Save</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Screenshots attached to an issue. -->
+  <div class="modal-overlay" id="shotOverlay" aria-hidden="true">
+    <div class="modal shot-modal" role="dialog" aria-modal="true" aria-labelledby="shotTitle">
+      <div class="shot-head">
+        <h3 id="shotTitle">Attached images</h3>
+        <button class="shot-x" id="shotClose" type="button" aria-label="Close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="shot-grid" id="shotGrid"></div>
     </div>
   </div>
 
@@ -2249,6 +2315,10 @@
       }
       var EYE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>';
       var TICK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+      var DOC = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>';
+      var IMG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>';
+      // counter-clockwise arrow — undo the resolution, i.e. reopen
+      var REOPEN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>';
 
       // Clamp the page against the current list (resolving an issue can empty
       // the last page) and take this page's slice.
@@ -2259,30 +2329,43 @@
       var rows = list.slice(issuesPage * ISSUES_PER_PAGE, (issuesPage + 1) * ISSUES_PER_PAGE).map(function (i) {
         var resolved = i.status === "resolved";
 
-        // Filename opens the source PDF in a new tab; without stored bytes
-        // there's nothing to open, so it stays plain text.
+        // The file is an icon — its name shows on hover — and opens the PDF in
+        // a new tab. Without stored bytes there's nothing to open, so it's an
+        // inert glyph whose tip says so.
         var fname = i.filename || "Untitled";
         var file = i.has_pdf
-          ? '<a class="cell-strong file-link" title="' + escHtml(fname) + '" href="/api/admin/statements/' + escHtml(i.statement_id) + '/pdf?inline=1" target="_blank" rel="noopener">' + escHtml(fname) + '</a>'
-          : '<span class="cell-strong" title="' + escHtml(fname) + '">' + escHtml(fname) + '</span>';
+          ? '<a class="icon-act pdf-btn" href="/api/admin/statements/' + escHtml(i.statement_id) + '/pdf?inline=1" target="_blank" rel="noopener" data-tip="' + escHtml(fname) + '" aria-label="' + escHtml(fname) + '">' + DOC + '</a>'
+          : '<span class="icon-act pdf-btn is-off" data-tip="' + escHtml(fname) + ' — no file stored">' + DOC + '</span>';
 
-        // The tick reads as "mark resolved" while open, and as the resolved
-        // state (green, click to reopen) once it has been handled.
+        // Attached screenshots — the button opens them in a viewer. With none
+        // attached it stays as a faded placeholder rather than disappearing, so
+        // every row keeps the same four icons and they line up down the list.
+        var shots = i.screenshots || [];
+        var shotsBtn = shots.length
+          ? '<button class="icon-act shots-btn" type="button" data-shots="' + escHtml(i.statement_id) + '"' +
+            ' aria-label="View attached images">' + IMG +
+            '<span class="shot-n">' + shots.length + '</span></button>'
+          : '<span class="icon-act shots-btn is-off" aria-label="No images attached">' + IMG + '</span>';
+
+        // Green tick to resolve an open issue; on a resolved one the same
+        // button becomes a red undo arrow that reopens it.
         var tick = '<button class="icon-act tick' + (resolved ? ' done' : '') + '" type="button" data-resolve="' + escHtml(i.statement_id) + '"' +
-          ' data-to="' + (resolved ? 'open' : 'resolved') + '" data-tip="' + (resolved ? 'Reopen' : 'Mark resolved') + '"' +
-          ' aria-label="' + (resolved ? 'Reopen issue' : 'Mark resolved') + '">' + TICK + '</button>';
+          ' data-to="' + (resolved ? 'open' : 'resolved') + '"' +
+          ' aria-label="' + (resolved ? 'Reopen issue' : 'Mark resolved') + '">' +
+          (resolved ? REOPEN : TICK) + '</button>';
 
         return '<div class="card issue-row' + (resolved ? ' resolved' : '') + '">' +
           '<div><span class="ticket">' + escHtml(i.number || "—") + '</span></div>' +
-          '<div><div class="cell-strong" title="' + escHtml(i.owner_name || "Unknown") + '">' +
+          '<div><div class="cell-strong">' +
             escHtml(i.owner_name || "Unknown") +
             (i.owner_deleted ? ' <span class="badge off">deleted</span>' : '') + '</div>' +
             '<div class="cell-sub">' + escHtml(i.owner_mobile || "—") + '</div></div>' +
-          '<div>' + file + '</div>' +
+          '<div class="issue-note">' + escHtml(i.note || "") + '</div>' +
           '<div><div class="cell-sub">' + escHtml(fmtISTDate(i.created_at)) + '</div>' +
             '<div class="upload-time">' + escHtml(fmtISTTime(i.created_at)) + '</div></div>' +
           '<div class="row-actions">' +
-            '<button class="icon-act" type="button" data-result="' + escHtml(i.statement_id) + '" data-tip="View result" aria-label="View result">' + EYE + '</button>' +
+            shotsBtn + file +
+            '<button class="icon-act" type="button" data-result="' + escHtml(i.statement_id) + '" aria-label="View result">' + EYE + '</button>' +
             tick +
           '</div>' +
         '</div>';
@@ -2310,6 +2393,57 @@
       el.querySelectorAll("[data-resolve]").forEach(function (btn) {
         btn.addEventListener("click", function () { resolveIssue(btn.getAttribute("data-resolve"), btn.getAttribute("data-to") === "resolved"); });
       });
+      el.querySelectorAll("[data-shots]").forEach(function (btn) {
+        var id = btn.getAttribute("data-shots");
+        btn.addEventListener("click", function () {
+          var issue = list.find(function (x) { return x.statement_id === id; });
+          if (issue) openShots(issue);
+        });
+      });
+    }
+
+    // Show an issue's attached screenshots. The images are fetched by the
+    // <img> tags themselves from the admin screenshot endpoint, by position.
+    function openShots(issue) {
+      var overlay = document.getElementById("shotOverlay");
+      var grid = document.getElementById("shotGrid");
+      var shots = issue.screenshots || [];
+
+      document.getElementById("shotTitle").textContent =
+        "Attached images · " + (issue.number || "") + " · " + (issue.filename || "");
+
+      var MAX = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>';
+
+      grid.innerHTML = shots.map(function (s, n) {
+        var src = "/api/admin/statements/" + encodeURIComponent(issue.statement_id) +
+                  "/issue/screenshot/" + s.index;
+        var name = s.name || ("Screenshot " + (n + 1));
+        return '<div class="shot-item">' +
+          '<div class="shot-frame">' +
+            '<img src="' + src + '" alt="' + escHtml(name) + '" loading="lazy">' +
+            '<a class="shot-max" href="' + src + '" target="_blank" rel="noopener"' +
+              ' aria-label="Open ' + escHtml(name) + ' in a new tab">' + MAX + '</a>' +
+          '</div>' +
+          '<div class="shot-cap">' + escHtml(name) + '</div>' +
+        '</div>';
+      }).join("");
+
+      function close() {
+        overlay.classList.remove("show");
+        overlay.setAttribute("aria-hidden", "true");
+        document.getElementById("shotClose").removeEventListener("click", close);
+        overlay.removeEventListener("click", onBackdrop);
+        document.removeEventListener("keydown", onKey);
+        grid.innerHTML = "";           // stop any still-loading requests
+      }
+      function onBackdrop(e) { if (e.target === overlay) close(); }
+      function onKey(e) { if (e.key === "Escape") close(); }
+
+      document.getElementById("shotClose").addEventListener("click", close);
+      overlay.addEventListener("click", onBackdrop);
+      document.addEventListener("keydown", onKey);
+      overlay.setAttribute("aria-hidden", "false");
+      overlay.classList.add("show");
     }
 
     // Open a statement's extracted result in results.html. Loads the full data

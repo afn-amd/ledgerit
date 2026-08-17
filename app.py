@@ -3142,6 +3142,9 @@ def admin_issues():
             "number": issue.get("number") or "",
             "user_id": d.get("user_id") or "",
             "has_pdf": bool(d.get("content_type")),
+            # Name + position of each attached image; the bytes come from
+            # /api/admin/statements/<id>/issue/screenshot/<index>.
+            "screenshots": _shots_payload(issue),
             "created_at": _iso(issue.get("created_at")),
             "resolved_at": _iso(issue.get("resolved_at")),
         })
@@ -3164,6 +3167,32 @@ def admin_issues():
     open_first.sort(key=lambda r: r["created_at"] or "", reverse=True)
     resolved.sort(key=lambda r: r["created_at"] or "", reverse=True)
     return jsonify({"issues": open_first + resolved})
+
+
+@app.route("/api/admin/statements/<sid>/issue/screenshot/<int:idx>")
+@admin_required
+def admin_issue_screenshot(sid, idx):
+    # One screenshot attached to an issue, by position. Mirrors the owner-scoped
+    # route above; admins triage every user's reports, so this one isn't scoped
+    # to the current user.
+    oid = _to_oid(sid)
+    if not oid:
+        return jsonify({"error": "Not found"}), 404
+
+    doc = statements.find_one({"_id": oid}, {"issue.screenshots": 1})
+    shots = ((doc or {}).get("issue") or {}).get("screenshots") or []
+    if idx < 0 or idx >= len(shots):
+        return jsonify({"error": "Not found"}), 404
+
+    entry = shots[idx]
+    try:
+        with shot_bucket.open_download_stream(entry["file_id"]) as stream:
+            raw = stream.read()
+    except Exception as exc:
+        app.logger.warning("Could not read issue screenshot: %s", exc)
+        return jsonify({"error": "Not found"}), 404
+
+    return send_file(io.BytesIO(raw), mimetype=entry.get("content_type", "image/png"))
 
 
 @app.route("/api/admin/statements/<sid>/issue/resolve", methods=["POST"])
