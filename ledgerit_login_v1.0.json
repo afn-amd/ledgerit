@@ -1,0 +1,7 @@
+{
+  "type": "sms_template_version",
+  "template_name": "ledgerit_login",
+  "message_type": "UNICODE",
+  "version": "v1.0",
+  "template": "Ledgerit Registration OTP\n\nYour OTP for registering on Ledgerit is *##otp##*. This OTP is valid for *##validity## minutes*. Do not share this OTP with anyone.\n\n— *Team Ledgerit by Flint De Orient*"
+}

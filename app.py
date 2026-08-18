@@ -26,6 +26,7 @@ from flask import (
 )
 from werkzeug.security import generate_password_hash, check_password_hash
 from pymongo import MongoClient, ReturnDocument
+from pymongo.errors import DuplicateKeyError
 import bson
 import gridfs
 from bson import ObjectId
@@ -33,6 +34,7 @@ from bson.errors import InvalidId
 import camelot
 import pandas as pd
 import razorpay
+import requests
 import torch
 from PyPDF2 import PdfReader, PdfWriter
 from transformers import DistilBertTokenizerFast, DistilBertForSequenceClassification
@@ -135,6 +137,7 @@ users = db["users"]              # registered accounts
 statements = db["statements"]    # saved extraction results, per user
 messages = db["messages"]        # contact-form submissions
 payments = db["payments"]        # one document per Razorpay order
+otps = db["otps"]                # one live sign-in OTP per mobile number
 
 # Source PDFs that are too big to sit inline in their statement document (Mongo
 # caps a single document at 16 MB) are chunked into GridFS instead. Small files
@@ -158,6 +161,13 @@ try:
     # record that could be credited twice.
     payments.create_index("order_id", unique=True)
     payments.create_index([("created_at", -1)])
+    # At most one OTP record per number per purpose — requesting a new code
+    # overwrites the old one rather than leaving several valid at once.
+    otps.create_index([("mobile", 1), ("purpose", 1)], unique=True)
+    # Mongo vacuums spent OTP records itself. purge_at is deliberately set past
+    # the code's own expiry so the send-rate counters on the document outlive
+    # the code they throttled — see _request_login_otp.
+    otps.create_index("purge_at", expireAfterSeconds=0)
 except Exception as exc:  # pragma: no cover - depends on local mongod
     print(f"[ledgerit] WARNING: could not reach MongoDB at {MONGO_URI}: {exc}")
 
@@ -1485,6 +1495,270 @@ def _locked_response(seconds_left):
     }), 423  # 423 Locked
 
 
+def _record_failed_attempt(user, message):
+    # Count one failed sign-in against the account and build the response.
+    #
+    # Shared by the password and the OTP path, and deliberately so: they
+    # increment the *same* counter, so three failures in any mix locks the
+    # account. Were the OTP path given its own budget, an attacker blocked on
+    # passwords could simply switch to guessing codes.
+    #
+    # `message` names what was wrong; the attempts-left sentence is appended
+    # here so both paths word it identically.
+    failed = int(user.get("failed_logins", 0)) + 1
+
+    if failed >= MAX_FAILED_LOGINS:
+        users.update_one(
+            {"_id": user["_id"]},
+            {"$set": {
+                "failed_logins": 0,
+                "lock_until": datetime.now(timezone.utc) + LOCKOUT_DURATION,
+            }},
+        )
+        return _locked_response(int(LOCKOUT_DURATION.total_seconds()))
+
+    # The lock window has passed if we got here, so a stale lock_until from a
+    # previous lockout is cleared as we count this attempt.
+    users.update_one(
+        {"_id": user["_id"]},
+        {"$set": {"failed_logins": failed}, "$unset": {"lock_until": ""}},
+    )
+    left = MAX_FAILED_LOGINS - failed
+    return jsonify({
+        "error": (
+            f"{message} {left} attempt{'s' if left != 1 else ''} left before "
+            f"this account is locked for "
+            f"{_humanize(int(LOCKOUT_DURATION.total_seconds()))}."
+        ),
+        "attempts_left": left,
+    }), 401
+
+
+def _complete_login(user):
+    # Establish the session for a user who has proved who they are — by either
+    # credential — and hand the sign-in page what it needs to route them.
+    #
+    # Wipes the failure streak so the counter only ever tracks *consecutive*
+    # failures.
+    if user.get("failed_logins") or user.get("lock_until"):
+        users.update_one(
+            {"_id": user["_id"]},
+            {"$unset": {"failed_logins": "", "lock_until": ""}},
+        )
+
+    # session.permanent is set here as well as in the before_request hook
+    # because that hook runs before this assigns user_id — without it, the very
+    # first response would carry a cookie with no expiry attributes.
+    session.permanent = True
+    session["user_id"] = str(user["_id"])
+    session["name"] = user.get("name", "")
+
+    # Surface the role so the login page can route staff straight to the admin
+    # console instead of the upload page.
+    role = user_role(user)
+    return jsonify({
+        "ok": True,
+        "name": user.get("name", ""),
+        "role": role,
+        "is_admin": role in STAFF_ROLES,
+    })
+
+
+# ---------------------------------------------------------------------------
+# Sign-in OTP (MSG91)
+# ---------------------------------------------------------------------------
+# The code is generated, stored and checked here; MSG91 is only the delivery
+# pipe. That keeps expiry, resend throttling and the lockout above under this
+# app's control rather than split across a vendor's state.
+#
+# What is stored is an HMAC of the code keyed on SECRET_KEY, never the code
+# itself — a dump of the otps collection is not enough to sign in with.
+MSG91_AUTH_KEY = os.environ.get("MSG91_AUTH_KEY", "").strip()
+MSG91_OTP_TEMPLATE_ID = os.environ.get("MSG91_OTP_TEMPLATE_ID", "").strip()
+MSG91_REGISTER_TEMPLATE_ID = os.environ.get("MSG91_REGISTER_TEMPLATE_ID", "").strip()
+MSG91_SENDER_ID = os.environ.get("MSG91_SENDER_ID", "").strip()
+MSG91_FLOW_URL = "https://control.msg91.com/api/v5/flow/"
+
+# Sign-in and sign-up are two separately DLT-approved templates, and they are
+# not interchangeable: the approved wording differs ("login OTP" vs "registering
+# on Ledgerit"), and so does the spelling of the validity variable. MSG91 fills
+# variables by exact name, so each purpose carries its own.
+OTP_TEMPLATES = {
+    # login_ledger_v1.0.json. "valifity" is a typo in the DLT-approved
+    # template — reproduced deliberately, because sending "validity" would
+    # leave the placeholder unfilled in the message the customer receives.
+    "login": {"template_id": MSG91_OTP_TEMPLATE_ID, "validity_var": "valifity"},
+    # ledgerit_login_v1.0.json (named for the template, not the flow — its
+    # content is the registration one). This one spells validity correctly.
+    "register": {"template_id": MSG91_REGISTER_TEMPLATE_ID, "validity_var": "validity"},
+}
+
+OTP_LENGTH = 6
+OTP_TTL = timedelta(minutes=5)
+# Gap between two sends to the same number, so a held-down button can't bill us
+# for a burst of texts. Comfortably longer than SMS delivery takes, so "resend"
+# is only ever reached by people the first message genuinely didn't get to.
+OTP_RESEND_COOLDOWN = timedelta(minutes=2)
+# Ceiling on sends to one number per rolling window. Each SMS costs money, and
+# a number that has legitimately failed to receive five codes in an hour has a
+# problem more codes won't fix.
+OTP_SEND_WINDOW = timedelta(hours=1)
+OTP_MAX_SENDS_PER_WINDOW = 5
+
+# Wrong guesses allowed against one issued code. Sign-in has the account
+# lockout on top of this; sign-up has no account to lock, so for that flow this
+# cap is the whole defence — five tries and the code is dead.
+OTP_MAX_VERIFY_ATTEMPTS = 5
+
+# How long a verified number stays verified, i.e. how long someone has to
+# choose a password after passing the OTP before they must verify again.
+REGISTER_VERIFY_WINDOW = timedelta(minutes=15)
+
+for _purpose, _cfg in OTP_TEMPLATES.items():
+    if not (MSG91_AUTH_KEY and _cfg["template_id"]):
+        print(f"[ledgerit] WARNING: MSG91 not configured for '{_purpose}' — "
+              "those OTPs will be logged to the console instead of sent.")
+
+
+def _otp_hash(code):
+    # Keyed hash, so the stored value is useless without SECRET_KEY. A 6-digit
+    # code has only a million possibilities, which a bare SHA-256 would give up
+    # to a rainbow table instantly.
+    return hmac.new(
+        app.secret_key.encode() if isinstance(app.secret_key, str) else app.secret_key,
+        code.encode(),
+        hashlib.sha256,
+    ).hexdigest()
+
+
+def _send_otp_sms(mobile, code, purpose):
+    # Deliver an OTP through MSG91's Flow API using the template registered for
+    # this purpose. True when MSG91 accepted it for delivery.
+    #
+    # With no credentials configured (local dev) the code goes to the log and
+    # no SMS is sent, so the whole flow stays testable without spending money
+    # or waiting on DLT. Note that this is the only branch that ever prints a
+    # code — once MSG91 is configured, codes never reach the logs.
+    cfg = OTP_TEMPLATES[purpose]
+
+    if not (MSG91_AUTH_KEY and cfg["template_id"]):
+        print(f"[ledgerit] DEV OTP ({purpose}) for {mobile}: {code}")
+        return True
+
+    payload = {
+        "template_id": cfg["template_id"],
+        "short_url": "0",
+        "recipients": [{
+            "mobiles": f"91{mobile}",
+            "otp": code,
+            cfg["validity_var"]: str(int(OTP_TTL.total_seconds() // 60)),
+        }],
+    }
+    if MSG91_SENDER_ID:
+        payload["sender"] = MSG91_SENDER_ID
+
+    try:
+        res = requests.post(
+            MSG91_FLOW_URL,
+            json=payload,
+            headers={"authkey": MSG91_AUTH_KEY, "accept": "application/json"},
+            timeout=10,
+        )
+    except requests.RequestException as exc:
+        print(f"[ledgerit] WARNING: MSG91 unreachable for {mobile}: {exc}")
+        return False
+
+    # MSG91 reports failures in the body with HTTP 200, so the status code
+    # alone does not tell us the message was accepted.
+    try:
+        body = res.json()
+    except ValueError:
+        body = {}
+    if res.status_code != 200 or str(body.get("type", "")).lower() == "error":
+        print(f"[ledgerit] WARNING: MSG91 rejected {purpose} OTP for {mobile}: "
+              f"{res.status_code} {res.text[:300]}")
+        return False
+    return True
+
+
+def _issue_otp(mobile, purpose, hint=""):
+    # Throttle, generate, store and send one OTP. Returns (payload, status) for
+    # the caller to jsonify — the sign-in and sign-up request routes differ only
+    # in who they let through the door, not in how a code gets issued.
+    now = datetime.now(timezone.utc)
+    record = otps.find_one({"mobile": mobile, "purpose": purpose}) or {}
+
+    last_sent = _as_utc(record.get("last_sent_at"))
+    if last_sent:
+        wait = int((last_sent + OTP_RESEND_COOLDOWN - now).total_seconds())
+        if wait > 0:
+            # Seconds precision rather than _humanize's round-up-to-minutes:
+            # this one counts down live on the page, so "2 minutes" for 61
+            # seconds left would visibly contradict the timer beside it.
+            mins, secs = divmod(wait, 60)
+            human = (f"{mins}m {secs:02d}s" if mins
+                     else f"{secs} second{'s' if secs != 1 else ''}")
+            return {
+                "error": f"Please wait {human} before requesting another OTP.",
+                "retry_after": wait,
+            }, 429
+
+    # Roll the window forward once it has elapsed, then count this send in it.
+    window_start = _as_utc(record.get("window_start"))
+    sends = int(record.get("send_count", 0))
+    if not window_start or now - window_start >= OTP_SEND_WINDOW:
+        window_start, sends = now, 0
+
+    if sends >= OTP_MAX_SENDS_PER_WINDOW:
+        wait = int((window_start + OTP_SEND_WINDOW - now).total_seconds())
+        return {
+            "error": "Too many OTP requests for this number. Try again in "
+                     f"{_humanize(wait)}.{hint}",
+            "retry_after": wait,
+        }, 429
+
+    code = "".join(secrets.choice("0123456789") for _ in range(OTP_LENGTH))
+
+    # Store before sending. The reverse order would leave a window where the
+    # customer holds a code this server has no record of.
+    otps.update_one(
+        {"mobile": mobile, "purpose": purpose},
+        {"$set": {
+            "code_hash": _otp_hash(code),
+            "expires_at": now + OTP_TTL,
+            "last_sent_at": now,
+            "window_start": window_start,
+            "send_count": sends + 1,
+            "attempts": 0,
+            # Past both the code's expiry and the throttle window, so the TTL
+            # index can't delete the document early and hand someone a clean
+            # send_count just by waiting out the code.
+            "purge_at": now + OTP_SEND_WINDOW,
+        },
+         # Asking for a new code drops any earlier verification, so a sign-up
+         # can't be completed against a number that was verified two codes ago.
+         "$unset": {"verified_at": ""}},
+        upsert=True,
+    )
+
+    if not _send_otp_sms(mobile, code, purpose):
+        # Delivery failed, so retract the code and refund the send. Leaving the
+        # throttle charged would let a provider outage lock a customer out of
+        # the OTP route entirely.
+        otps.update_one(
+            {"mobile": mobile, "purpose": purpose},
+            {"$set": {"send_count": sends},
+             "$unset": {"code_hash": "", "expires_at": "", "last_sent_at": ""}},
+        )
+        return {"error": "Could not send the OTP right now. Please try again."}, 502
+
+    return {
+        "ok": True,
+        "expires_in": int(OTP_TTL.total_seconds()),
+        "resend_in": int(OTP_RESEND_COOLDOWN.total_seconds()),
+    }, 200
+
+
 # ---------------------------------------------------------------------------
 # Auth API
 # ---------------------------------------------------------------------------
@@ -1506,18 +1780,45 @@ def register():
     if users.find_one({"mobile": mobile}):
         return jsonify({"error": "An account with this mobile already exists"}), 409
 
-    result = users.insert_one({
-        "name": name,
-        "mobile": mobile,
-        "password_hash": generate_password_hash(password),
-        "role": "user",
-        # Free-plan page credit: how many PDF pages they've extracted and the
-        # cap. page_limit is per-user so it can be bumped from the DB to grant
-        # someone more without changing code.
-        "pages_used": 0,
-        "page_limit": FREE_PAGE_LIMIT,
-        "created_at": datetime.now(timezone.utc),
-    })
+    # The number must have passed /api/register/otp/verify recently. Checked
+    # server-side against the stamp that route wrote, so a caller can't skip
+    # verification by posting straight here — which is the whole point of the
+    # step. Requesting another code clears the stamp.
+    record = otps.find_one({"mobile": mobile, "purpose": "register"}) or {}
+    verified_at = _as_utc(record.get("verified_at"))
+    if not verified_at:
+        return jsonify({
+            "error": "Please verify your mobile number first.",
+            "verify_required": True,
+        }), 403
+    if datetime.now(timezone.utc) - verified_at > REGISTER_VERIFY_WINDOW:
+        return jsonify({
+            "error": "Your verification has expired. Please verify your number again.",
+            "verify_required": True,
+        }), 403
+
+    try:
+        result = users.insert_one({
+            "name": name,
+            "mobile": mobile,
+            "password_hash": generate_password_hash(password),
+            "role": "user",
+            # Free-plan page credit: how many PDF pages they've extracted and
+            # the cap. page_limit is per-user so it can be bumped from the DB to
+            # grant someone more without changing code.
+            "pages_used": 0,
+            "page_limit": FREE_PAGE_LIMIT,
+            "created_at": datetime.now(timezone.utc),
+        })
+    except DuplicateKeyError:
+        # Two sign-ups for the same number in flight at once. The unique index
+        # on `mobile` is what actually decides it; the find_one above is only a
+        # courtesy check, and the loser lands here rather than on a 500.
+        return jsonify({"error": "An account with this mobile already exists"}), 409
+
+    # The verification has been spent. Dropping the record also clears the send
+    # counters, which is right: this number will never sign up again.
+    otps.delete_one({"_id": record["_id"]})
 
     # Log the new user straight in. permanent is set here as well as in the
     # before_request hook because that hook runs before this handler assigns
@@ -1551,57 +1852,190 @@ def login():
     if seconds_left:
         return _locked_response(seconds_left)
 
-    if not check_password_hash(user["password_hash"], password):
-        # The lock window has passed if we got here, so a stale lock_until from a
-        # previous lockout is cleared as we count this attempt.
-        failed = int(user.get("failed_logins", 0)) + 1
+    # An account with no password at all can only be reached by OTP. Read with
+    # .get rather than [] so such a document answers "wrong password" instead of
+    # raising a 500 — nothing creates one today, but the OTP path below makes it
+    # a shape this route can be handed.
+    stored = user.get("password_hash")
+    if not stored or not check_password_hash(stored, password):
+        return _record_failed_attempt(user, "Invalid mobile number or password.")
 
-        if failed >= MAX_FAILED_LOGINS:
-            users.update_one(
-                {"_id": user["_id"]},
-                {"$set": {
-                    "failed_logins": 0,
-                    "lock_until": datetime.now(timezone.utc) + LOCKOUT_DURATION,
-                }},
-            )
-            return _locked_response(int(LOCKOUT_DURATION.total_seconds()))
+    return _complete_login(user)
 
-        users.update_one(
-            {"_id": user["_id"]},
-            {"$set": {"failed_logins": failed}, "$unset": {"lock_until": ""}},
-        )
-        left = MAX_FAILED_LOGINS - failed
+
+@app.route("/api/login/otp/request", methods=["POST"])
+def request_login_otp():
+    # Issue a sign-in code to a registered number. Throttled on two axes: a
+    # short cooldown between consecutive sends, and a ceiling per rolling
+    # window. Both counters live on the OTP document rather than the session,
+    # so clearing cookies doesn't reset them.
+    data = request.get_json(silent=True) or {}
+    mobile = (data.get("mobile") or "").strip()
+
+    if not re.fullmatch(r"\d{10}", mobile):
+        return jsonify({"error": "Enter a valid 10-digit mobile number"}), 400
+
+    user = users.find_one({"mobile": mobile})
+    # Same answer the password path gives an unknown number. Matching it is
+    # what matters: if one route said "no such user" and the other stayed
+    # vague, the pair would still leak which numbers are registered.
+    if not user:
+        return jsonify({"error": "New User? Register.", "unregistered": True}), 401
+
+    # A locked account can't be handed a fresh code either — otherwise the
+    # lockout would only ever cost an attacker the price of a new OTP.
+    seconds_left = _lock_seconds_left(user)
+    if seconds_left:
+        return _locked_response(seconds_left)
+
+    payload, status = _issue_otp(
+        mobile, "login", hint=" You can still sign in with your password."
+    )
+    return jsonify(payload), status
+
+
+@app.route("/api/login/otp/verify", methods=["POST"])
+def verify_login_otp():
+    data = request.get_json(silent=True) or {}
+    mobile = (data.get("mobile") or "").strip()
+    code = re.sub(r"\D", "", data.get("otp") or "")
+
+    if not re.fullmatch(r"\d{10}", mobile):
+        return jsonify({"error": "Enter a valid 10-digit mobile number"}), 400
+    if len(code) != OTP_LENGTH:
+        return jsonify({"error": f"Enter the {OTP_LENGTH}-digit OTP"}), 400
+
+    user = users.find_one({"mobile": mobile})
+    if not user:
+        return jsonify({"error": "New User? Register.", "unregistered": True}), 401
+
+    seconds_left = _lock_seconds_left(user)
+    if seconds_left:
+        return _locked_response(seconds_left)
+
+    record = otps.find_one({"mobile": mobile, "purpose": "login"}) or {}
+    expires_at = _as_utc(record.get("expires_at"))
+    stored = record.get("code_hash")
+
+    # No live code — never issued, already used, or timed out. This is not a
+    # wrong guess, so it doesn't count against the lockout; `expired` lets the
+    # page offer a resend rather than just showing an error.
+    if not stored or not expires_at or expires_at <= datetime.now(timezone.utc):
         return jsonify({
-            "error": (
-                "Invalid mobile number or password. "
-                f"{left} attempt{'s' if left != 1 else ''} left before this "
-                f"account is locked for {_humanize(int(LOCKOUT_DURATION.total_seconds()))}."
-            ),
+            "error": "This OTP has expired. Please request a new one.",
+            "expired": True,
+        }), 401
+
+    # compare_digest, not ==, so the comparison can't be timed to leak the hash
+    # a character at a time.
+    if not hmac.compare_digest(stored, _otp_hash(code)):
+        return _record_failed_attempt(user, "Incorrect OTP.")
+
+    # Burn the code so it can't be replayed, but keep the send counters — a
+    # successful sign-in shouldn't hand back a fresh throttle budget.
+    otps.update_one(
+        {"_id": record["_id"]},
+        {"$unset": {"code_hash": "", "expires_at": ""}},
+    )
+    return _complete_login(user)
+
+
+@app.route("/api/register/otp/request", methods=["POST"])
+def request_register_otp():
+    # Send a verification code to a number that is signing up. The mirror image
+    # of the sign-in gate: there the number must exist, here it must not.
+    data = request.get_json(silent=True) or {}
+    name = (data.get("name") or "").strip()
+    mobile = (data.get("mobile") or "").strip()
+
+    if not name:
+        return jsonify({"error": "Name is required"}), 400
+    if not re.fullmatch(r"\d{10}", mobile):
+        return jsonify({"error": "Enter a valid 10-digit mobile number"}), 400
+
+    # Say so plainly rather than silently sending a code that could never be
+    # used — /api/register would refuse the number anyway, and the existing
+    # sign-up page already discloses this. `registered` lets the page offer a
+    # link to sign in instead.
+    if users.find_one({"mobile": mobile}):
+        return jsonify({
+            "error": "An account with this mobile already exists",
+            "registered": True,
+        }), 409
+
+    payload, status = _issue_otp(mobile, "register")
+    return jsonify(payload), status
+
+
+@app.route("/api/register/otp/verify", methods=["POST"])
+def verify_register_otp():
+    # Prove the number is reachable, then remember that for a short while so
+    # the password step can complete the sign-up.
+    data = request.get_json(silent=True) or {}
+    mobile = (data.get("mobile") or "").strip()
+    code = re.sub(r"\D", "", data.get("otp") or "")
+
+    if not re.fullmatch(r"\d{10}", mobile):
+        return jsonify({"error": "Enter a valid 10-digit mobile number"}), 400
+    if len(code) != OTP_LENGTH:
+        return jsonify({"error": f"Enter the {OTP_LENGTH}-digit OTP"}), 400
+
+    # Someone may have signed up with this number between the send and the
+    # verify, so re-check rather than verifying a number that is now taken.
+    if users.find_one({"mobile": mobile}):
+        return jsonify({
+            "error": "An account with this mobile already exists",
+            "registered": True,
+        }), 409
+
+    record = otps.find_one({"mobile": mobile, "purpose": "register"}) or {}
+    expires_at = _as_utc(record.get("expires_at"))
+    stored = record.get("code_hash")
+
+    if not stored or not expires_at or expires_at <= datetime.now(timezone.utc):
+        return jsonify({
+            "error": "This OTP has expired. Please request a new one.",
+            "expired": True,
+        }), 401
+
+    attempts = int(record.get("attempts", 0)) + 1
+
+    # compare_digest, not ==, so the comparison can't be timed to leak the hash
+    # a character at a time.
+    if not hmac.compare_digest(stored, _otp_hash(code)):
+        # There is no account yet, so nothing to lock — the per-code attempt
+        # cap is what stops a 6-digit code being walked through. Burning the
+        # code on the last try forces a fresh send, which the 2-minute cooldown
+        # and hourly ceiling then throttle.
+        if attempts >= OTP_MAX_VERIFY_ATTEMPTS:
+            otps.update_one(
+                {"_id": record["_id"]},
+                {"$set": {"attempts": attempts},
+                 "$unset": {"code_hash": "", "expires_at": ""}},
+            )
+            return jsonify({
+                "error": "Too many incorrect attempts. Please request a new OTP.",
+                "expired": True,
+            }), 401
+
+        otps.update_one({"_id": record["_id"]}, {"$set": {"attempts": attempts}})
+        left = OTP_MAX_VERIFY_ATTEMPTS - attempts
+        return jsonify({
+            "error": f"Incorrect OTP. {left} attempt{'s' if left != 1 else ''} left.",
             "attempts_left": left,
         }), 401
 
-    # Correct password — wipe the failure streak so the count only ever tracks
-    # *consecutive* failures.
-    if user.get("failed_logins") or user.get("lock_until"):
-        users.update_one(
-            {"_id": user["_id"]},
-            {"$unset": {"failed_logins": "", "lock_until": ""}},
-        )
-
-    # See the note in register(): before_request can't have flagged this session
-    # permanent yet, because user_id is only being set now.
-    session.permanent = True
-    session["user_id"] = str(user["_id"])
-    session["name"] = user.get("name", "")
-
-    # Surface the role so the login page can route staff straight to the admin
-    # console instead of the upload page.
-    role = user_role(user)
+    # Verified. Burn the code and stamp the number as proven; /api/register
+    # reads that stamp rather than trusting the browser to say so.
+    otps.update_one(
+        {"_id": record["_id"]},
+        {"$set": {"verified_at": datetime.now(timezone.utc)},
+         "$unset": {"code_hash": "", "expires_at": ""}},
+    )
     return jsonify({
         "ok": True,
-        "name": user.get("name", ""),
-        "role": role,
-        "is_admin": role in STAFF_ROLES,
+        "verified": True,
+        "complete_in": int(REGISTER_VERIFY_WINDOW.total_seconds()),
     })
 
 

@@ -166,6 +166,68 @@
     }
     .signin-row a:hover { text-decoration: underline; }
 
+    .btn-submit:disabled {
+      opacity: 0.6; cursor: default; transform: none;
+      box-shadow: 0 6px 14px rgba(37,99,235,0.18);
+    }
+
+    /* Fields already committed to in an earlier step stay visible but locked,
+       so the sign-up never hides what it is about to submit. */
+    .field input:disabled {
+      background: var(--bg-tint); color: var(--muted); cursor: default;
+    }
+
+    .alt-row { text-align: center; margin-top: 16px; font-size: 0.9rem; }
+    .alt-row button {
+      background: none; border: none; padding: 0; cursor: pointer;
+      font-family: inherit; font-size: inherit; font-weight: 700;
+      color: var(--primary);
+    }
+    .alt-row button:hover { text-decoration: underline; }
+
+    .verified-note {
+      display: flex; align-items: center; gap: 6px;
+      margin-top: 8px; font-size: 0.84rem; font-weight: 600; color: var(--green);
+    }
+    .verified-note svg { width: 15px; height: 15px; flex: none; }
+
+    .otp-note {
+      font-size: 0.86rem; color: var(--muted); margin-bottom: 12px;
+      text-align: center; line-height: 1.5;
+    }
+    .otp-note strong { color: var(--ink-soft); font-weight: 700; }
+
+    /* One box per digit. flex:1 with min-width:0 lets the row shrink to fit a
+       narrow phone instead of overflowing the card. */
+    .otp-boxes { display: flex; gap: 8px; }
+    .otp-digit {
+      flex: 1; min-width: 0; padding: 14px 0;
+      font-family: inherit; font-size: 1.25rem; font-weight: 700;
+      text-align: center; color: var(--ink);
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 13px;
+      transition: border-color 0.16s, box-shadow 0.16s;
+    }
+    .otp-digit:focus {
+      outline: none; border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(37,99,235,0.15);
+    }
+    .otp-digit.filled { border-color: var(--primary); }
+
+    .resend-row {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-top: 10px; font-size: 0.85rem; color: var(--muted);
+    }
+    .resend-row button {
+      background: none; border: none; padding: 0; cursor: pointer;
+      font-family: inherit; font-size: inherit; font-weight: 700;
+      color: var(--primary);
+    }
+    .resend-row button:disabled { color: var(--muted); cursor: default; }
+    .resend-row button:not(:disabled):hover { text-decoration: underline; }
+
+    .hidden { display: none; }
+
     @media (max-width: 480px) {
       .card { padding: 36px 26px 30px; border-radius: 20px; }
       h1 { font-size: 1.5rem; }
@@ -200,9 +262,40 @@
                  inputmode="numeric" maxlength="10" autocomplete="tel" />
         </div>
         <div class="err" id="errMobile">Enter a valid 10-digit mobile number.</div>
+        <div class="verified-note hidden" id="verifiedNote">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          Mobile number verified
+        </div>
       </div>
 
-      <div class="field">
+      <div class="field hidden" id="otpBlock">
+        <div class="otp-note" id="otpNote"></div>
+        <label for="otp0">Enter the OTP</label>
+        <div class="otp-boxes" id="otpBoxes">
+          <!-- one-time-code sits on the first box only: that's the one the
+               browser autofills from the SMS, and the input handler spreads a
+               multi-character fill across the rest. -->
+          <input type="text" id="otp0" class="otp-digit" inputmode="numeric"
+                 maxlength="1" autocomplete="one-time-code" aria-label="OTP digit 1" />
+          <input type="text" id="otp1" class="otp-digit" inputmode="numeric"
+                 maxlength="1" autocomplete="off" aria-label="OTP digit 2" />
+          <input type="text" id="otp2" class="otp-digit" inputmode="numeric"
+                 maxlength="1" autocomplete="off" aria-label="OTP digit 3" />
+          <input type="text" id="otp3" class="otp-digit" inputmode="numeric"
+                 maxlength="1" autocomplete="off" aria-label="OTP digit 4" />
+          <input type="text" id="otp4" class="otp-digit" inputmode="numeric"
+                 maxlength="1" autocomplete="off" aria-label="OTP digit 5" />
+          <input type="text" id="otp5" class="otp-digit" inputmode="numeric"
+                 maxlength="1" autocomplete="off" aria-label="OTP digit 6" />
+        </div>
+        <div class="err" id="errOtp">Enter the 6-digit OTP.</div>
+        <div class="resend-row">
+          <span id="resendNote"></span>
+          <button type="button" id="resendBtn">Resend OTP</button>
+        </div>
+      </div>
+
+      <div class="field hidden" id="passBlock">
         <label for="password">Password</label>
         <div class="input-wrap">
           <input type="password" id="password" placeholder="Min. 8 characters" autocomplete="new-password" />
@@ -213,8 +306,12 @@
         <div class="err" id="errPass">Password must be at least 8 characters.</div>
       </div>
 
-      <button type="submit" class="btn-submit">Create account</button>
+      <button type="submit" class="btn-submit" id="submitBtn">Send OTP</button>
     </form>
+
+    <div class="alt-row hidden" id="changeRow">
+      <button type="button" id="changeBtn">Change name or number</button>
+    </div>
 
     <div class="signin-row">
       Already have an account? <a href="/login.html">Sign in</a>
@@ -232,8 +329,134 @@
       }
     })();
 
+    var fullName    = document.getElementById("fullName");
+    var mobile      = document.getElementById("mobile");
+    var otpDigits   = Array.prototype.slice.call(document.querySelectorAll(".otp-digit"));
+    var otpBlock    = document.getElementById("otpBlock");
+    var otpNote     = document.getElementById("otpNote");
+    var passBlock   = document.getElementById("passBlock");
+    var verifiedNote= document.getElementById("verifiedNote");
+    var submitBtn   = document.getElementById("submitBtn");
+    var changeRow   = document.getElementById("changeRow");
+    var changeBtn   = document.getElementById("changeBtn");
+    var resendBtn   = document.getElementById("resendBtn");
+    var resendNote  = document.getElementById("resendNote");
+
+    // Sign-up runs in three steps: collect the details, prove the number is
+    // reachable, then choose a password. Everything on screen follows from
+    // which step we're on, so render() is the only thing that touches the DOM.
+    var step = "details";   // "details" | "otp" | "password"
+    var resendTimer = null;
+
+    function render() {
+      fullName.disabled = step !== "details";
+      mobile.disabled   = step !== "details";
+      otpBlock.classList.toggle("hidden", step !== "otp");
+      passBlock.classList.toggle("hidden", step !== "password");
+      verifiedNote.classList.toggle("hidden", step !== "password");
+      changeRow.classList.toggle("hidden", step === "details");
+      submitBtn.textContent = step === "details" ? "Verify number"
+                            : step === "otp"     ? "Verify"
+                            : "Create account";
+    }
+
+    function stopCountdown() {
+      clearInterval(resendTimer);
+      resendBtn.disabled = false;
+      resendNote.textContent = "Didn't get the code?";
+    }
+
+    // m:ss once past a minute, plain seconds below it.
+    function fmtWait(s) {
+      var m = Math.floor(s / 60), r = s % 60;
+      return m ? m + ":" + (r < 10 ? "0" : "") + r : r + "s";
+    }
+
+    function startCountdown(seconds) {
+      clearInterval(resendTimer);
+      var left = seconds;
+      resendTimer = setInterval(tick, 1000);
+      tick();
+
+      function tick() {
+        if (left > 0) {
+          resendBtn.disabled = true;
+          resendNote.textContent = "Resend available in " + fmtWait(left);
+          left--;
+        } else {
+          stopCountdown();
+        }
+      }
+    }
+
+    // --- OTP boxes ---------------------------------------------------------
+    // Six single-character inputs behaving as one field: the code is whatever
+    // they spell out left to right.
+    function otpValue() {
+      return otpDigits.map(function (d) { return d.value; }).join("");
+    }
+
+    function clearOtp() {
+      otpDigits.forEach(function (d) {
+        d.value = "";
+        d.classList.remove("filled");
+      });
+    }
+
+    // Spread a string of digits across the boxes from `start`, and park the
+    // cursor on the first still-empty one. Shared by typing, pasting and SMS
+    // autofill, which all arrive as "n characters landed in one box".
+    function fillOtp(text, start) {
+      var chars = text.replace(/\D/g, "").split("");
+      var i = start;
+      while (chars.length && i < otpDigits.length) {
+        otpDigits[i].value = chars.shift();
+        otpDigits[i].classList.add("filled");
+        i++;
+      }
+      otpDigits[Math.min(i, otpDigits.length - 1)].focus();
+    }
+
+    otpDigits.forEach(function (box, idx) {
+      // Selecting on focus means typing into a filled box overwrites it —
+      // without this, maxlength=1 would silently swallow the keystroke.
+      box.addEventListener("focus", function () { this.select(); });
+
+      box.addEventListener("input", function () {
+        var typed = this.value.replace(/\D/g, "");
+        if (!typed) {                    // a non-digit was typed, or it was cleared
+          this.value = "";
+          this.classList.remove("filled");
+          return;
+        }
+        // Autofill drops the whole code into the first box, ignoring maxlength.
+        this.value = "";
+        fillOtp(typed, idx);
+      });
+
+      box.addEventListener("keydown", function (e) {
+        if (e.key === "Backspace" && !this.value && idx > 0) {
+          e.preventDefault();
+          otpDigits[idx - 1].value = "";
+          otpDigits[idx - 1].classList.remove("filled");
+          otpDigits[idx - 1].focus();
+        } else if (e.key === "ArrowLeft" && idx > 0) {
+          e.preventDefault();
+          otpDigits[idx - 1].focus();
+        } else if (e.key === "ArrowRight" && idx < otpDigits.length - 1) {
+          e.preventDefault();
+          otpDigits[idx + 1].focus();
+        }
+      });
+
+      box.addEventListener("paste", function (e) {
+        e.preventDefault();
+        var text = (e.clipboardData || window.clipboardData).getData("text") || "";
+        fillOtp(text, idx);
+      });
+    });
+
     // Mobile field: digits only.
-    var mobile = document.getElementById("mobile");
     mobile.addEventListener("input", function () {
       this.value = this.value.replace(/\D/g, "").slice(0, 10);
     });
@@ -251,55 +474,197 @@
         : '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
     });
 
+    // The client-side validation text for each slot. Kept here because a server
+    // message overwrites the element's contents, and the next validation
+    // failure has to put the original wording back.
+    var ERR_DEFAULTS = {
+      errName: "Please enter your name.",
+      errMobile: "Enter a valid 10-digit mobile number.",
+      errOtp: "Enter the 6-digit OTP.",
+      errPass: "Password must be at least 8 characters."
+    };
+
     function showErr(id, show) {
-      document.getElementById(id).classList.toggle("show", show);
+      var el = document.getElementById(id);
+      if (show) el.textContent = ERR_DEFAULTS[id];
+      el.classList.toggle("show", show);
     }
 
-    // On submit: validate, then create the account via the backend.
-    document.getElementById("registerForm").addEventListener("submit", async function (e) {
-      e.preventDefault();
+    function clearErrs() {
+      Object.keys(ERR_DEFAULTS).forEach(function (id) {
+        document.getElementById(id).classList.remove("show");
+      });
+    }
 
-      var name = document.getElementById("fullName").value.trim();
+    function showServerError(id, out, fallback) {
+      var el = document.getElementById(id);
+      el.textContent = (out && out.error) || fallback;
+      if (out && out.registered) {
+        // The number already has an account — offer the way in rather than a
+        // dead end. Built with DOM nodes, not innerHTML, so the server's text
+        // is never treated as markup.
+        el.textContent = "Already registered. ";
+        var a = document.createElement("a");
+        a.href = "/login.html";
+        a.textContent = "Sign in";
+        el.appendChild(a);
+      }
+      el.classList.add("show");
+    }
+
+    async function postJSON(url, body) {
+      var res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+      return { res: res, out: await res.json() };
+    }
+
+    // Request a verification code for the details on screen. Owns submitBtn's
+    // disabled state; resendBtn's belongs to the countdown, which every exit
+    // path here either starts or stops.
+    async function sendOtp() {
+      var name = fullName.value.trim();
       var phone = mobile.value.trim();
-      var pwd = pass.value;
 
       var okName = name.length > 0;
       var okPhone = /^\d{10}$/.test(phone);
-      var okPwd = pwd.length >= 8;
-
       showErr("errName", !okName);
       showErr("errMobile", !okPhone);
-      showErr("errPass", !okPwd);
+      if (!(okName && okPhone)) return;
 
-      if (!(okName && okPhone && okPwd)) return;
-
-      var btn = e.target.querySelector(".btn-submit");
-      btn.disabled = true;
+      clearErrs();
+      submitBtn.disabled = true;
+      resendBtn.disabled = true;
 
       try {
-        var res = await fetch("/api/register", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: name, mobile: phone, password: pwd })
-        });
-        var out = await res.json();
+        var r = await postJSON("/api/register/otp/request", { name: name, mobile: phone });
 
-        if (res.ok) {
-          // Registered and logged in — go to the upload page.
-          window.location.href = "/upload.html";
+        if (r.res.ok) {
+          step = "otp";
+          render();
+
+          otpNote.textContent = "We sent a 6-digit code to ";
+          var num = document.createElement("strong");
+          num.textContent = "+91 " + phone;
+          otpNote.appendChild(num);
+
+          clearOtp();
+          otpDigits[0].focus();
+          // resend_in comes from the server's own cooldown constant, so the
+          // timer can't drift out of step with what the API will accept.
+          startCountdown(r.out.resend_in || 120);
         } else {
-          var el = document.getElementById("errMobile");
-          el.textContent = out.error || "Registration failed. Please try again.";
-          el.classList.add("show");
-          btn.disabled = false;
+          // Before the first code lands there is no OTP box to write into, so
+          // the message goes under the number instead.
+          showServerError(step === "otp" ? "errOtp" : "errMobile", r.out,
+                          "Could not send the OTP. Please try again.");
+          // A throttled request comes back with the wait in seconds — run the
+          // countdown against that rather than the usual cooldown.
+          if (r.out.retry_after) startCountdown(r.out.retry_after);
+          else stopCountdown();
         }
       } catch (err) {
-        var el = document.getElementById("errMobile");
-        el.textContent = "Could not reach the server. Please try again.";
-        el.classList.add("show");
-        btn.disabled = false;
+        showServerError(step === "otp" ? "errOtp" : "errMobile", null,
+                        "Could not reach the server. Please try again.");
+        stopCountdown();
       }
+
+      submitBtn.disabled = false;
+    }
+
+    resendBtn.addEventListener("click", sendOtp);
+
+    changeBtn.addEventListener("click", function () {
+      // Back to step one. Any code already sent is abandoned rather than
+      // cancelled — requesting the next one clears the server's record anyway.
+      step = "details";
+      clearOtp();
+      clearInterval(resendTimer);
+      clearErrs();
+      render();
+      fullName.focus();
     });
+
+    // One submit handler, three steps: send the code, verify it, then create
+    // the account.
+    document.getElementById("registerForm").addEventListener("submit", async function (e) {
+      e.preventDefault();
+
+      if (step === "details") {
+        await sendOtp();
+        return;
+      }
+
+      if (step === "otp") {
+        var code = otpValue();
+        showErr("errOtp", !/^\d{6}$/.test(code));
+        if (!/^\d{6}$/.test(code)) return;
+
+        submitBtn.disabled = true;
+        try {
+          var v = await postJSON("/api/register/otp/verify",
+                                 { mobile: mobile.value.trim(), otp: code });
+          if (v.res.ok) {
+            step = "password";
+            clearErrs();
+            render();
+            clearInterval(resendTimer);
+            pass.focus();
+          } else {
+            showServerError("errOtp", v.out, "Verification failed. Please try again.");
+            if (v.out.expired) {
+              // The code is dead — clear the boxes and free the resend button
+              // so the only thing left to do is the thing that works.
+              clearOtp();
+              stopCountdown();
+            }
+          }
+        } catch (err) {
+          showServerError("errOtp", null, "Could not reach the server. Please try again.");
+        }
+        submitBtn.disabled = false;
+        return;
+      }
+
+      // step === "password"
+      var pwd = pass.value;
+      showErr("errPass", pwd.length < 8);
+      if (pwd.length < 8) return;
+
+      submitBtn.disabled = true;
+      try {
+        var r = await postJSON("/api/register", {
+          name: fullName.value.trim(),
+          mobile: mobile.value.trim(),
+          password: pwd
+        });
+
+        if (r.res.ok) {
+          // Registered and logged in — go to the upload page.
+          window.location.href = "/upload.html";
+          return;
+        }
+
+        if (r.out.verify_required) {
+          // The 15-minute verification window lapsed while they were choosing
+          // a password. Send them back to the OTP step with resend available.
+          step = "otp";
+          clearOtp();
+          render();
+          stopCountdown();
+          showServerError("errOtp", r.out, "Please verify your number again.");
+        } else {
+          showServerError("errPass", r.out, "Registration failed. Please try again.");
+        }
+      } catch (err) {
+        showServerError("errPass", null, "Could not reach the server. Please try again.");
+      }
+      submitBtn.disabled = false;
+    });
+
+    render();
   </script>
 
 </body>
